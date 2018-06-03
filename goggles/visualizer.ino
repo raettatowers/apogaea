@@ -6,7 +6,8 @@
  
    Code is not built for adaptability, but it shouldn't be too hard to make it work for other LED matrices!
 */
- 
+
+#if 0
 #include <FastLED.h>
  
 #include <arduinoFFT.h>
@@ -158,3 +159,4 @@ int SpecGraph( uint32_t FREQ, int COLUMN[], uint8_t colorIndex, double BIAS ) {
   }
   return (FREQ); // Returns the level given for FREQ. This lets you hold on to the given value, which can be saved and then used to average current and previous values.
 }
+#endif
