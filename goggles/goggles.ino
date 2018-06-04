@@ -10,7 +10,7 @@
 const int PIN = 0;
 const int ONBOARD_LED = 1;
 const int MICROPHONE_ANALOG_PIN = 1;
-const int MODE_COUNT = 2;
+const int MODE_COUNT = 3;
 const int SAMPLE_COUNT = 32; // Must be a power of 2
 const int SAMPLING_FREQUENCY_HZ = 9600; // Must be less than 10000 due to ADC
 const int UPDATES_PER_SECOND = 50;
@@ -25,7 +25,7 @@ arduinoFFT FFT = arduinoFFT();
 
 uint8_t mode = 0; // Current animation effect
 uint32_t color = 0xFF0000; // Start red
-uint32_t prevTime;
+
 
 void setup() {
 #ifdef __AVR_ATtiny85__ // Trinket, Gemma, etc.
@@ -33,12 +33,11 @@ void setup() {
 #endif
   pixels.begin();
   pixels.setBrightness(85); // 1/3 brightness
-  prevTime = millis();
 
   analogReference(EXTERNAL);
-  pinMode(2, INPUT); // Microphone
   pinMode(ONBOARD_LED, OUTPUT);
 }
+
 
 void visualizeAudio() {
   uint32_t microseconds;
@@ -59,15 +58,27 @@ void visualizeAudio() {
   delay(10);
 }
 
+
 void randomSparks() {
-  // Random takes too much ROM space, so use a lookup table
-  // Also, using millis instead of micros for the index adds 20 bytes for some reason
-  int8_t i = (((uint8_t*)&randomSparks)[micros() & 0xFF]) % (PIXEL_RING_COUNT * 2);
-  pixels.setPixelColor(i, color);
+  static const uint8_t table[] = {15, 6, 0, 7, 12, 3, 5, 4, 8, 2, 1, 14, 13, 11, 10, 9};
+  const uint8_t led1 = table[millis() & 0x0F];
+  pixels.setPixelColor(led1, color);
+  const uint8_t led2 = table[millis() & 0x0F] + PIXEL_RING_COUNT;
+  pixels.setPixelColor(led2, color);
   pixels.show();
   delay(10);
-  pixels.setPixelColor(i, 0);
+  pixels.setPixelColor(led1, 0);
+  pixels.setPixelColor(led2, 0);
 }
+
+
+void binaryClock() {
+  uint32_t now = millis() / 1000;
+  showNumber(now, color);
+  delay(100);
+  clearLeds();
+}
+
 
 void spinnyWheels() {
   static uint8_t offset = 0; // Position of spinny eyes
@@ -84,13 +95,32 @@ void spinnyWheels() {
   delay(50);
 }
 
-void showMicrophoneReading() {
-  
+
+void showNumber(uint32_t number, const uint32_t color) {
+  uint8_t counter = 0;
+  while (number > 0) {
+    if (number & 1) {
+      pixels.setPixelColor(counter, color);
+    } else {
+      pixels.setPixelColor(counter, 0);
+    }
+    number >>= 1;
+    counter += 2;
+  }
+  pixels.show();
 }
 
-void loop() {
 
-  uint8_t i;
+void clearLeds() {
+  for (int i = 0; i < 32; i++) {
+    pixels.setPixelColor(i, 0);
+  }
+}
+
+
+void loop() {
+  static uint32_t prevTime = millis();
+
   uint32_t t;
 
   switch(mode) {
@@ -99,27 +129,34 @@ void loop() {
       break;
 
     case 1:
-      visualizeAudio();
+      binaryClock();
       break;
  
     case 2: // Spinny wheels (8 LEDs on at a time)
       spinnyWheels();
       break;
+
+    /*
+    case 3:
+      visualizeAudio();
+      break;
+      */
   }
+
+  static uint8_t index = 0;
+  // x = reduce(lambda a, b: a + b, ([i] * 3 for i in range(7))); import random; random.shuffle(x); print(x)
+  const static uint8_t color_indexes[] = {2, 1, 0, 3, 0, 6, 5, 1, 4, 1, 0, 5, 3, 2, 6, 3, 4, 5, 2, 6, 4};
+  const static uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF};
 
   t = millis();
   if ((t - prevTime) > 8000) {
+    color = colors[color_indexes[index]];
+    index = (index + 1) % (sizeof(color_indexes) / sizeof(color_indexes[0]));
     mode++;
     if (mode >= MODE_COUNT) {
       mode = 0;
-      color >>= 8;
-      if (!color) {
-        color = 0xFF0000;
-      }
     }
-    for (i = 0; i < 32; i++) {
-      pixels.setPixelColor(i, 0);
-    }
+    clearLeds();
     prevTime = t;
   }
 }
