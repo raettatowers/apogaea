@@ -6,11 +6,13 @@
  #include <avr/power.h>
 #endif
 
-const int PIN = 3;
+const int LED_PIN = 3;
+const int BUTTON_PIN = 1;
 const int ONBOARD_LED = 1;
 const int PIXEL_COUNT = 8;
+const int MAX_BRIGHTNESS = 240;
 
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(8, PIN);
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(8, LED_PIN);
 
 uint8_t mode = 0; // Current animation effect
 uint32_t color = 0xFF0000; // Start red
@@ -28,27 +30,52 @@ void setup() {
   }
   pixels.show();
 
-  analogReference(EXTERNAL);
   pinMode(ONBOARD_LED, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT);
+}
+
+
+int waitForButtonPress() {
+  int previousButtonState = LOW;
+  unsigned long lastDebounceTime = 0;
+  const int DEBOUNCE_DELAY = 50;
+
+  while (1) {
+    int reading = digitalRead(BUTTON_PIN);
+    if (reading != previousButtonState) {
+      lastDebounceTime = millis();
+    }
+    reading = previousButtonState;
+
+    if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
+      return reading;
+    }
+  }
 }
 
 
 void loop() {
-  digitalWrite(ONBOARD_LED, HIGH);
-  delay(500);
-  digitalWrite(ONBOARD_LED, LOW);
-  for (int brightness = 10; brightness < 200; ++brightness) {
+  while (waitForButtonPress() != HIGH);
+  
+  for (int brightness = 0; brightness < MAX_BRIGHTNESS; ++brightness) {
     for (int i = 0; i < 8; ++i) {
-      pixels.setPixelColor(i, brightness, brightness, brightness);
+      pixels.setPixelColor(i, 0, 0, brightness);
     }
     pixels.show();
-    delay(30);
+    delay(10);
   }
-  for (int brightness = 200; brightness >= 10; --brightness) {
+
+  while (waitForButtonPress() != HIGH);
+
+  for (int brightness = MAX_BRIGHTNESS; brightness >= 10; --brightness) {
     for (int i = 0; i < 8; ++i) {
-      pixels.setPixelColor(i, brightness, brightness, brightness);
+      pixels.setPixelColor(i, 0, 0, brightness);
     }
     pixels.show();
-    delay(30);
+    delay(10);
   }
+  for (int i = 0; i < 8; ++i) {
+    pixels.setPixelColor(i, 0, 0, 0);
+  }
+  pixels.show();
 }
