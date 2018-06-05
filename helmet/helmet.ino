@@ -35,43 +35,80 @@ void setup() {
 }
 
 
-int waitForButtonPress() {
-  const int DEBOUNCE_DELAY_MS = 50;
-  static int previousBounceMs = -DEBOUNCE_DELAY_MS;
-
-  while (millis() - previousBounceMs > DEBOUNCE_DELAY_MS);
-
-  int state, previousButtonState;
-  previousButtonState = state = digitalRead(BUTTON_PIN);
-  while (state == previousButtonState) {
-    state = digitalRead(BUTTON_PIN);
+void setAllPixels(const uint8_t red, const uint8_t green, const uint8_t blue) {
+  for (int i = 0; i < 8; ++i) {
+    pixels.setPixelColor(i, red, green, blue);
   }
-  return state;
+  pixels.show();
+}
+
+
+void setAllPixels(const uint32_t color, uint8_t brightness) {
+  for (int i = 0; i < 8; ++i) {
+    pixels.setPixelColor(
+      i,
+      (color >> 16) & brightness,
+      (color >> 8) & brightness,
+      (color & brightness)
+    );
+  }
+  pixels.show();
+}
+
+
+uint32_t colorIndex = 0;
+const int COLOR_COUNT = 7;
+const uint32_t colors[COLOR_COUNT] = {0x0000FF, 0x00FF00, 0xFF0000, 0x00FFFF, 0xFF00FF, 0xFFFF00, 0xFFFFFF};
+
+
+void setBrightness(const uint8_t brightness) {
+  setAllPixels(colors[colorIndex], brightness);
 }
 
 
 void loop() {
-  while (waitForButtonPress() != HIGH);
-  
+begin:
+  while (digitalRead(BUTTON_PIN) != HIGH);
+
+  // Change color by holding the button
+  delay(500);
+  if (digitalRead(BUTTON_PIN) == HIGH) {
+    // Mode change!
+    ++colorIndex;
+    if (colorIndex > COLOR_COUNT) {
+      colorIndex = 0;
+    }
+    setBrightness(40);
+    delay(50);
+    setBrightness(0);
+    delay(1000);
+    goto begin;
+  }
+
+  // Flicker on
+  for (int i = 0; i < 2; ++i) {
+    setBrightness(100);
+    delay(20);
+    setBrightness(0);
+    delay(50);
+  }
+  delay(250);
+  setBrightness(100);
+  delay(20);
+  setBrightness(0);
+  delay(350);
+
+  // Fade in
   for (int brightness = 0; brightness < MAX_BRIGHTNESS; ++brightness) {
-    for (int i = 0; i < 8; ++i) {
-      pixels.setPixelColor(i, 0, 0, brightness);
-    }
-    pixels.show();
+    setBrightness(brightness);
     delay(10);
   }
 
-  while (waitForButtonPress() != HIGH);
+  while (digitalRead(BUTTON_PIN) != HIGH);
 
-  for (int brightness = MAX_BRIGHTNESS; brightness >= 10; --brightness) {
-    for (int i = 0; i < 8; ++i) {
-      pixels.setPixelColor(i, 0, 0, brightness);
-    }
-    pixels.show();
+  for (int brightness = MAX_BRIGHTNESS; brightness >= 1; --brightness) {
+    setBrightness(brightness);
     delay(10);
   }
-  for (int i = 0; i < 8; ++i) {
-    pixels.setPixelColor(i, 0, 0, 0);
-  }
-  pixels.show();
+  setBrightness(0);
 }
