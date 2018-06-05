@@ -36,21 +36,17 @@ void setup() {
 
 
 int waitForButtonPress() {
-  int previousButtonState = LOW;
-  unsigned long lastDebounceTime = 0;
-  const int DEBOUNCE_DELAY = 50;
+  const int DEBOUNCE_DELAY_MS = 50;
+  static int previousBounceMs = -DEBOUNCE_DELAY_MS;
 
-  while (1) {
-    int reading = digitalRead(BUTTON_PIN);
-    if (reading != previousButtonState) {
-      lastDebounceTime = millis();
-    }
-    reading = previousButtonState;
+  while (millis() - previousBounceMs > DEBOUNCE_DELAY_MS);
 
-    if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
-      return reading;
-    }
+  int state, previousButtonState;
+  previousButtonState = state = digitalRead(BUTTON_PIN);
+  while (state == previousButtonState) {
+    state = digitalRead(BUTTON_PIN);
   }
+  return state;
 }
 
 
