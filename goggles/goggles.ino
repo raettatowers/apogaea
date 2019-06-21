@@ -73,7 +73,11 @@ void randomSparks() {
 
 
 void binaryClock() {
-  uint32_t now = millis() / 1000;
+  // Do a binary shift instead of integer division because of speed and code size.
+  // It's a little less precise, but who cares.
+  // Show 1/4 seconds instead of full seconds because it's more interesting. It
+  // updates a lot faster and the other lens lights up faster.
+  uint32_t now = millis() >> 8;
   showNumber(now, color);
   delay(100);
   clearLeds();
@@ -120,7 +124,6 @@ void clearLeds() {
 
 void loop() {
   static uint32_t prevTime = millis();
-
   uint32_t t;
 
   switch(mode) {

@@ -66,7 +66,7 @@ enum mode_t {
   KNIGHT_RIDER,
 };
 mode_t mode = mode_t::LIGHT;
-void pickMode() {`
+void pickMode() {
   setBrightness(20);
   delay(50);  // Debounce
   while (1) {
