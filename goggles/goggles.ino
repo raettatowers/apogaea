@@ -9,20 +9,18 @@
 
 #define COUNT_OF(x) (sizeof((x)) / sizeof((0[x])))
 
+// On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 2;
 const int ONBOARD_LED = 1;
 const int MICROPHONE_ANALOG_PIN = A0;
 const int MODE_COUNT = 4;
-const int SAMPLE_COUNT = 128;  // Must be a power of 2
-const int SAMPLING_FREQUENCY_HZ = 9600;  // Must be less than 10000 due to ADC
-const int UPDATES_PER_SECOND = 50;
+const int SAMPLE_COUNT = 256;  // Must be a power of 2
 const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
 const int MAX_EXPECTED_AUDIO = 20;  // Change this to vary sensitivity
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
-uint8_t mode = 0;  // Current animation effect
 uint32_t color = 0xFF0000;  // Start red
 
 
@@ -36,48 +34,53 @@ void setup() {
   Serial.begin(9600);
   clearLeds();
 
-  analogReference(EXTERNAL);
+  analogReference(DEFAULT);
+  pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED, OUTPUT);
 }
 
 
+template <int A, int B>
+struct getPower
+{
+    static const int value = A * getPower<A, B - 1>::value;
+};
+template <int A>
+struct getPower<A, 0>
+{
+    static const int value = 1;
+};
 void spectrumAnalyzer() {
   clearLeds();
-  static char samples[SAMPLE_COUNT];
-  static char im[SAMPLE_COUNT];
-  // I'm not sure why this is 8, but that's the example I was looking at
-  static uint8_t sample_averages[8];
+  static uint8_t samples[SAMPLE_COUNT];
+  static uint8_t sampleAverages[2 * PIXEL_RING_COUNT];
 
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+  for (int i = 0; i < static_cast<int>(COUNT_OF(samples)); ++i) {
     samples[i] = analogRead(MICROPHONE_ANALOG_PIN);
-    im[i] = 0;
   }
 
-  fix_fft(samples, im, COUNT_OF(sample_averages), 0);
+  fix_fftr(samples, COUNT_OF(samples), false);
 
-  // Make the samples positive
-  for (int i = 0; i < 64; ++i) {
-    samples[i] = sqrt(samples[i] * samples[i] + im[i] * im[i]);
-  }
-
-  // Average the values
-  for (int i = 0; i < static_cast<int>(COUNT_OF(sample_averages)); ++i) {
-    int j = i * 8;
-    sample_averages[i] = 0;
-    for (int k = 0; k < static_cast<int>(COUNT_OF(sample_averages)); ++k) {
-      sample_averages[i] += samples[j + k];
+  static_assert(COUNT_OF(samples) % COUNT_OF(sampleAverages) == 0, "");
+  const int rightShift = 5;
+  static_assert(getPower<2, rightShift>::value == 2 * PIXEL_RING_COUNT, "");
+  const int stepSize = COUNT_OF(samples) / COUNT_OF(sampleAverages);
+  int counter = 0;
+  for (int i = 0; i < static_cast<int>(COUNT_OF(sampleAverages)); ++i) {
+    sampleAverages[i] = 0;
+    for (int j = 0; j < stepSize; ++j, ++counter) {
+      sampleAverages[i] += samples[counter];
     }
-    if (i == 0) {
-      sample_averages[i] /= 2;
-    }
-    sample_averages[i] = map(sample_averages[i], 0, MAX_EXPECTED_AUDIO, 0, 2 * PIXEL_RING_COUNT - 1);
+    sampleAverages[i] >>= rightShift;
   }
 
-  for (int i = 0; i < static_cast<int>(COUNT_OF(sample_averages)); ++i) {
-    // TODO: Set a color, other than blue
-    pixels.setPixelColor(i, sample_averages[i]);
+  for (int i = 0; i < static_cast<int>(COUNT_OF(sampleAverages)); ++i) {
+    Serial.print(sampleAverages[i]);
+    Serial.print(" ");
   }
+  Serial.println();
+  delay(1000);
 }
 
 
@@ -144,10 +147,13 @@ void clearLeds() {
   }
 }
 
+
+static uint8_t mode = 0;  // Current animation effect
 void loop() {
-  static uint32_t prevTime = millis();
+  static uint32_t modeStartTime_ms = millis();
 
   // I considered using an array of function pointers, but that took an extra 100 bytes or so
+  nextMode:
   switch(mode) {
     case 0:  // Random sparks - just one LED on at a time!
       randomSparks();
@@ -166,23 +172,22 @@ void loop() {
       break;
 
     default:
-      break;
+      mode = 0;
+      goto nextMode;
   }
 
   static uint8_t index = 0;
   // x = reduce(lambda a, b: a + b, ([i] * 3 for i in range(7))); import random; random.shuffle(x); print(x)
-  const static uint8_t color_indexes[] = {2, 1, 0, 3, 0, 6, 5, 1, 4, 1, 0, 5, 3, 2, 6, 3, 4, 5, 2, 6, 4};
+  const static uint8_t colorIndexes[] = {2, 1, 0, 3, 0, 6, 5, 1, 4, 1, 0, 5, 3, 2, 6, 3, 4, 5, 2, 6, 4};
   const static uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF};
 
-  const uint32_t t = millis();
-  if ((t - prevTime) > MODE_TIME_MS) {
-    color = colors[color_indexes[index]];
-    index = (index + 1) % (sizeof(color_indexes) / sizeof(color_indexes[0]));
+  const uint32_t now_ms = millis();
+  if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
+    color = colors[colorIndexes[index]];
+    index = (index + 1) % COUNT_OF(colorIndexes);
     ++mode;
-    if (mode >= MODE_COUNT) {
-      mode = 0;
-    }
     clearLeds();
-    prevTime = t;
+    modeStartTime_ms = now_ms;
+  Serial.println(mode);
   }
 }
