@@ -5,57 +5,79 @@
 #ifdef __AVR_ATtiny85__ // Trinket, Gemma, etc.
  #include <avr/power.h>
 #endif
-#include <arduinoFFT.h>
+#include <fix_fft.h>
 
-const int PIN = 0;
+#define COUNT_OF(x) (sizeof((x)) / sizeof((0[x])))
+
+const int NEOPIXELS_PIN = 2;
 const int ONBOARD_LED = 1;
-const int MICROPHONE_ANALOG_PIN = 1;
-const int MODE_COUNT = 3;
-const int SAMPLE_COUNT = 32; // Must be a power of 2
-const int SAMPLING_FREQUENCY_HZ = 9600; // Must be less than 10000 due to ADC
+const int MICROPHONE_ANALOG_PIN = A0;
+const int MODE_COUNT = 4;
+const int SAMPLE_COUNT = 128;  // Must be a power of 2
+const int SAMPLING_FREQUENCY_HZ = 9600;  // Must be less than 10000 due to ADC
 const int UPDATES_PER_SECOND = 50;
 const int PIXEL_RING_COUNT = 16;
-const unsigned int sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
+const int MODE_TIME_MS = 8000;
+const int MAX_EXPECTED_AUDIO = 20;  // Change this to vary sensitivity
 
-double vReal[SAMPLE_COUNT];
-double vImaginary[SAMPLE_COUNT];
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(32, PIN);
-arduinoFFT FFT = arduinoFFT();
-
-uint8_t mode = 0; // Current animation effect
-uint32_t color = 0xFF0000; // Start red
+uint8_t mode = 0;  // Current animation effect
+uint32_t color = 0xFF0000;  // Start red
 
 
 void setup() {
-#ifdef __AVR_ATtiny85__ // Trinket, Gemma, etc.
+#ifdef __AVR_ATtiny85__  // Trinket, Gemma, etc.
   if(F_CPU == 16000000) clock_prescale_set(clock_div_1);
 #endif
   pixels.begin();
-  pixels.setBrightness(85); // 1/3 brightness
+  pixels.setBrightness(20);
+
+  Serial.begin(9600);
+  clearLeds();
 
   analogReference(EXTERNAL);
+  pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED, OUTPUT);
 }
 
 
-void visualizeAudio() {
-  uint32_t microseconds;
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    microseconds = micros();
-    vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
-    vImaginary[i] = 0;
-    while (micros() < (microseconds + sampling_period_us));
-  }
-  FFT.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_RECTANGLE, FFT_FORWARD);
-  FFT.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
+void spectrumAnalyzer() {
+  clearLeds();
+  static char samples[SAMPLE_COUNT];
+  static char im[SAMPLE_COUNT];
+  // I'm not sure why this is 8, but that's the example I was looking at
+  static uint8_t sample_averages[8];
 
-  for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    const uint8_t intensity = max(vReal[i], 255);
-    pixels.setPixelColor(i, intensity, intensity, intensity);
+  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+    samples[i] = analogRead(MICROPHONE_ANALOG_PIN);
+    im[i] = 0;
   }
-  delay(10);
+
+  fix_fft(samples, im, COUNT_OF(sample_averages), 0);
+
+  // Make the samples positive
+  for (int i = 0; i < 64; ++i) {
+    samples[i] = sqrt(samples[i] * samples[i] + im[i] * im[i]);
+  }
+
+  // Average the values
+  for (int i = 0; i < static_cast<int>(COUNT_OF(sample_averages)); ++i) {
+    int j = i * 8;
+    sample_averages[i] = 0;
+    for (int k = 0; k < static_cast<int>(COUNT_OF(sample_averages)); ++k) {
+      sample_averages[i] += samples[j + k];
+    }
+    if (i == 0) {
+      sample_averages[i] /= 2;
+    }
+    sample_averages[i] = map(sample_averages[i], 0, MAX_EXPECTED_AUDIO, 0, 2 * PIXEL_RING_COUNT - 1);
+  }
+
+  for (int i = 0; i < static_cast<int>(COUNT_OF(sample_averages)); ++i) {
+    // TODO: Set a color, other than blue
+    pixels.setPixelColor(i, sample_averages[i]);
+  }
 }
 
 
@@ -69,6 +91,7 @@ void randomSparks() {
   delay(10);
   pixels.setPixelColor(led1, 0);
   pixels.setPixelColor(led2, 0);
+  pixels.show();
 }
 
 
@@ -88,7 +111,7 @@ void spinnyWheels() {
   static uint8_t offset = 0; // Position of spinny eyes
   for (int i = 0; i < PIXEL_RING_COUNT; i++) {
     uint32_t c = 0;
-    if (((offset + i) & 7) < 2) {
+    if (((offset + i) & 0b111) < 2) {
       c = color; // 4 pixels on...
     }
     pixels.setPixelColor(   i, c); // First eye
@@ -116,18 +139,17 @@ void showNumber(uint32_t number, const uint32_t color) {
 
 
 void clearLeds() {
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < PIXEL_RING_COUNT * 2; i++) {
     pixels.setPixelColor(i, 0);
   }
 }
 
-
 void loop() {
   static uint32_t prevTime = millis();
-  uint32_t t;
 
+  // I considered using an array of function pointers, but that took an extra 100 bytes or so
   switch(mode) {
-    case 0: // Random sparks - just one LED on at a time!
+    case 0:  // Random sparks - just one LED on at a time!
       randomSparks();
       break;
 
@@ -135,15 +157,16 @@ void loop() {
       binaryClock();
       break;
  
-    case 2: // Spinny wheels (8 LEDs on at a time)
+    case 2:  // Spinny wheels (8 LEDs on at a time)
       spinnyWheels();
       break;
 
-    /*
     case 3:
-      visualizeAudio();
+      spectrumAnalyzer();
       break;
-      */
+
+    default:
+      break;
   }
 
   static uint8_t index = 0;
@@ -151,11 +174,11 @@ void loop() {
   const static uint8_t color_indexes[] = {2, 1, 0, 3, 0, 6, 5, 1, 4, 1, 0, 5, 3, 2, 6, 3, 4, 5, 2, 6, 4};
   const static uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF};
 
-  t = millis();
-  if ((t - prevTime) > 8000) {
+  const uint32_t t = millis();
+  if ((t - prevTime) > MODE_TIME_MS) {
     color = colors[color_indexes[index]];
     index = (index + 1) % (sizeof(color_indexes) / sizeof(color_indexes[0]));
-    mode++;
+    ++mode;
     if (mode >= MODE_COUNT) {
       mode = 0;
     }
