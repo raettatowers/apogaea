@@ -14,7 +14,6 @@ const int MODE_COUNT = 4;
 const int SAMPLE_COUNT = 128;  // Must be a power of 2
 const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
-const int HUE_CHANGE_PER_CYCLE = 3;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
@@ -165,39 +164,28 @@ void clearLeds() {
   }
 }
 
-static uint8_t mode = 0;  // Current animation effect
+
 void loop() {
   static uint32_t modeStartTime_ms = millis();
-  // I considered using an array of function pointers, but that took an extra 100 bytes or so
-  nextMode:
-  switch (mode) {
-    case 0:  // Random sparks - just one LED on at a time!
-      randomSparks();
-      break;
+  static uint8_t mode = 0;  // Current animation effect
+  static void (*animations[])() = {spinnyWheels, binaryClock, randomSparks, spectrumAnalyzer};
 
-    case 1:
-      binaryClock();
-      break;
-
-    case 2:  // Spinny wheels (8 LEDs on at a time)
-      spinnyWheels();
-      break;
-
-    case 3:
-      spectrumAnalyzer();
-      break;
-
-    default:
-      mode = 0;
-      goto nextMode;
-  }
+  const uint32_t startAnimation_ms = millis();
+  animations[mode]();
 
   const uint32_t now_ms = millis();
+  // We want to complete a full hue color cycle about every 10 seconds
+  const int hueCycle_ms = 10000;
+  const int hueCycleLimit = 65535;
+  hue += (startAnimation_ms - now_ms) * (hueCycleLimit / hueCycle_ms);
+  color = pixels.ColorHSV(hue);
+
   if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
     ++mode;
+    if (mode > COUNT_OF(animations)) {
+      mode = 0;
+    }
     clearLeds();
     modeStartTime_ms = now_ms;
-    hue += HUE_CHANGE_PER_CYCLE;
-    color = pixels.ColorHSV(hue);
   }
 }
