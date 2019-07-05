@@ -1,23 +1,19 @@
-// Low power NeoPixel goggles example.  Makes a nice blinky display
-// with just a few LEDs on at any time.
-
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR_ATtiny85__ // Trinket, Gemma, etc.
  #include <avr/power.h>
 #endif
 #include <fix_fft.h>
 
-#define COUNT_OF(x) (sizeof((x)) / sizeof((0[x])))
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x]))))
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 2;
 const int ONBOARD_LED = 1;
 const int MICROPHONE_ANALOG_PIN = A0;
 const int MODE_COUNT = 4;
-const int SAMPLE_COUNT = 256;  // Must be a power of 2
+const int SAMPLE_COUNT = 128;  // Must be a power of 2
 const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
-const int MAX_EXPECTED_AUDIO = 20;  // Change this to vary sensitivity
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
@@ -26,7 +22,7 @@ uint32_t color = 0xFF0000;  // Start red
 
 void setup() {
 #ifdef __AVR_ATtiny85__  // Trinket, Gemma, etc.
-  if(F_CPU == 16000000) clock_prescale_set(clock_div_1);
+  if (F_CPU == 16000000) clock_prescale_set(clock_div_1);
 #endif
   pixels.begin();
   pixels.setBrightness(20);
@@ -44,43 +40,58 @@ void setup() {
 template <int A, int B>
 struct getPower
 {
-    static const int value = A * getPower<A, B - 1>::value;
+  static const int value = A * getPower <A, B - 1>::value;
 };
 template <int A>
 struct getPower<A, 0>
 {
-    static const int value = 1;
+  static const int value = 1;
 };
 void spectrumAnalyzer() {
   clearLeds();
-  static uint8_t samples[SAMPLE_COUNT];
-  static uint8_t sampleAverages[2 * PIXEL_RING_COUNT];
+  static int8_t samples[SAMPLE_COUNT];
+  static int8_t imaginary[SAMPLE_COUNT];
+  static int8_t sampleAverages[2 * PIXEL_RING_COUNT];
 
-  for (int i = 0; i < static_cast<int>(COUNT_OF(samples)); ++i) {
-    samples[i] = analogRead(MICROPHONE_ANALOG_PIN);
+  for (uint16_t i = 0; i < COUNT_OF(samples); ++i) {
+    samples[i] = analogRead(MICROPHONE_ANALOG_PIN) * 3;
+    imaginary[i] = 0;
   }
 
-  fix_fftr(samples, COUNT_OF(samples), false);
+  // TODO: Can do fix_fftr if I'm not using imaginary numbers
+  const int16_t power = 7;
+  static_assert(getPower<2, power>::value == COUNT_OF(samples), "");
+  fix_fft(samples, imaginary, power, 0);
+
+  // Make values positive, only the first half of the ouput represents usable frequency values
+  for (uint16_t i = 0; i < COUNT_OF(samples) / 2; ++i) {
+    samples[i] = sqrt(samples[i] * samples[i] + imaginary[i] * imaginary[i]);
+  }
 
   static_assert(COUNT_OF(samples) % COUNT_OF(sampleAverages) == 0, "");
-  const int rightShift = 5;
-  static_assert(getPower<2, rightShift>::value == 2 * PIXEL_RING_COUNT, "");
-  const int stepSize = COUNT_OF(samples) / COUNT_OF(sampleAverages);
-  int counter = 0;
-  for (int i = 0; i < static_cast<int>(COUNT_OF(sampleAverages)); ++i) {
+  // Only the first half of the output has usable frequency values
+  const int usableValues = COUNT_OF(samples) / 2;
+  const int stepSize = usableValues / COUNT_OF(sampleAverages);
+
+  // The first sample is the average power of the signal, so skip it
+  int counter = 1;
+  // Use a sentinel value to make this loop simpler, since we start at 1
+  samples[usableValues] = 0;
+  for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     sampleAverages[i] = 0;
     for (int j = 0; j < stepSize; ++j, ++counter) {
       sampleAverages[i] += samples[counter];
     }
-    sampleAverages[i] >>= rightShift;
+    // This division should compile down to a right bit shift
+    sampleAverages[i] /= stepSize;
   }
 
-  for (int i = 0; i < static_cast<int>(COUNT_OF(sampleAverages)); ++i) {
-    Serial.print(sampleAverages[i]);
-    Serial.print(" ");
+  // Multiply by 4 just to get better response
+  // TODO: Improve this visualization
+  for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
+    pixels.setPixelColor(i, sampleAverages[i] * 4);
   }
-  Serial.println();
-  delay(1000);
+  pixels.show();
 }
 
 
@@ -112,16 +123,16 @@ void binaryClock() {
 
 void spinnyWheels() {
   static uint8_t offset = 0; // Position of spinny eyes
-  for (int i = 0; i < PIXEL_RING_COUNT; i++) {
+  for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
     uint32_t c = 0;
     if (((offset + i) & 0b111) < 2) {
       c = color; // 4 pixels on...
     }
     pixels.setPixelColor(   i, c); // First eye
-    pixels.setPixelColor(31-i, c); // Second eye (flipped)
+    pixels.setPixelColor(31 - i, c); // Second eye (flipped)
   }
   pixels.show();
-  offset++;
+  ++offset;
   delay(50);
 }
 
@@ -142,19 +153,17 @@ void showNumber(uint32_t number, const uint32_t color) {
 
 
 void clearLeds() {
-  for (int i = 0; i < PIXEL_RING_COUNT * 2; i++) {
+  for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
     pixels.setPixelColor(i, 0);
   }
 }
 
-
 static uint8_t mode = 0;  // Current animation effect
 void loop() {
   static uint32_t modeStartTime_ms = millis();
-
   // I considered using an array of function pointers, but that took an extra 100 bytes or so
   nextMode:
-  switch(mode) {
+  switch (mode) {
     case 0:  // Random sparks - just one LED on at a time!
       randomSparks();
       break;
@@ -162,7 +171,7 @@ void loop() {
     case 1:
       binaryClock();
       break;
- 
+
     case 2:  // Spinny wheels (8 LEDs on at a time)
       spinnyWheels();
       break;
@@ -188,6 +197,5 @@ void loop() {
     ++mode;
     clearLeds();
     modeStartTime_ms = now_ms;
-  Serial.println(mode);
   }
 }
