@@ -4,7 +4,7 @@
 #endif
 #include <fix_fft.h>
 
-#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x]))))
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 2;
@@ -14,10 +14,12 @@ const int MODE_COUNT = 4;
 const int SAMPLE_COUNT = 128;  // Must be a power of 2
 const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
+const int HUE_CHANGE_PER_CYCLE = 3;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
-uint32_t color = 0xFF0000;  // Start red
+uint16_t hue = 0;  // Start red
+uint32_t color = pixels.ColorHSV(hue);
 
 
 void setup() {
@@ -30,7 +32,11 @@ void setup() {
   Serial.begin(9600);
   clearLeds();
 
+#ifndef ADAFRUIT_TRINKET_M0
   analogReference(DEFAULT);
+#else
+  // TODO: Figure out what to do on Trinket M0
+#endif
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED, OUTPUT);
@@ -122,17 +128,18 @@ void binaryClock() {
 
 
 void spinnyWheels() {
-  static uint8_t offset = 0; // Position of spinny eyes
-  for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
+  static uint8_t offset = 0;  // Position of spinny eyes
+  for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     uint32_t c = 0;
     if (((offset + i) & 0b111) < 2) {
-      c = color; // 4 pixels on...
+      c = color;  // 4 pixels on...
     }
-    pixels.setPixelColor(   i, c); // First eye
-    pixels.setPixelColor(31 - i, c); // Second eye (flipped)
+    pixels.setPixelColor(i, c);  // First eye
+    pixels.setPixelColor(PIXEL_RING_COUNT * 2 - i, c);  // Second eye (flipped)
   }
   pixels.show();
   ++offset;
+  hue += 20;  // Make the rainbow colors rotate faster
   delay(50);
 }
 
@@ -185,17 +192,12 @@ void loop() {
       goto nextMode;
   }
 
-  static uint8_t index = 0;
-  // x = reduce(lambda a, b: a + b, ([i] * 3 for i in range(7))); import random; random.shuffle(x); print(x)
-  const static uint8_t colorIndexes[] = {2, 1, 0, 3, 0, 6, 5, 1, 4, 1, 0, 5, 3, 2, 6, 3, 4, 5, 2, 6, 4};
-  const static uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF};
-
   const uint32_t now_ms = millis();
   if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
-    color = colors[colorIndexes[index]];
-    index = (index + 1) % COUNT_OF(colorIndexes);
     ++mode;
     clearLeds();
     modeStartTime_ms = now_ms;
+    hue += HUE_CHANGE_PER_CYCLE;
+    color = pixels.ColorHSV(hue);
   }
 }
