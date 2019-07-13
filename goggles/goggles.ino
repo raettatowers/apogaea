@@ -31,15 +31,9 @@ void setup() {
   pixels.setBrightness(20);
   clearLeds();
 
-  // Just shut off the internal LED
-  internalPixel.setPixelColor(0, 0);
-  internalPixel.show();
+  internalPixel.begin();
 
-#ifndef ADAFRUIT_TRINKET_M0
-  analogReference(DEFAULT);
-#else
-  // TODO: Figure out what to do on Trinket M0
-#endif
+  analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
@@ -65,15 +59,15 @@ void spectrumAnalyzer() {
   for (uint16_t i = 0; i < COUNT_OF(samples); ++i) {
     samples[i] = analogRead(MICROPHONE_ANALOG_PIN) * 3;
     imaginary[i] = 0;
+    delayMicroseconds(100);  // 100 gives around 8.7 kHz
   }
 
-  // TODO: Can do fix_fftr if I'm not using imaginary numbers
   const int16_t power = 7;
   static_assert(getPower<2, power>::value == COUNT_OF(samples), "");
   fix_fft(samples, imaginary, power, 0);
 
   // Make values positive, only the first half of the ouput represents usable frequency values
-  for (uint16_t i = 0; i < COUNT_OF(samples) / 2; ++i) {
+  for (uint8_t i = 0; i < COUNT_OF(samples) / 2; ++i) {
     samples[i] = sqrt(samples[i] * samples[i] + imaginary[i] * imaginary[i]);
   }
 
@@ -304,7 +298,6 @@ void loop() {
   static uint32_t modeStartTime_ms = millis();
   static uint8_t mode = 0;  // Current animation effect
   static void (*animations[])() = {spinnyWheels, binaryClock, fadingSparks, spectrumAnalyzer, shimmer, swirls};
-
   const uint32_t startAnimation_ms = millis();
   animations[mode]();
 
@@ -312,8 +305,10 @@ void loop() {
   // We want to complete a full hue color cycle about every X seconds
   const int hueCycle_ms = 20000;
   const int hueCycleLimit = 65535;
-  hue += (startAnimation_ms - now_ms) * (hueCycleLimit / hueCycle_ms);
+  hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
   color = pixels.ColorHSV(hue);
+  internalPixel.setPixelColor(0, pixels.ColorHSV(hue, 255, 30));
+  internalPixel.show();
 
   if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
     ++mode;
