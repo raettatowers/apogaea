@@ -4,15 +4,19 @@
 #include <avr/power.h>
 #endif
 #include <fix_fft.h>
+#include <arduinoFFT.h>
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 0;
 const int ONBOARD_LED_PIN = 13;
-const int MICROPHONE_ANALOG_PIN = A0;
+const int MICROPHONE_ANALOG_PIN = A1;
 const int MODE_COUNT = 4;
-const int SAMPLE_COUNT = 128;  // Must be a power of 2
+// Sample count must be a power of 2. I chose 128 because only half of the values
+// from the FFT correspond to frequencies, and the first 2 are sample averages, so
+// I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
+const int SAMPLE_COUNT = 128;
 const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
 
@@ -40,68 +44,88 @@ void setup() {
 }
 
 
-template <int A, int B>
-struct getPower
-{
-  static const int value = A * getPower < A, B - 1 >::value;
-};
-template <int A>
-struct getPower<A, 0>
-{
-  static const int value = 1;
-};
 void spectrumAnalyzer() {
-  clearLeds();
-  static int8_t samples[SAMPLE_COUNT];
-  static int8_t imaginary[SAMPLE_COUNT];
-  static int8_t sampleAverages[2 * PIXEL_RING_COUNT];
-
-  for (uint16_t i = 0; i < COUNT_OF(samples); ++i) {
-    samples[i] = analogRead(MICROPHONE_ANALOG_PIN) * 3;
-    imaginary[i] = 0;
-    delayMicroseconds(100);  // 100 gives around 8.7 kHz
-  }
-
-  const int16_t power = 7;
-  static_assert(getPower<2, power>::value == COUNT_OF(samples), "");
-  fix_fft(samples, imaginary, power, 0);
-
-  // Make values positive, only the first half of the ouput represents usable frequency values
-  for (uint8_t i = 0; i < COUNT_OF(samples) / 2; ++i) {
-    samples[i] = sqrt(samples[i] * samples[i] + imaginary[i] * imaginary[i]);
-  }
-
-  static_assert(COUNT_OF(samples) % COUNT_OF(sampleAverages) == 0, "");
-  // Only the first half of the output has usable frequency values
-  const int usableValues = COUNT_OF(samples) / 2;
+  // Most songs have notes in the lower end, so from experimental
+  // observation, this seems like a good choice
+  const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
+  const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
+  static arduinoFFT FFT = arduinoFFT();
+  double vReal[SAMPLE_COUNT];
+  double vImaginary[SAMPLE_COUNT];
+  double sampleAverages[2 * PIXEL_RING_COUNT];
+  const int usableValues = COUNT_OF(vReal) / 2;
   const int stepSize = usableValues / COUNT_OF(sampleAverages);
 
-  // The first sample is the average power of the signal, so skip it
-  int counter = 1;
+  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+    // TODO: Do we need to worry about overflow?
+    const uint32_t before = micros();
+
+    vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
+    vImaginary[i] = 0;
+
+    const uint32_t target_us = before + samplingPeriod_us;
+    const uint32_t now = micros();
+    // I don't know if this is beter than a busy wait loop or not
+    delayMicroseconds(before + samplingPeriod_us - now);
+  }
+
+  FFT.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  FFT.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
+  FFT.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
+
+  // The first 4 samples? are the average power of the signal, so skip it
+  const int SKIP = 4;
+  uint8_t counter = SKIP;
   // Use a sentinel value to make this loop simpler, since we start at 1
-  samples[usableValues] = 0;
+  for (uint8_t i = 0; i < counter; ++i) {
+    vReal[usableValues + i] = 0;
+  }
   for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     sampleAverages[i] = 0;
     for (int j = 0; j < stepSize; ++j, ++counter) {
-      sampleAverages[i] += samples[counter];
+      sampleAverages[i] += vReal[counter];
     }
     // This division should compile down to a right bit shift
     sampleAverages[i] /= stepSize;
   }
 
-  // Multiply by 4 just to get better response
-  // TODO: Improve this visualization
-  for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
-    pixels.setPixelColor(i, sampleAverages[i] * 4);
+  double max_ = -1;
+  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
+    max_ = max(max_, sampleAverages[i]);
   }
+  max_ = max(max_, 400);
+  const double MULTIPLIER = 1.0 / max_;
+  // Clamp them all to 0.0 - 1.0
+  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
+    sampleAverages[i] *= MULTIPLIER;
+  }
+
+  const uint8_t MAX_BRIGHTNESS = 128;
+  // This cutoff needs some tweaking based on pixels.getBrightness()
+  // 10 works with brightness = 20
+  const uint8_t CUTOFF = 10;
+
+  const uint32_t colorOffset = 0xFFFF / 2;  // Start at light blue
+  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
+    const uint8_t value_ = sampleAverages[i] * 0xFF;
+    const uint32_t color = pixels.ColorHSV(static_cast<uint32_t>(value_) * 0xFF);
+    uint8_t brightness = min(MAX_BRIGHTNESS, value_);
+    // The visualization looks like garbage when brightness is high because all of the
+    // pixels turn on, and I want dim pixels off
+    if (brightness < CUTOFF) {
+      brightness = 0;
+    }
+    pixels.setPixelColor(i, pixels.ColorHSV(color, 0xFF, brightness));
+  }
+
   pixels.show();
 }
 
 
 void randomSparks() {
-  const uint8_t led1 = random(16);
+  const uint8_t led1 = random(PIXEL_RING_COUNT);
   pixels.setPixelColor(led1, color);
-  const uint8_t led2 = random(16) + PIXEL_RING_COUNT;
+  const uint8_t led2 = random(PIXEL_RING_COUNT) + PIXEL_RING_COUNT;
   pixels.setPixelColor(led2, color);
   pixels.show();
   delay(20);
@@ -173,7 +197,6 @@ void binaryClock() {
   uint32_t now = millis() >> 8;
   showNumber(now, color);
   delay(100);
-  clearLeds();
 }
 
 
@@ -214,7 +237,6 @@ void swirls() {
   static uint8_t head2 = 3;
   static const uint8_t brightness[] = {255, 128, 64, 32, 16, 8, 4, 2, 1};
 
-  clearLeds();
   // I could probably optimize this loop so that I'm not going through the whole ring
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     const int8_t difference1 = head1 - i;
