@@ -50,11 +50,17 @@ void spectrumAnalyzer() {
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
   const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
   static arduinoFFT FFT = arduinoFFT();
+  static uint8_t previousValues[2 * PIXEL_RING_COUNT] = {0};
+  // Change the base hue of low intensity sounds so we can get more colors
+  static uint32_t baseHue = 0;
+
   double vReal[SAMPLE_COUNT];
   double vImaginary[SAMPLE_COUNT];
   double sampleAverages[2 * PIXEL_RING_COUNT];
   const int usableValues = COUNT_OF(vReal) / 2;
   const int stepSize = usableValues / COUNT_OF(sampleAverages);
+
+  baseHue += 100;
 
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
     // TODO: Do we need to worry about overflow?
@@ -65,7 +71,7 @@ void spectrumAnalyzer() {
 
     const uint32_t target_us = before + samplingPeriod_us;
     const uint32_t now = micros();
-    // I don't know if this is beter than a busy wait loop or not
+    // I don't know if this is better than a busy wait loop or not
     delayMicroseconds(before + samplingPeriod_us - now);
   }
 
@@ -73,26 +79,31 @@ void spectrumAnalyzer() {
   FFT.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
   FFT.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
 
-  // The first 4 samples? are the average power of the signal, so skip it
-  const int SKIP = 4;
+  // The first 2 samples? are the average power of the signal, so skip them.
+  // Samples < 20Hz are so low that humans can't hear them, so skip those too.
+  const int SKIP = 2 + 5;
   uint8_t counter = SKIP;
-  // Use a sentinel value to make this loop simpler, since we start at 1
-  for (uint8_t i = 0; i < counter; ++i) {
-    vReal[usableValues + i] = 0;
-  }
   for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     sampleAverages[i] = 0;
-    for (int j = 0; j < stepSize; ++j, ++counter) {
+    // The FFT gives us equally spaced buckets (e.g. bucket 1 is 0-100 Hz, bucket 2 is 100-200 Hz)
+    // but notes increase in frequency quadratically. In fact, each increase in octave is double
+    // the frequency. As a kludge, just skip every other sample for the first half of the samples.
+    const int increment = i < COUNT_OF(sampleAverages) / 2 ? 2 : 1;
+    for (int j = 0; j < stepSize; j += increment, ++counter) {
       sampleAverages[i] += vReal[counter];
     }
     // This division should compile down to a right bit shift
     sampleAverages[i] /= stepSize;
+    // To be accurate, we should multiply by the increment. However, I've found that percussion
+    // tends to be lower, and it overwhelms the other stuff. Since we're biasing against low sounds
+    // anyway, we just won't do that. I think the visualization looks better. Sorry bass line.
   }
 
   double max_ = -1;
   for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
     max_ = max(max_, sampleAverages[i]);
   }
+  // Set a default max so that if it's quiet, we're not visualizing random noises
   max_ = max(max_, 400);
   const double MULTIPLIER = 1.0 / max_;
   // Clamp them all to 0.0 - 1.0
@@ -105,17 +116,19 @@ void spectrumAnalyzer() {
   // 10 works with brightness = 20
   const uint8_t CUTOFF = 10;
 
-  const uint32_t colorOffset = 0xFFFF / 2;  // Start at light blue
   for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
-    const uint8_t value_ = sampleAverages[i] * 0xFF;
-    const uint32_t color = pixels.ColorHSV(static_cast<uint32_t>(value_) * 0xFF);
+    // Implement a fade-off effect
+    const int FADE_OFF = 20;
+    const uint8_t value_ = max(previousValues[i] > FADE_OFF ? previousValues[i] - FADE_OFF : 0, sampleAverages[i] * 0xFF);
+    previousValues[i] = value_;
+    const uint32_t hue = static_cast<uint32_t>(value_) * 0xFF + baseHue;
     uint8_t brightness = min(MAX_BRIGHTNESS, value_);
     // The visualization looks like garbage when brightness is high because all of the
     // pixels turn on, and I want dim pixels off
     if (brightness < CUTOFF) {
       brightness = 0;
     }
-    pixels.setPixelColor(i, pixels.ColorHSV(color, 0xFF, brightness));
+    pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightness));
   }
 
   pixels.show();
