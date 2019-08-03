@@ -326,6 +326,96 @@ void shimmer() {
 }
 
 
+void rainDrops() {
+  static uint8_t brightnesses[2 * PIXEL_RING_COUNT] = {0};
+  static int8_t directions[COUNT_OF(brightnesses)] = {0};
+  static uint8_t delays[COUNT_OF(brightnesses)] = {0};
+  static uint8_t maxBrightnesses[COUNT_OF(brightnesses)] = {0};
+
+  // Each pixel operates independently without looking at its neighbors,
+  // increasing up to some max brightness then turning around and decreasing to
+  // 0 and then increasing again. Each time max is reached, the max is
+  // decreased.  To implement a ripple effect, a delay is introduced for each
+  // pixel the further it is from the initial drop before it starts running the
+  // cycle.
+
+  const int RIPPLE_DROP_OFF = 5;
+  const int MAX_DROP_OFF = 15;
+  const int INCREMENT = 20;
+  const int MAX_BRIGHTNESS = 100;
+  const int INITIAL_DELAY = 3;
+  static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * RIPPLE_DROP_OFF, "");
+
+  bool allOff = true;
+  for (auto b : brightnesses) {
+    if (b > 0) {
+      allOff = false;
+      break;
+    }
+  }
+  if (allOff) {
+    for (auto &d : directions) {
+      d = 1;
+    }
+    // Start next drop
+    const uint8_t drop = random(COUNT_OF(brightnesses));
+    delays[drop] = 0;
+    maxBrightnesses[drop] = MAX_BRIGHTNESS;
+    // Prepare the other drops
+    for (uint8_t i = 1; i < COUNT_OF(brightnesses) / 2 + 1; ++i) {
+      const int index1 = (COUNT_OF(brightnesses) * 2 + drop - i) % COUNT_OF(brightnesses);
+      const int index2 = (COUNT_OF(brightnesses) + drop + i) % COUNT_OF(brightnesses);
+      delays[index1] = i * INITIAL_DELAY;
+      delays[index2] = i * INITIAL_DELAY;
+      maxBrightnesses[index1] = MAX_BRIGHTNESS - i * RIPPLE_DROP_OFF;
+      maxBrightnesses[index2] = MAX_BRIGHTNESS - i * RIPPLE_DROP_OFF;
+    }
+  }
+
+  // Update the drops
+  for (uint8_t i = 0; i < COUNT_OF(brightnesses); ++i) {
+    if (delays[i] == 0) {
+      // Increase toward the max
+      if (directions[i] > 0) {
+        if (brightnesses[i] + INCREMENT <= maxBrightnesses[i]) {
+          brightnesses[i] += INCREMENT;
+        } else {
+          // Decrease max brightness if we can
+          if (maxBrightnesses[i] - MAX_DROP_OFF > 0) {
+            brightnesses[i] = maxBrightnesses[i];
+            maxBrightnesses[i] -= MAX_DROP_OFF;
+            directions[i] = -1;
+          } else {
+            // All done
+            maxBrightnesses[i] = 0;
+            brightnesses[i] = 0;
+            directions[i] = 0;
+          }
+        }
+      // Decrease toward zero
+      } else if (directions[i] < 0) {
+        if (brightnesses[i] < INCREMENT) {
+          // Turn around
+          directions[i] = 1;
+          brightnesses[i] = 0;
+          // Also add a delay to get a better ripple effect
+          delays[i] = 3;
+        } else {
+          brightnesses[i] -= INCREMENT;
+        }
+      }
+    } else {
+      --delays[i];
+    }
+
+    pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightnesses[i]));
+  }
+
+  pixels.show();
+  delay(100);
+}
+
+
 void clearLeds() {
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
     pixels.setPixelColor(i, 0);
