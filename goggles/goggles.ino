@@ -333,25 +333,82 @@ void clearLeds() {
 }
 
 
+void configureBrightness(const bool buttonPressed) {
+  static uint8_t targetBrightness = 1;
+
+  if (buttonPressed) {
+    pixels.setBrightness((256 / (PIXEL_RING_COUNT * 2)) * targetBrightness - 1);
+  }
+
+  pixels.setBrightness(10);
+  for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
+    if (i <= targetBrightness) {
+      pixels.setPixelColor(i, color);
+    }
+  }
+  pixels.show();
+  delay(250);
+
+  ++targetBrightness;
+  if (targetBrightness == PIXEL_RING_COUNT * 2) {
+    targetBrightness = 0;
+  }
+}
+
+
+static uint8_t mode = 0;  // Current animation effect
+static uint8_t animationsIndex = 0;
+typedef void (*animationFunction_t)();
+// Each animationFunction_t[] should end in nullptr
+const animationFunction_t ALL_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, shimmer, swirls, spectrumAnalyzer, nullptr};
+const animationFunction_t ONLY_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, shimmer, swirls, nullptr};
+const animationFunction_t ONLY_SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
+//const animationFunction_t* ANIMATIONS_LIST[] = {ALL_ANIMATIONS, ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER};
+// Use this for testing a single animation
+const animationFunction_t ONLY_RAIN_DROPS[] = {rainDrops, nullptr};
+const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_RAIN_DROPS};
+
+
+typedef void (*configurationFunction_t)(bool);
 void loop() {
   static uint32_t modeStartTime_ms = millis();
-  static uint8_t mode = 0;  // Current animation effect
-  static void (*animations[])() = {spinnyWheels, binaryClock, fadingSparks, spectrumAnalyzer, shimmer, swirls};
+  static uint32_t buttonPressTime = 0;
+
+  bool buttonPressed = false;
+
+  if (digitalRead(BUTTON_PIN) == HIGH) {
+    // Debounce
+    if (millis() - buttonPressTime > 100) {
+      buttonPressTime = millis();
+      buttonPressed = true;
+    }
+  }
+
+  if (buttonPressed) {
+    // TODO: More complex configuration
+    ++animationsIndex;
+    if (animationsIndex == COUNT_OF(ANIMATIONS_LIST)) {
+      animationsIndex = 0;
+    }
+    mode = 0;
+  }
+
+  // Do a regular animation
   const uint32_t startAnimation_ms = millis();
+  const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
   animations[mode]();
 
+  // Update the color
   const uint32_t now_ms = millis();
   // We want to complete a full hue color cycle about every X seconds
   const int hueCycle_ms = 20000;
   const int hueCycleLimit = 65535;
   hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
   color = pixels.ColorHSV(hue);
-  internalPixel.setPixelColor(0, pixels.ColorHSV(hue, 255, 30));
-  internalPixel.show();
 
   if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
     ++mode;
-    if (mode >= COUNT_OF(animations)) {
+    if (animations[mode] == nullptr) {
       mode = 0;
     }
     clearLeds();
