@@ -104,15 +104,15 @@ void spectrumAnalyzer() {
   }
 
   double max_ = -1;
-  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
-    max_ = max(max_, sampleAverages[i]);
+  for (auto sa : sampleAverages) {
+    max_ = max(max_, sa);
   }
   // Set a default max so that if it's quiet, we're not visualizing random noises
   max_ = max(max_, 400);
   const double MULTIPLIER = 1.0 / max_;
   // Clamp them all to 0.0 - 1.0
-  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
-    sampleAverages[i] *= MULTIPLIER;
+  for (auto& sa : sampleAverages) {
+    sa *= MULTIPLIER;
   }
 
   const uint8_t MAX_BRIGHTNESS = 128;
@@ -120,7 +120,7 @@ void spectrumAnalyzer() {
   // 10 works with brightness = 20
   const uint8_t CUTOFF = 10;
 
-  for (int i = 0; i < COUNT_OF(sampleAverages); ++i) {
+  for (uint8_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     // Implement a fade-off effect
     const int FADE_OFF = 20;
     const uint8_t value_ = max(previousValues[i] > FADE_OFF ? previousValues[i] - FADE_OFF : 0, sampleAverages[i] * 0xFF);
