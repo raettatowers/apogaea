@@ -10,9 +10,9 @@
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 0;
+const int BUTTON_PIN = 3;
 const int ONBOARD_LED_PIN = 13;
 const int MICROPHONE_ANALOG_PIN = A1;
-const int MODE_COUNT = 4;
 // Sample count must be a power of 2. I chose 128 because only half of the values
 // from the FFT correspond to frequencies, and the first 2 are sample averages, so
 // I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
@@ -36,9 +36,13 @@ void setup() {
   clearLeds();
 
   internalPixel.begin();
+  // Just shut it off
+  internalPixel.setPixelColor(0, 0);
+  internalPixel.show();
 
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT);
   pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
 }
