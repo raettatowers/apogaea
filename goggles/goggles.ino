@@ -6,7 +6,7 @@
 #include <fix_fft.h>
 #include <arduinoFFT.h>
 
-#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#include "constants.hpp"
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
 const int NEOPIXELS_PIN = 0;
@@ -17,14 +17,12 @@ const int MICROPHONE_ANALOG_PIN = A1;
 // from the FFT correspond to frequencies, and the first 2 are sample averages, so
 // I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
 const int SAMPLE_COUNT = 128;
-const int PIXEL_RING_COUNT = 16;
 const int MODE_TIME_MS = 8000;
 
 Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
 uint16_t hue = 0;  // Start red
-uint32_t color = pixels.ColorHSV(hue);
 
 
 void setup() {
@@ -33,7 +31,7 @@ void setup() {
 #endif
   pixels.begin();
   pixels.setBrightness(20);
-  clearLeds();
+  clearLeds(&pixels);
 
   internalPixel.begin();
   // Just shut it off
@@ -48,7 +46,7 @@ void setup() {
 }
 
 
-void spectrumAnalyzer() {
+void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // Most songs have notes in the lower end, so from experimental
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
@@ -116,7 +114,7 @@ void spectrumAnalyzer() {
   }
 
   const uint8_t MAX_BRIGHTNESS = 128;
-  // This cutoff needs some tweaking based on pixels.getBrightness()
+  // This cutoff needs some tweaking based on pixels->getBrightness()
   // 10 works with brightness = 20
   const uint8_t CUTOFF = 10;
 
@@ -132,27 +130,28 @@ void spectrumAnalyzer() {
     if (brightness < CUTOFF) {
       brightness = 0;
     }
-    pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightness));
+    pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness));
   }
 
-  pixels.show();
+  pixels->show();
 }
 
 
-void randomSparks() {
+void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue) {
+  const uint32_t color = pixels->ColorHSV(hue);
   const uint8_t led1 = random(PIXEL_RING_COUNT);
-  pixels.setPixelColor(led1, color);
+  pixels->setPixelColor(led1, color);
   const uint8_t led2 = random(PIXEL_RING_COUNT) + PIXEL_RING_COUNT;
-  pixels.setPixelColor(led2, color);
-  pixels.show();
+  pixels->setPixelColor(led2, color);
+  pixels->show();
   delay(20);
-  pixels.setPixelColor(led1, 0);
-  pixels.setPixelColor(led2, 0);
-  pixels.show();
+  pixels->setPixelColor(led1, 0);
+  pixels->setPixelColor(led2, 0);
+  pixels->show();
 }
 
 
-void fadingSparks() {
+void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t) {
   // Like random sparks, but they fade in and out
   static bool increasing[2 * PIXEL_RING_COUNT] = {
     false, false, false, false, false, false, false, false,
@@ -176,7 +175,7 @@ void fadingSparks() {
   // Let's use our own sparkHue so that we can change the pixels more quickly
   static uint16_t sparkHue = 0;
   // Start with some zeroes so that we don't relight a pixel immediately
-  const static uint8_t brightnesses[] = {0, 0, 0, 0, 0, 0, 4, 8, 16, 32, 48, 64, 64, 64};
+  const static uint8_t rippleBrightnesses[] = {0, 0, 0, 0, 0, 0, 4, 8, 16, 32, 48, 64, 64, 64};
 
   // So we pick a random LED to start making brighter
   const uint8_t led = random(2 * PIXEL_RING_COUNT);
@@ -188,68 +187,72 @@ void fadingSparks() {
 
   for (uint8_t i = 0; i < COUNT_OF(increasing); ++i) {
     if (increasing[i]) {
-      if (brightnessIndexes[i] < static_cast<int>(COUNT_OF(brightnesses))) {
+      if (brightnessIndexes[i] < static_cast<int>(COUNT_OF(rippleBrightnesses))) {
         ++brightnessIndexes[i];
       } else {
         increasing[i] = false;
       }
-      pixels.setPixelColor(i, pixels.ColorHSV(hues[i], 0xFF, brightnesses[brightnessIndexes[i]]));
+      pixels->setPixelColor(i, pixels->ColorHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]));
     } else {
       if (brightnessIndexes[i] > 0) {
         --brightnessIndexes[i];
-        pixels.setPixelColor(i, pixels.ColorHSV(hues[i], 0xFF, brightnesses[brightnessIndexes[i]]));
+        pixels->setPixelColor(i, pixels->ColorHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]));
       }
     }
   }
   delay(50);
-  pixels.show();
+  pixels->show();
 }
 
 
-void binaryClock() {
+void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // Do a binary shift instead of integer division because of speed and code size.
   // It's a little less precise, but who cares.
   // Show 1/4 seconds instead of full seconds because it's more interesting. It
   // updates a lot faster and the other lens lights up faster.
   uint32_t now = millis() >> 8;
-  showNumber(now, color);
+  const uint32_t color = pixels->ColorHSV(hue);
+  showNumber(pixels, now, color);
   delay(100);
 }
 
 
-void spinnyWheels() {
+void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t) {
+  static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t offset = 0;  // Position of spinny eyes
+
+  const uint32_t color = pixels->ColorHSV(hue);
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     uint32_t c = 0;
     if (((offset + i) & 0b111) < 2) {
       c = color;  // 4 pixels on...
     }
-    pixels.setPixelColor(i, c);  // First eye
-    pixels.setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, c);  // Second eye (flipped)
+    pixels->setPixelColor(i, c);  // First eye
+    pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, c);  // Second eye (flipped)
   }
-  pixels.show();
+  pixels->show();
   ++offset;
-  hue += 20;  // Make the rainbow colors rotate faster
+  hue += 20;
   delay(50);
 }
 
 
-void showNumber(uint32_t number, const uint32_t color) {
+void showNumber(Adafruit_NeoPixel* pixels, uint32_t number, const uint32_t color) {
   uint8_t counter = 0;
   while (number > 0) {
     if (number & 1) {
-      pixels.setPixelColor(counter, color);
+      pixels->setPixelColor(counter, color);
     } else {
-      pixels.setPixelColor(counter, 0);
+      pixels->setPixelColor(counter, 0);
     }
     number >>= 1;
     counter += 2;
   }
-  pixels.show();
+  pixels->show();
 }
 
 
-void swirls() {
+void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
   static uint8_t head1 = 0;
   static uint8_t head2 = 3;
   static const uint8_t brightness[] = {255, 128, 64, 32, 16, 8, 4, 2, 1};
@@ -258,11 +261,11 @@ void swirls() {
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     const int8_t difference1 = head1 - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
-      pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightness[difference1]));
+      pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[difference1]));
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
-        pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightness[difference2]));
+        pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[difference2]));
       }
     }
   }
@@ -272,22 +275,22 @@ void swirls() {
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     const int8_t difference1 = head2 - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
-      pixels.setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels.ColorHSV(hue, 0xFF, brightness[difference1]));
+      pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels->ColorHSV(hue, 0xFF, brightness[difference1]));
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
-        pixels.setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels.ColorHSV(hue, 0xFF, brightness[difference2]));
+        pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels->ColorHSV(hue, 0xFF, brightness[difference2]));
       }
     }
   }
   head2 = (head2 + 1) % PIXEL_RING_COUNT;
 
-  pixels.show();
+  pixels->show();
   delay(50);
 }
 
 
-void shimmer() {
+void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // Start above 0 so that each light should be on a bit
   static const uint8_t brightness[] = {4, 8, 16, 32, 64, 128};
   static uint8_t values[PIXEL_RING_COUNT * 2] = {
@@ -319,106 +322,16 @@ void shimmer() {
   }
 
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightness[values[i]]));
+    pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[values[i]]));
   }
-  pixels.show();
+  pixels->show();
   delay(50);
 }
 
 
-void rainDrops() {
-  static uint8_t brightnesses[2 * PIXEL_RING_COUNT] = {0};
-  static int8_t directions[COUNT_OF(brightnesses)] = {0};
-  static uint8_t delays[COUNT_OF(brightnesses)] = {0};
-  static uint8_t maxBrightnesses[COUNT_OF(brightnesses)] = {0};
-
-  // Each pixel operates independently without looking at its neighbors,
-  // increasing up to some max brightness then turning around and decreasing to
-  // 0 and then increasing again. Each time max is reached, the max is
-  // decreased.  To implement a ripple effect, a delay is introduced for each
-  // pixel the further it is from the initial drop before it starts running the
-  // cycle.
-
-  const int RIPPLE_DROP_OFF = 5;
-  const int MAX_DROP_OFF = 15;
-  const int INCREMENT = 20;
-  const int MAX_BRIGHTNESS = 100;
-  const int INITIAL_DELAY = 3;
-  static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * RIPPLE_DROP_OFF, "");
-
-  bool allOff = true;
-  for (auto b : brightnesses) {
-    if (b > 0) {
-      allOff = false;
-      break;
-    }
-  }
-  if (allOff) {
-    for (auto &d : directions) {
-      d = 1;
-    }
-    // Start next drop
-    const uint8_t drop = random(COUNT_OF(brightnesses));
-    delays[drop] = 0;
-    maxBrightnesses[drop] = MAX_BRIGHTNESS;
-    // Prepare the other drops
-    for (uint8_t i = 1; i < COUNT_OF(brightnesses) / 2 + 1; ++i) {
-      const int index1 = (COUNT_OF(brightnesses) * 2 + drop - i) % COUNT_OF(brightnesses);
-      const int index2 = (COUNT_OF(brightnesses) + drop + i) % COUNT_OF(brightnesses);
-      delays[index1] = i * INITIAL_DELAY;
-      delays[index2] = i * INITIAL_DELAY;
-      maxBrightnesses[index1] = MAX_BRIGHTNESS - i * RIPPLE_DROP_OFF;
-      maxBrightnesses[index2] = MAX_BRIGHTNESS - i * RIPPLE_DROP_OFF;
-    }
-  }
-
-  // Update the drops
-  for (uint8_t i = 0; i < COUNT_OF(brightnesses); ++i) {
-    if (delays[i] == 0) {
-      // Increase toward the max
-      if (directions[i] > 0) {
-        if (brightnesses[i] + INCREMENT <= maxBrightnesses[i]) {
-          brightnesses[i] += INCREMENT;
-        } else {
-          // Decrease max brightness if we can
-          if (maxBrightnesses[i] - MAX_DROP_OFF > 0) {
-            brightnesses[i] = maxBrightnesses[i];
-            maxBrightnesses[i] -= MAX_DROP_OFF;
-            directions[i] = -1;
-          } else {
-            // All done
-            maxBrightnesses[i] = 0;
-            brightnesses[i] = 0;
-            directions[i] = 0;
-          }
-        }
-      // Decrease toward zero
-      } else if (directions[i] < 0) {
-        if (brightnesses[i] < INCREMENT) {
-          // Turn around
-          directions[i] = 1;
-          brightnesses[i] = 0;
-          // Also add a delay to get a better ripple effect
-          delays[i] = 3;
-        } else {
-          brightnesses[i] -= INCREMENT;
-        }
-      }
-    } else {
-      --delays[i];
-    }
-
-    pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightnesses[i]));
-  }
-
-  pixels.show();
-  delay(100);
-}
-
-
-void clearLeds() {
+void clearLeds(Adafruit_NeoPixel* pixels) {
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    pixels.setPixelColor(i, 0);
+    pixels->setPixelColor(i, 0);
   }
 }
 
@@ -433,7 +346,7 @@ void configureBrightness(const bool buttonPressed) {
   pixels.setBrightness(10);
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
     if (i <= targetBrightness) {
-      pixels.setPixelColor(i, color);
+      pixels.setPixelColor(i, 0x700000);
     }
   }
   pixels.show();
@@ -448,18 +361,17 @@ void configureBrightness(const bool buttonPressed) {
 
 static uint8_t mode = 0;  // Current animation effect
 static uint8_t animationsIndex = 0;
-typedef void (*animationFunction_t)();
+typedef void (*animationFunction_t)(Adafruit_NeoPixel* pixels, uint16_t hue);
 // Each animationFunction_t[] should end in nullptr
 const animationFunction_t ALL_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, shimmer, swirls, spectrumAnalyzer, nullptr};
 const animationFunction_t ONLY_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, shimmer, swirls, nullptr};
 const animationFunction_t ONLY_SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
-//const animationFunction_t* ANIMATIONS_LIST[] = {ALL_ANIMATIONS, ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER};
+const animationFunction_t* ANIMATIONS_LIST[] = {ALL_ANIMATIONS, ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER};
 // Use this for testing a single animation
-const animationFunction_t ONLY_RAIN_DROPS[] = {rainDrops, nullptr};
-const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_RAIN_DROPS};
+//const animationFunction_t ONLY_RAIN_DROPS[] = {ripples, nullptr};
+//const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_RAIN_DROPS};
 
 
-typedef void (*configurationFunction_t)(bool);
 void loop() {
   static uint32_t modeStartTime_ms = millis();
   static uint32_t buttonPressTime = 0;
@@ -486,7 +398,7 @@ void loop() {
   // Do a regular animation
   const uint32_t startAnimation_ms = millis();
   const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
-  animations[mode]();
+  animations[mode](&pixels, hue);
 
   // Update the color
   const uint32_t now_ms = millis();
@@ -494,14 +406,13 @@ void loop() {
   const int hueCycle_ms = 20000;
   const int hueCycleLimit = 65535;
   hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
-  color = pixels.ColorHSV(hue);
 
   if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
     ++mode;
     if (animations[mode] == nullptr) {
       mode = 0;
     }
-    clearLeds();
+    clearLeds(&pixels);
     modeStartTime_ms = now_ms;
   }
 }
