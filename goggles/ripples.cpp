@@ -17,16 +17,52 @@ static const int MAX_BRIGHTNESS = 100;
 static const int INITIAL_DELAY = 3;
 
 
-static void ripple(const int pixel) {
+static void ripple(const int i, Adafruit_NeoPixel* pixels, const uint16_t hue) {
   // Each pixel operates independently without looking at its neighbors,
   // increasing up to some max brightness then turning around and decreasing to
   // 0 and then increasing again. Each time max is reached, the max is
   // decreased.  To implement a ripple effect, a delay is introduced for each
   // pixel the further it is from the initial drop before it starts running the
   // cycle.
+  if (delays[i] == 0) {
+    // Increase toward the max
+    if (directions[i] > 0) {
+      if (brightnesses[i] + INCREMENT <= maxbrightnesses[i]) {
+        brightnesses[i] += INCREMENT;
+      } else {
+        // Decrease max brightness if we can
+        if (maxbrightnesses[i] - MAX_DROP_OFF > 0) {
+          brightnesses[i] = maxbrightnesses[i];
+          maxbrightnesses[i] -= MAX_DROP_OFF;
+          directions[i] = -1;
+        } else {
+          // All done
+          maxbrightnesses[i] = 0;
+          brightnesses[i] = 0;
+          directions[i] = 0;
+        }
+      }
+      // Decrease toward zero
+    } else if (directions[i] < 0) {
+      if (brightnesses[i] < INCREMENT) {
+        // Turn around
+        directions[i] = 1;
+        brightnesses[i] = 0;
+        // Also add a delay to get a better ripple effect
+        delays[i] = 3;
+      } else {
+        brightnesses[i] -= INCREMENT;
+      }
+    }
+  } else {
+    --delays[i];
+  }
+
+  pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightnesses[i]));
 }
 
-void ripples(Adafruit_NeoPixel& pixels) {
+
+void ripples(Adafruit_NeoPixel* pixels, uint16_t hue) {
   static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * DROP_OFF, "");
 
   // Each lens runs independently. I tried to get the ripple to carry across
@@ -60,45 +96,10 @@ void ripples(Adafruit_NeoPixel& pixels) {
 
     // Update the drops
     for (uint8_t i = 0; i < COUNT_OF(brightnesses); ++i) {
-      if (delays[i] == 0) {
-        // Increase toward the max
-        if (directions[i] > 0) {
-          if (brightnesses[i] + INCREMENT <= maxbrightnesses[i]) {
-            brightnesses[i] += INCREMENT;
-          } else {
-            // Decrease max brightness if we can
-            if (maxbrightnesses[i] - MAX_DROP_OFF > 0) {
-              brightnesses[i] = maxbrightnesses[i];
-              maxbrightnesses[i] -= MAX_DROP_OFF;
-              directions[i] = -1;
-            } else {
-              // All done
-              maxbrightnesses[i] = 0;
-              brightnesses[i] = 0;
-              directions[i] = 0;
-            }
-          }
-          // Decrease toward zero
-        } else if (directions[i] < 0) {
-          if (brightnesses[i] < INCREMENT) {
-            // Turn around
-            directions[i] = 1;
-            brightnesses[i] = 0;
-            // Also add a delay to get a better ripple effect
-            delays[i] = 3;
-          } else {
-            brightnesses[i] -= INCREMENT;
-          }
-        }
-      } else {
-        --delays[i];
-      }
-
-      uint16_t hue = 0;  // TODO: Change this
-      pixels.setPixelColor(i, pixels.ColorHSV(hue, 0xFF, brightnesses[i]));
+      ripple(i, pixels, hue);
     }
   }
 
-  pixels.show();
+  pixels->show();
   delay(100);
 }
