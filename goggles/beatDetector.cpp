@@ -82,7 +82,11 @@ static void recordBeat() {
     previousBeats[i] = previousBeats[i - 1];
   }
   previousBeats[0] = getBeat();
-  Serial.println(previousBeats[0]);
+}
+
+
+static bool beatDetected() {
+  return previousBeats[0] >= THRESHOLD && previousBeats[1] >= THRESHOLD;
 }
 
 
@@ -95,6 +99,11 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
 
   recordBeat();
 
+  extern bool reset;
+  if (reset) {
+    brightness = 0;
+  }
+
   if (brightness > 0) {
     if (brightness > DROP_OFF) {
       brightness -= DROP_OFF;
@@ -105,11 +114,41 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
       // Toggle lens
       lens ^= 1;
     }
-  } else if (previousBeats[0] >= THRESHOLD && previousBeats[1] >= THRESHOLD) {
+  } else if (beatDetected()) {
     brightness = MAX_BRIGHTNESS;
   }
 
   const uint32_t color = pixels->ColorHSV(hue, 0xFF, brightness);
   pixels->fill(color, lens * PIXEL_RING_COUNT, PIXEL_RING_COUNT);
+  pixels->show();
+}
+
+
+void rotateGearsToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+  static uint8_t start = 0;
+  static uint32_t lastBeatMillis = 0;
+  const uint8_t SKIP = 4;
+  static_assert(PIXEL_RING_COUNT % SKIP == 0, "SKIP value gives ugly gears");
+  const uint8_t BRIGHTNESS = 50;
+
+  recordBeat();
+
+  if (beatDetected() && millis() - lastBeatMillis > 200) {
+    ++start;
+    if (start == SKIP) {
+      start = 0;
+    }
+    lastBeatMillis = millis();
+  }
+
+  pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
+  const uint32_t color = pixels->ColorHSV(hue, 0xFF, BRIGHTNESS);
+  for (int i = start; i < PIXEL_RING_COUNT; i += SKIP) {
+    pixels->setPixelColor(i, color);
+  }
+  // The second lens moves the opposite direction
+  for (int i = PIXEL_RING_COUNT * 2 - start; i >= PIXEL_RING_COUNT; i -= SKIP) {
+    pixels->setPixelColor(i, color);
+  }
   pixels->show();
 }

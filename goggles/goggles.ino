@@ -17,6 +17,7 @@ Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
 
 uint16_t hue = 0;  // Start red
+bool reset;  // Indicates that an animation should clear its state
 
 
 void setup() {
@@ -42,9 +43,7 @@ void setup() {
 
 
 void clearLeds(Adafruit_NeoPixel* pixels) {
-  for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    pixels->setPixelColor(i, 0);
-  }
+  pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
 }
 
 
@@ -56,11 +55,8 @@ void configureBrightness(const bool buttonPressed) {
   }
 
   pixels.setBrightness(10);
-  for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    if (i <= targetBrightness) {
-      pixels.setPixelColor(i, 0x700000);
-    }
-  }
+  pixels.fill(0x700000, 0, targetBrightness);
+  pixels.fill(0x700000, targetBrightness + 1, PIXEL_RING_COUNT * 2 - targetBrightness);
   pixels.show();
   delay(250);
 
@@ -80,14 +76,15 @@ void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t hue);
 void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t hue);
 void swirls(Adafruit_NeoPixel* pixels, uint16_t hue);
 void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
+void rotateGearsToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
 const animationFunction_t ONLY_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, nullptr};
 const animationFunction_t ONLY_SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
-const animationFunction_t ONLY_BEAT_DETECTIONS[] = {flashLensesToBeat, nullptr};
+const animationFunction_t ONLY_BEAT_DETECTIONS[] = {flashLensesToBeat, rotateGearsToBeat, nullptr};
 const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER, ONLY_BEAT_DETECTIONS};
 // Use this for testing a single animation
-//const animationFunction_t TEST_ANIMATION[] = {flashLensesToBeat, nullptr};
+//const animationFunction_t TEST_ANIMATION[] = {rotateGearsToBeat, nullptr};
 //const animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
@@ -139,6 +136,9 @@ void loop() {
       mode = 0;
     }
     clearLeds(&pixels);
+    reset = true;
     modeStartTime_ms = now_ms;
+  } else {
+    reset = false;
   }
 }
