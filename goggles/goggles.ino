@@ -93,17 +93,22 @@ const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_ANIMATIONS, ONLY_SPECTRUM_A
 
 void loop() {
   static uint32_t modeStartTime_ms = millis();
-  static uint32_t buttonPressTime = 0;
+  static uint32_t buttonToggleTime = 0;
   static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
 
+  static bool buttonDown = false;
   bool buttonPressed = false;
 
-  if (digitalRead(BUTTON_PIN) == HIGH) {
-    // Debounce
-    if (millis() - buttonPressTime > 100) {
-      buttonPressTime = millis();
+  // Debounce
+  if (millis() - buttonToggleTime > 20) {
+    if (!buttonDown && digitalRead(BUTTON_PIN) == HIGH) {
+      buttonToggleTime = millis();
+      buttonDown = true;
       buttonPressed = true;
+    } else if (buttonDown && digitalRead(BUTTON_PIN) == LOW) {
+      buttonToggleTime = millis();
+      buttonDown = false;
     }
   }
 
