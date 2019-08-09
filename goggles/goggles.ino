@@ -26,6 +26,7 @@ void setup() {
   pixels.begin();
   pixels.setBrightness(20);
   clearLeds(&pixels);
+  pixels.show();
 
   internalPixel.begin();
   // Just shut it off
@@ -78,15 +79,16 @@ void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue);
 void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t hue);
 void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t hue);
 void swirls(Adafruit_NeoPixel* pixels, uint16_t hue);
+void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
-const animationFunction_t ALL_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, spectrumAnalyzer, nullptr};
 const animationFunction_t ONLY_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, nullptr};
 const animationFunction_t ONLY_SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
-const animationFunction_t* ANIMATIONS_LIST[] = {ALL_ANIMATIONS, ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER};
+const animationFunction_t ONLY_BEAT_DETECTIONS[] = {flashLensesToBeat, nullptr};
+const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER, ONLY_BEAT_DETECTIONS};
 // Use this for testing a single animation
-//const animationFunction_t ONLY_RAIN_DROPS[] = {ripples, nullptr};
-//const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_RAIN_DROPS};
+//const animationFunction_t TEST_ANIMATION[] = {flashLensesToBeat, nullptr};
+//const animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
 void loop() {
