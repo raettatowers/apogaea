@@ -12,6 +12,7 @@ const int NEOPIXELS_PIN = 0;
 const int BUTTON_PIN = 3;
 const int ONBOARD_LED_PIN = 13;
 const int MODE_TIME_MS = 8000;
+const int INITIAL_BRIGHTNESS = 20;
 
 Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
@@ -25,7 +26,7 @@ void setup() {
   if (F_CPU == 16000000) clock_prescale_set(clock_div_1);
 #endif
   pixels.begin();
-  pixels.setBrightness(20);
+  pixels.setBrightness(INITIAL_BRIGHTNESS);
   clearLeds(&pixels);
   pixels.show();
 
@@ -48,23 +49,25 @@ void clearLeds(Adafruit_NeoPixel* pixels) {
 
 
 void configureBrightness(const bool buttonPressed) {
-  static uint8_t targetBrightness = 1;
+  constexpr uint8_t BRIGHTNESSES[] = {5, 10, 15, 20, 40, 60, 100, 150, 200};
+  const uint8_t INITIAL_INDEX = 3;
+  static_assert(INITIAL_BRIGHTNESS == BRIGHTNESSES[INITIAL_INDEX], "");
+  static uint8_t brightnessIndex = INITIAL_INDEX;
 
   if (buttonPressed) {
-    pixels.setBrightness((256 / (PIXEL_RING_COUNT * 2)) * targetBrightness - 1);
+    ++brightnessIndex;
+    if (brightnessIndex == COUNT_OF(BRIGHTNESSES)) {
+      brightnessIndex = 0;
+    }
   }
 
-  pixels.setBrightness(10);
-  pixels.fill(0x700000, 0, targetBrightness);
-  pixels.fill(0x700000, targetBrightness + 1, PIXEL_RING_COUNT * 2 - targetBrightness);
+  pixels.setBrightness(BRIGHTNESSES[brightnessIndex]);
+  // Turn on an LED for each brightness
+  pixels.fill(0x700000, 0, brightnessIndex + 1);
+  pixels.fill(0, brightnessIndex + 1, PIXEL_RING_COUNT * 2 - brightnessIndex);
   pixels.show();
-  delay(250);
-
-  ++targetBrightness;
-  if (targetBrightness == PIXEL_RING_COUNT * 2) {
-    targetBrightness = 0;
-  }
 }
+
 
 typedef void (*animationFunction_t)(Adafruit_NeoPixel* pixels, uint16_t hue);
 
@@ -88,34 +91,62 @@ const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_ANIMATIONS, ONLY_SPECTRUM_A
 //const animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
+typedef void (*configurationFunction_t)(bool buttonPressed);
+const configurationFunction_t CONFIGURATION_FUNCTIONS[] = {configureBrightness, nullptr};
+
+
 void loop() {
-  static uint32_t modeStartTime_ms = millis();
-  static uint32_t buttonToggleTime = 0;
+  static auto modeStartTime_ms = millis();
+  static decltype(millis()) buttonToggleTime = 0;
+  static bool buttonDown = false;
   static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
+  static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
 
-  static bool buttonDown = false;
-  bool buttonPressed = false;
+  bool buttonPress = false;
+  bool longButtonPress = false;
 
+  // Check for button presses
+  const auto now = millis();
   // Debounce
-  if (millis() - buttonToggleTime > 20) {
+  if (now - buttonToggleTime > 20) {
     if (!buttonDown && digitalRead(BUTTON_PIN) == HIGH) {
-      buttonToggleTime = millis();
+      buttonToggleTime = now;
       buttonDown = true;
-      buttonPressed = true;
     } else if (buttonDown && digitalRead(BUTTON_PIN) == LOW) {
-      buttonToggleTime = millis();
+      if (now - buttonToggleTime > 250) {
+        longButtonPress = true;
+      } else {
+        buttonPress = true;
+      }
+      buttonToggleTime = now;
       buttonDown = false;
     }
   }
 
-  if (buttonPressed) {
-    // TODO: More complex configuration
-    ++animationsIndex;
-    if (animationsIndex == COUNT_OF(ANIMATIONS_LIST)) {
-      animationsIndex = 0;
+  if (buttonPress) {
+    // If we're not configuring, go to the next animation set
+    if (CONFIGURATION_FUNCTIONS[configurationsIndex] == nullptr) {
+      ++animationsIndex;
+      if (animationsIndex == COUNT_OF(ANIMATIONS_LIST)) {
+        animationsIndex = 0;
+      }
+      mode = 0;
+    } else {
+      CONFIGURATION_FUNCTIONS[configurationsIndex](buttonPress);
+      return;
     }
-    mode = 0;
+  } else if (longButtonPress) {
+    ++configurationsIndex;
+    if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
+      configurationsIndex = 0;
+    }
+  }
+
+  if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
+    CONFIGURATION_FUNCTIONS[configurationsIndex](buttonPress);
+    // Return to stop doing animations
+    return;
   }
 
   // Do a regular animation
