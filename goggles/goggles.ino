@@ -14,10 +14,22 @@ const int ONBOARD_LED_PIN = 13;
 const int MODE_TIME_MS = 8000;
 const int INITIAL_BRIGHTNESS = 20;
 
-Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
+// State machine for button presses
+enum class ButtonState_t {
+  UP,
+  DEBOUNCE_DOWN,
+  DOWN,
+  LONG_BUTTON_PRESS,
+  BUTTON_PRESS,
+  AFTER_BUTTON_PRESS,
+};
+static decltype(millis()) buttonDownTime = 0;
+static ButtonState_t buttonState = ButtonState_t::UP;
+static bool buttonDown = false;
 
-uint16_t hue = 0;  // Start red
+static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
+static Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
+static uint16_t hue = 0;  // Start red
 bool reset;  // Indicates that an animation should clear its state
 
 
@@ -37,9 +49,54 @@ void setup() {
 
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(NEOPIXELS_PIN, OUTPUT);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
+
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), setButtonDownState, CHANGE);
+}
+
+
+void setButtonDownState() {
+  buttonDown = (digitalRead(BUTTON_PIN) == HIGH);
+}
+
+
+void updateButtonState() {
+  const auto now = millis();
+  switch (buttonState) {
+    case ButtonState_t::UP:
+      if (buttonDown) {
+        buttonState = ButtonState_t::DEBOUNCE_DOWN;
+        buttonDownTime = millis();
+      }
+      break;
+    case ButtonState_t::DEBOUNCE_DOWN:
+      if (buttonDown && now - buttonDownTime > 20) {
+        buttonState = ButtonState_t::DOWN;
+      } else if (!buttonDown) {
+        buttonState = ButtonState_t::UP;
+      }
+      break;
+    case ButtonState_t::DOWN:
+      if (now - buttonDownTime > 500) {
+        buttonState = ButtonState_t::LONG_BUTTON_PRESS;
+      } else if (!buttonDown) {
+        buttonState = ButtonState_t::BUTTON_PRESS;
+      }
+      break;
+    case ButtonState_t::LONG_BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::AFTER_BUTTON_PRESS:
+      if (!buttonDown) {
+        buttonState = ButtonState_t::UP;
+      }
+      break;
+  }
 }
 
 
@@ -98,59 +155,12 @@ const configurationFunction_t CONFIGURATION_FUNCTIONS[] = {configureBrightness, 
 
 void loop() {
   static auto modeStartTime_ms = millis();
-  static decltype(millis()) buttonDownTime = 0;
   static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
   static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
 
-  // State machine for button presses
-  static enum class ButtonState_t {
-    UP,
-    DEBOUNCE_DOWN,
-    DOWN,
-    LONG_BUTTON_PRESS,
-    BUTTON_PRESS,
-    AFTER_BUTTON_PRESS,
-  } buttonState;
-
-  // Check for button presses
-  const auto now = millis();
-  switch (buttonState) {
-    case ButtonState_t::UP:
-      if (digitalRead(BUTTON_PIN) == HIGH) {
-        buttonState = ButtonState_t::DEBOUNCE_DOWN;
-        buttonDownTime = millis();
-      }
-      break;
-    case ButtonState_t::DEBOUNCE_DOWN:
-      if (digitalRead(BUTTON_PIN) == LOW) {
-        buttonState = ButtonState_t::UP;
-      } else if (now - buttonDownTime > 20) {
-        buttonState = ButtonState_t::DOWN;
-      }
-      break;
-    case ButtonState_t::DOWN:
-      if (now - buttonDownTime > 500) {
-        buttonState = ButtonState_t::LONG_BUTTON_PRESS;
-      } else if (digitalRead(BUTTON_PIN) == LOW) {
-        buttonState = ButtonState_t::BUTTON_PRESS;
-      }
-      break;
-    case ButtonState_t::LONG_BUTTON_PRESS:
-      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
-      break;
-    case ButtonState_t::BUTTON_PRESS:
-      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
-      break;
-    case ButtonState_t::AFTER_BUTTON_PRESS:
-      if (digitalRead(BUTTON_PIN) == LOW) {
-        buttonState = ButtonState_t::UP;
-      }
-      break;
-    default:
-      Serial.println("Unexpected button state");
-  }
-
+  setButtonDownState();
+  updateButtonState();
   if (buttonState == ButtonState_t::BUTTON_PRESS) {
     // If we're not configuring, go to the next animation set
     if (CONFIGURATION_FUNCTIONS[configurationsIndex] == nullptr) {
@@ -165,6 +175,7 @@ void loop() {
     if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
       configurationsIndex = 0;
     }
+    clearLeds(&pixels);
   }
 
   if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
