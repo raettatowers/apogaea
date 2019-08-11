@@ -82,12 +82,13 @@ void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 void rotateGearsToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
-const animationFunction_t ONLY_ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, nullptr};
-const animationFunction_t ONLY_SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
-const animationFunction_t ONLY_BEAT_DETECTIONS[] = {flashLensesToBeat, rotateGearsToBeat, nullptr};
-const animationFunction_t* ANIMATIONS_LIST[] = {ONLY_ANIMATIONS, ONLY_SPECTRUM_ANALYZER, ONLY_BEAT_DETECTIONS};
+const animationFunction_t ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, nullptr};
+const animationFunction_t SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
+const animationFunction_t FLASH_LENSES[] = {flashLensesToBeat, nullptr};
+const animationFunction_t BEAT_DETECTIONS[] = {rotateGearsToBeat, flashLensesToBeat, nullptr};
+const animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS, SPECTRUM_ANALYZER, FLASH_LENSES, BEAT_DETECTIONS};
 // Use this for testing a single animation
-//const animationFunction_t TEST_ANIMATION[] = {rotateGearsToBeat, nullptr};
+//const animationFunction_t TEST_ANIMATION[] = {flashLensesToBeat, nullptr};
 //const animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
@@ -97,34 +98,60 @@ const configurationFunction_t CONFIGURATION_FUNCTIONS[] = {configureBrightness, 
 
 void loop() {
   static auto modeStartTime_ms = millis();
-  static decltype(millis()) buttonToggleTime = 0;
-  static bool buttonDown = false;
+  static decltype(millis()) buttonDownTime = 0;
   static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
   static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
 
-  bool buttonPress = false;
-  bool longButtonPress = false;
+  // State machine for button presses
+  static enum class ButtonState_t {
+    UP,
+    DEBOUNCE_DOWN,
+    DOWN,
+    LONG_BUTTON_PRESS,
+    BUTTON_PRESS,
+    AFTER_BUTTON_PRESS,
+  } buttonState;
 
   // Check for button presses
   const auto now = millis();
-  // Debounce
-  if (now - buttonToggleTime > 20) {
-    if (!buttonDown && digitalRead(BUTTON_PIN) == HIGH) {
-      buttonToggleTime = now;
-      buttonDown = true;
-    } else if (buttonDown && digitalRead(BUTTON_PIN) == LOW) {
-      if (now - buttonToggleTime > 250) {
-        longButtonPress = true;
-      } else {
-        buttonPress = true;
+  switch (buttonState) {
+    case ButtonState_t::UP:
+      if (digitalRead(BUTTON_PIN) == HIGH) {
+        buttonState = ButtonState_t::DEBOUNCE_DOWN;
+        buttonDownTime = millis();
       }
-      buttonToggleTime = now;
-      buttonDown = false;
-    }
+      break;
+    case ButtonState_t::DEBOUNCE_DOWN:
+      if (digitalRead(BUTTON_PIN) == LOW) {
+        buttonState = ButtonState_t::UP;
+      } else if (now - buttonDownTime > 20) {
+        buttonState = ButtonState_t::DOWN;
+      }
+      break;
+    case ButtonState_t::DOWN:
+      if (now - buttonDownTime > 500) {
+        buttonState = ButtonState_t::LONG_BUTTON_PRESS;
+      } else if (digitalRead(BUTTON_PIN) == LOW) {
+        buttonState = ButtonState_t::BUTTON_PRESS;
+      }
+      break;
+    case ButtonState_t::LONG_BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::AFTER_BUTTON_PRESS:
+      if (digitalRead(BUTTON_PIN) == LOW) {
+        buttonState = ButtonState_t::UP;
+      }
+      break;
+    default:
+      Serial.println("Unexpected button state");
   }
 
-  if (buttonPress) {
+  if (buttonState == ButtonState_t::BUTTON_PRESS) {
     // If we're not configuring, go to the next animation set
     if (CONFIGURATION_FUNCTIONS[configurationsIndex] == nullptr) {
       ++animationsIndex;
@@ -132,11 +159,8 @@ void loop() {
         animationsIndex = 0;
       }
       mode = 0;
-    } else {
-      CONFIGURATION_FUNCTIONS[configurationsIndex](buttonPress);
-      return;
     }
-  } else if (longButtonPress) {
+  } else if (buttonState == ButtonState_t::LONG_BUTTON_PRESS) {
     ++configurationsIndex;
     if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
       configurationsIndex = 0;
@@ -144,32 +168,30 @@ void loop() {
   }
 
   if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
-    CONFIGURATION_FUNCTIONS[configurationsIndex](buttonPress);
-    // Return to stop doing animations
-    return;
-  }
-
-  // Do a regular animation
-  const uint32_t startAnimation_ms = millis();
-  const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
-  animations[mode](&pixels, hue);
-
-  // Update the color
-  const uint32_t now_ms = millis();
-  // We want to complete a full hue color cycle about every X seconds
-  const int hueCycle_ms = 20000;
-  const int hueCycleLimit = 65535;
-  hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
-
-  if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
-    ++mode;
-    if (animations[mode] == nullptr) {
-      mode = 0;
-    }
-    clearLeds(&pixels);
-    reset = true;
-    modeStartTime_ms = now_ms;
+    CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
-    reset = false;
+    // Do a regular animation
+    const uint32_t startAnimation_ms = millis();
+    const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
+    animations[mode](&pixels, hue);
+
+    // Update the color
+    const uint32_t now_ms = millis();
+    // We want to complete a full hue color cycle about every X seconds
+    const int hueCycle_ms = 20000;
+    const int hueCycleLimit = 65535;
+    hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
+
+    if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
+      ++mode;
+      if (animations[mode] == nullptr) {
+        mode = 0;
+      }
+      clearLeds(&pixels);
+      reset = true;
+      modeStartTime_ms = now_ms;
+    } else {
+      reset = false;
+    }
   }
 }
