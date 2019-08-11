@@ -26,6 +26,13 @@ static void resetLens(int lens);
 void ripples(Adafruit_NeoPixel* pixels, uint16_t hue) {
   static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * DROP_OFF, "");
 
+  extern bool reset;
+  if (reset) {
+    for (int lens = 0; lens < 2; ++lens) {
+      resetLens(lens);
+    }
+  }
+
   // Each lens runs independently. I tried to get the ripple to carry across
   // but it never looked good.
   for (int lens = 0; lens < 2; ++lens) {
