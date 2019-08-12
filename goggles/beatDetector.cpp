@@ -6,14 +6,16 @@
 
 #include "constants.hpp"
 
-// Our Global Sample Rate, 5000hz
-const int SAMPLE_PERIOD_US = 200;
+typedef int16_t beatLevel_t;
 
-typedef int32_t beatLevel_t;
-// The most recent beat is stored in previousBeats[0]
-static beatLevel_t previousBeats[2];
+// Our global sample rate, 5000hz
+static const int SAMPLE_RATE_HZ = 5000;
+static const int SAMPLE_PERIOD_US = 1000000 / SAMPLE_RATE_HZ;
+static const int FILTER_SAMPLES = 200;
 static const beatLevel_t THRESHOLD = 5;
-
+// BPM == 5000 / 200 * 60 / peaks
+const int MINIMUM_PEAK_INTERVAL = 9;  // 166.67 BPM
+const int MAXIMUM_PEAK_INTERVAL = 18;  // 83.33 BPM
 
 // 20 - 200 hz Single Pole Bandpass IIR Filter
 static float bassFilter(const float sample) {
@@ -26,6 +28,7 @@ static float bassFilter(const float sample) {
   return yv[2];
 }
 
+
 // 10 hz Single Pole Lowpass IIR Filter
 static float envelopeFilter(const float sample) {
   // 10 hz low pass
@@ -36,6 +39,7 @@ static float envelopeFilter(const float sample) {
   yv[1] = (xv[0] + xv[1]) + (0.9875119299f * yv[0]);
   return yv[1];
 }
+
 
 // 1.7 - 3.0hz Single Pole Bandpass IIR Filter
 static float beatFilter(const float sample) {
@@ -49,13 +53,12 @@ static float beatFilter(const float sample) {
 
 
 // TODO: Do I want to convert this to an int, or just return a float?
-static beatLevel_t getBeat() {
+beatLevel_t getBeat() {
   unsigned long time = micros(); // Used to track rate
   float sample, value, envelope;
-  static uint8_t brightnessIndex;
 
   // Every 200 samples (25hz) filter the envelope
-  for (int i = 0; i < 200; ++i) {
+  for (int i = 0; i < FILTER_SAMPLES; ++i) {
     // Read ADC and center so +-512
     sample = static_cast<float>(analogRead(MICROPHONE_ANALOG_PIN)) - 503.f;
 
@@ -68,7 +71,7 @@ static beatLevel_t getBeat() {
     }
     envelope = envelopeFilter(value);
 
-    // Consume excess clock cycles, to keep at 5000 hz
+    // Consume excess clock cycles, to keep at SAMPLE_RATE_HZ hz
     for (unsigned long up = time + SAMPLE_PERIOD_US; time > 20 && time < up; time = micros());
   }
 
@@ -76,17 +79,134 @@ static beatLevel_t getBeat() {
   return static_cast<beatLevel_t>(beatFilter(envelope));
 }
 
+// TODO: Change these to static
+beatLevel_t previousBeat;
+bool increasing = false;
+bool _beatDetected(const beatLevel_t currentBeat) {
+  const int MISSES_BEFORE_RESET = 5;
+  // 107 BPM is a peak interval of 107.14
+  const int DEFAULT_PEAK_INTERVAL = 14;
 
-static void recordBeat() {
-  for (int i = COUNT_OF(previousBeats) - 1; i > 0; --i) {
-    previousBeats[i] = previousBeats[i - 1];
+  static uint8_t peakInterval = DEFAULT_PEAK_INTERVAL;
+  static uint8_t samplesSinceLastPeak = MINIMUM_PEAK_INTERVAL;
+  static uint8_t missedPeaks = MISSES_BEFORE_RESET;
+  static bool lookingForNextPeak = false;
+
+  bool debug = false;
+  const auto now = millis();
+  static uint32_t debugTime = 0;
+  if (Serial.available() > 0) {
+    debugTime = now;
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+    Serial.println("\n\n\n\n");
   }
-  previousBeats[0] = getBeat();
+  if (debugTime + 2000 > now) {
+    debug = true;
+  }
+
+  if (debug) {
+    Serial.print(now);
+    Serial.print(" prev:");
+    Serial.print(previousBeat, DEC);
+    Serial.print(" curr:");
+    Serial.print(currentBeat, DEC);
+    Serial.print(" missed:");
+    Serial.print(missedPeaks, DEC);
+    Serial.print(" interval:");
+    Serial.print(peakInterval, DEC);
+    Serial.print(" sslp:");
+    Serial.print(samplesSinceLastPeak, DEC);
+    Serial.print(" inc:");
+    Serial.print(increasing, DEC);
+    Serial.println();
+  }
+
+  ++samplesSinceLastPeak;
+
+  if (missedPeaks >= MISSES_BEFORE_RESET) {
+    // Missed too many peaks - start over
+    if (increasing && currentBeat < previousBeat && currentBeat >= THRESHOLD) {
+      // Found a peak!
+      if (lookingForNextPeak) {
+        // Great, now we have an interval
+        peakInterval = samplesSinceLastPeak;
+        lookingForNextPeak = false;
+        samplesSinceLastPeak = 0;
+        missedPeaks = 0;
+        if (debug) { Serial.print("Found 2 peaks, interval = "); Serial.println(peakInterval, DEC); }
+        return true;
+      } else if (MINIMUM_PEAK_INTERVAL <= samplesSinceLastPeak && samplesSinceLastPeak <= MAXIMUM_PEAK_INTERVAL) {
+        // Found our first peak
+        peakInterval = samplesSinceLastPeak;
+        lookingForNextPeak = true;
+        samplesSinceLastPeak = 0;
+        if (debug) { Serial.println("Found first peak"); }
+        return true;
+      }
+    } else if (lookingForNextPeak && samplesSinceLastPeak > MAXIMUM_PEAK_INTERVAL) {
+      // Couldn't find another peak, reset
+      lookingForNextPeak = false;
+      samplesSinceLastPeak = 0;
+      if (debug) { Serial.println("No second peak found, resetting"); }
+    }
+    return false;
+  }
+
+  // We only check for peaks when we are in peakInterval += 2
+  if (peakInterval - 2 <= samplesSinceLastPeak && samplesSinceLastPeak <= peakInterval + 3) {
+    if (increasing && currentBeat < previousBeat) {
+      // Found a peak! Adjust the intervals.
+      missedPeaks = 0;
+      if (peakInterval < samplesSinceLastPeak) {
+        ++peakInterval;
+        if (debug) { Serial.print("++peakInterval = "); Serial.println(peakInterval); }
+      } else if (peakInterval > samplesSinceLastPeak) {
+        --peakInterval;
+        if (debug) { Serial.print("--peakInterval = "); Serial.println(peakInterval); }
+      } else {
+        if (debug) { Serial.println("Exact peakInterval"); }
+      }
+      samplesSinceLastPeak = 1;
+      return true;
+    }
+    return false;
+  } else if (samplesSinceLastPeak > peakInterval + 3) {
+    // I guess we missed it
+    if (debug) { Serial.println("Missed it?"); }
+    samplesSinceLastPeak = 4;
+  }
+
+  // If we miss a peak, just pretend we found one
+  if (samplesSinceLastPeak == peakInterval) {
+    if (debug) { Serial.println("Faking it"); }
+    ++missedPeaks;
+    return true;
+  }
+  return false;
 }
-
-
 static bool beatDetected() {
-  return previousBeats[0] >= THRESHOLD && previousBeats[1] >= THRESHOLD;
+  static uint16_t beatsSinceLastDetected = 0;
+
+  const beatLevel_t currentBeat = getBeat();
+  const bool detected = _beatDetected(currentBeat);
+  if (currentBeat > previousBeat) {
+    increasing = true;
+  } else {
+    increasing = false;
+  }
+  previousBeat = currentBeat;
+
+  // _beatDetected will optimistically return true when the predicted interval has
+  // elapsed, even if a new peak hasn't been found. If a new peak is discovered soon
+  // after, it will return true again. Avoid double counting.
+  if (detected && beatsSinceLastDetected >= MINIMUM_PEAK_INTERVAL) {
+    beatsSinceLastDetected = 0;
+    return true;
+  }
+  ++beatsSinceLastDetected;
+  return false;
 }
 
 
@@ -97,13 +217,16 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
   const uint8_t MAX_BRIGHTNESS = 50;
   const uint8_t DROP_OFF = 10;
 
-  recordBeat();
-
   extern bool reset;
   if (reset) {
     brightness = 0;
   }
 
+  // This has to be outside of the if statement, so that we still record beats
+  const bool detected = beatDetected();
+  if (detected) {
+    Serial.println(millis());
+  }
   if (brightness > 0) {
     if (brightness > DROP_OFF) {
       brightness -= DROP_OFF;
@@ -114,7 +237,7 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
       // Toggle lens
       lens ^= 1;
     }
-  } else if (beatDetected()) {
+  } else if (detected) {
     brightness = MAX_BRIGHTNESS;
   }
 
@@ -130,8 +253,6 @@ void rotateGearsToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
   const uint8_t SKIP = 4;
   static_assert(PIXEL_RING_COUNT % SKIP == 0, "SKIP value gives ugly gears");
   const uint8_t BRIGHTNESS = 50;
-
-  recordBeat();
 
   if (beatDetected() && millis() - lastBeatMillis > 200) {
     ++start;
