@@ -1,9 +1,5 @@
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_DotStar.h>
-#ifdef __AVR_ATtiny85__ // Trinket, Gemma, etc.
-#include <avr/power.h>
-#endif
-#include <fix_fft.h>
 
 #include "constants.hpp"
 
@@ -34,9 +30,6 @@ bool reset;  // Indicates that an animation should clear its state
 
 
 void setup() {
-#ifdef __AVR_ATtiny85__  // Trinket, Gemma, etc.
-  if (F_CPU == 16000000) clock_prescale_set(clock_div_1);
-#endif
   pixels.begin();
   pixels.setBrightness(INITIAL_BRIGHTNESS);
   clearLeds(&pixels);

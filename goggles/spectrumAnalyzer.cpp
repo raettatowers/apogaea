@@ -5,6 +5,13 @@
 
 #include "constants.hpp"
 
+// Note: I manually edited the arduinoFFT files so that it uses floats instead
+// of doubles, so that it's faster. You'll need to do that too. Alternatively,
+// you can change this back to double if you don't want to edit library files.
+// With the double version, I get about 13 updates per second; with the float
+// version, I get 66.
+typedef float FftType;
+
 
 // Sample count must be a power of 2. I chose 128 because only half of the values
 // from the FFT correspond to frequencies, and the first 2 are sample averages, so
@@ -13,6 +20,8 @@ static const int SAMPLE_COUNT = 128;
 
 
 void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
+  static int count = 0;
+  static uint32_t start = millis();
   // Most songs have notes in the lower end, so from experimental
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
@@ -22,9 +31,9 @@ void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
   // Change the base hue of low intensity sounds so we can get more colors
   static uint32_t baseHue = 0;
 
-  double vReal[SAMPLE_COUNT];
-  double vImaginary[SAMPLE_COUNT];
-  double sampleAverages[2 * PIXEL_RING_COUNT];
+  FftType vReal[SAMPLE_COUNT];
+  FftType vImaginary[SAMPLE_COUNT];
+  FftType sampleAverages[2 * PIXEL_RING_COUNT];
   const int usableValues = COUNT_OF(vReal) / 2;
   const int stepSize = usableValues / COUNT_OF(sampleAverages);
 
@@ -67,13 +76,13 @@ void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
     // anyway, we just won't do that. I think the visualization looks better. Sorry bass line.
   }
 
-  double max_ = -1;
+  FftType max_ = -1;
   for (auto sa : sampleAverages) {
     max_ = max(max_, sa);
   }
   // Set a default max so that if it's quiet, we're not visualizing random noises
   max_ = max(max_, 400);
-  const double MULTIPLIER = 1.0 / max_;
+  const FftType MULTIPLIER = 1.0 / max_;
   // Clamp them all to 0.0 - 1.0
   for (auto& sa : sampleAverages) {
     sa *= MULTIPLIER;
