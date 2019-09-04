@@ -8,6 +8,7 @@
 
 static void showNumber(Adafruit_NeoPixel* pixels, uint32_t number, const uint32_t color);
 static void copyLens(Adafruit_NeoPixel* pixels, uint8_t rotate = 0);
+static void mirrorLens(Adafruit_NeoPixel* pixels, uint8_t rotate = 0);
 
 void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // Do a binary shift instead of integer division because of speed and code size.
@@ -206,8 +207,8 @@ void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t) {
       c = color;  // 4 pixels on...
     }
     pixels->setPixelColor(i, c);  // First eye
-    pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, c);  // Second eye (flipped)
   }
+  mirrorLens(pixels);
   pixels->show();
   ++offset;
   hue += 20;
@@ -217,7 +218,6 @@ void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t) {
 
 void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
   static uint8_t head1 = 0;
-  static uint8_t head2 = 3;
   static const uint8_t brightness[] = {255, 128, 64, 32, 16, 8, 4, 2, 1};
 
   // I could probably optimize this loop so that I'm not going through the whole ring
@@ -235,18 +235,7 @@ void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
   head1 = (head1 + 1) % PIXEL_RING_COUNT;
 
   // Make the second lens swirl the other direction
-  for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
-    const int8_t difference1 = head2 - i;
-    if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
-      pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels->ColorHSV(hue, 0xFF, brightness[difference1]));
-    } else {
-      const int8_t difference2 = PIXEL_RING_COUNT + difference1;
-      if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
-        pixels->setPixelColor(PIXEL_RING_COUNT * 2 - 1 - i, pixels->ColorHSV(hue, 0xFF, brightness[difference2]));
-      }
-    }
-  }
-  head2 = (head2 + 1) % PIXEL_RING_COUNT;
+  copyLens(pixels, PIXEL_RING_COUNT / 2);
 
   pixels->show();
   delay(50);
@@ -254,9 +243,18 @@ void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
 
 
 void copyLens(Adafruit_NeoPixel* const pixels, const uint8_t rotate) {
-  // I didn't mount the lenses the same, so we need to fiddle a bit to get the mirror effect
+  // I didn't mount the lenses the same, so we need to fiddle a bit to get the copy effect
   const int OFFSET = 2;
   for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
     pixels->setPixelColor((i + rotate + PIXEL_RING_COUNT - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT, pixels->getPixelColor(i));
+  }
+}
+
+
+void mirrorLens(Adafruit_NeoPixel* const pixels, const uint8_t rotate) {
+  // I didn't mount the lenses the same, so we need to fiddle a bit to get the mirror effect
+  const int OFFSET = 2;
+  for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
+    pixels->setPixelColor((PIXEL_RING_COUNT * 2 - i + rotate - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT, pixels->getPixelColor(i));
   }
 }
