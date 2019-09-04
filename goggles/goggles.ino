@@ -93,7 +93,7 @@ void updateButtonState() {
 }
 
 
-void clearLeds(Adafruit_NeoPixel* pixels) {
+static void clearLeds(Adafruit_NeoPixel* pixels) {
   pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
 }
 
@@ -121,18 +121,23 @@ void configureBrightness(const bool buttonPressed) {
 
 typedef void (*animationFunction_t)(Adafruit_NeoPixel* pixels, uint16_t hue);
 
+// Static animations
 void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue);
 void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
+void newtonsCradle(Adafruit_NeoPixel* pixels, uint16_t hue);
+void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
 void ripples(Adafruit_NeoPixel* pixels, uint16_t hue);
 void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue);
 void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t hue);
 void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t hue);
 void swirls(Adafruit_NeoPixel* pixels, uint16_t hue);
+
+// Beat detection animations
 void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 void rotateGearsToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
-const animationFunction_t ANIMATIONS[] = {spinnyWheels, binaryClock, fadingSparks, ripples, shimmer, swirls, nullptr};
+const animationFunction_t ANIMATIONS[] = {spinnyWheels, binaryClock, newtonsCradle, fadingSparks, ripples, shimmer, swirls, nullptr};
 const animationFunction_t SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
 const animationFunction_t FLASH_LENSES[] = {flashLensesToBeat, nullptr};
 const animationFunction_t BEAT_DETECTIONS[] = {rotateGearsToBeat, flashLensesToBeat, nullptr};
