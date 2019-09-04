@@ -133,6 +133,36 @@ void newtonsCradle(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
 }
 
 
+void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t) {
+  static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
+  static uint8_t head = 0;
+  const uint8_t brightness[] = {255, 192, 128, 96, 64, 48, 32, 24, 16, 8, 4, 2, 1};
+
+  // I could probably optimize this loop so that I'm not going through the whole ring
+  for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
+    const int8_t difference1 = head - i;
+    if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
+      const uint16_t adjustedHue = hue + difference1 * 4096;
+      pixels->setPixelColor(i, pixels->ColorHSV(adjustedHue, 0xFF, brightness[difference1]));
+    } else {
+      const int8_t difference2 = PIXEL_RING_COUNT + difference1;
+      if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
+        const uint16_t adjustedHue = hue + difference2 * 64;
+        pixels->setPixelColor(i, pixels->ColorHSV(adjustedHue, 0xFF, brightness[difference2]));
+      }
+    }
+  }
+  head = (head + 1) % PIXEL_RING_COUNT;
+  hue += 1000;
+
+  // Make the second lens swirl the other direction
+  copyLens(pixels, PIXEL_RING_COUNT / 2);
+
+  pixels->show();
+  delay(50);
+}
+
+
 void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // It's possible we might randomly choose the same LED multiple times per lens,
   // so this variable name isn't exactly accurate. I don't care though.
