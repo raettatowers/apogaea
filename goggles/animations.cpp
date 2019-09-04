@@ -37,6 +37,115 @@ static void showNumber(Adafruit_NeoPixel* pixels, uint32_t number, const uint32_
 }
 
 
+void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+  enum class BlinkState {
+    DOWN,
+    UP,
+    BLINKED
+  };
+  static uint8_t target;
+  static uint8_t current;
+  static uint32_t startTime_ms;
+  static BlinkState blinkState;
+  static uint8_t blinkOffset;
+  static uint8_t blinkCount;
+  extern bool reset;
+  const int OFFSET = 4;  // Offset so the blink starts at the top and bottom of the lens
+  const int MOVE_1 = 255;
+  const int MOVE_2 = 254;
+
+  if (reset) {
+    startTime_ms = millis();
+    current = random(PIXEL_RING_COUNT);
+    target = MOVE_1;
+    blinkState = BlinkState::DOWN;
+    blinkOffset = 0;
+    blinkCount = 0;
+    pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
+    pixels->setPixelColor(current, pixels->ColorHSV(hue));
+    copyLens(pixels);
+    pixels->show();
+    reset = false;
+  }
+
+  const uint32_t timeOffset_ms = millis() - startTime_ms;
+  if (timeOffset_ms < 1000) {
+    delay(100);
+    // We return so that the hue can still change
+    return;
+  } else if (timeOffset_ms < 3000) {
+    if (target == MOVE_1) {
+      target = (current + 4 - random(8) + PIXEL_RING_COUNT / 2) % PIXEL_RING_COUNT;
+    }
+    if (target != MOVE_2 && current != target) {
+      pixels->setPixelColor(current, 0);
+      // TODO: Go in the closer direction, or a random direction
+      current = (current + 1) % PIXEL_RING_COUNT;
+      pixels->setPixelColor(current, pixels->ColorHSV(hue));
+      copyLens(pixels);
+      pixels->show();
+    } else {
+      target = MOVE_2;
+    }
+    delay(50);
+  } else if (timeOffset_ms < 5000) {
+    if (target == MOVE_2) {
+      target = (current + 4 - random(8) + PIXEL_RING_COUNT / 2) % PIXEL_RING_COUNT;
+    }
+    if (current != target) {
+      pixels->setPixelColor(current, 0);
+      // TODO: Go in the closer direction, or a random direction
+      current = (current - 1 + PIXEL_RING_COUNT) % PIXEL_RING_COUNT;
+      pixels->setPixelColor(current, pixels->ColorHSV(hue));
+      copyLens(pixels);
+      pixels->show();
+    }
+    delay(50);
+  } else {
+    pixels->fill(0, 0, PIXEL_RING_COUNT);
+    pixels->setPixelColor(target, pixels->ColorHSV(hue));
+    const uint32_t blinkColor = pixels->ColorHSV(hue + 0x7FFF, 0xFF, 0xFF / 4);
+    switch (blinkState) { 
+      case BlinkState::DOWN:
+        for (int i = 0; i < blinkOffset; ++i) {
+          pixels->setPixelColor((i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+        }
+        ++blinkOffset;
+        if (blinkOffset == PIXEL_RING_COUNT / 4) {
+          blinkState = BlinkState::UP;
+        }
+        break;
+      case BlinkState::UP:
+        for (int i = 0; i < blinkOffset; ++i) {
+          pixels->setPixelColor((i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels->setPixelColor((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+        }
+        --blinkOffset;
+        if (blinkOffset == 0) {
+          ++blinkCount;
+          if (blinkCount == 2) {
+            blinkState = BlinkState::BLINKED;
+          } else {
+            blinkState = BlinkState::DOWN;
+          }
+        }
+        break;
+      case BlinkState::BLINKED:
+        break;
+    }
+
+    copyLens(pixels);
+    pixels->show();
+    delay(50);
+  }
+}
+
+
 void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t) {
   // Like random sparks, but they fade in and out
   static bool increasing[2 * PIXEL_RING_COUNT] = {
