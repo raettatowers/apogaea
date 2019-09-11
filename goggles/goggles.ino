@@ -139,7 +139,7 @@ void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 void rotateGearsToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
-const animationFunction_t ANIMATIONS[] = {
+constexpr animationFunction_t ANIMATIONS[] = {
   spinnyWheels,
   binaryClock,
   newtonsCradle,
@@ -151,13 +151,17 @@ const animationFunction_t ANIMATIONS[] = {
   swirls,
   nullptr
 };
-const animationFunction_t SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
-const animationFunction_t FLASH_LENSES[] = {flashLensesToBeat, nullptr};
-const animationFunction_t BEAT_DETECTIONS[] = {rotateGearsToBeat, flashLensesToBeat, nullptr};
-const animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS, SPECTRUM_ANALYZER, FLASH_LENSES, BEAT_DETECTIONS};
+static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
+const constexpr animationFunction_t SPECTRUM_ANALYZER[] = {spectrumAnalyzer, nullptr};
+static_assert(SPECTRUM_ANALYZER[COUNT_OF(SPECTRUM_ANALYZER) - 1] == nullptr, "");
+const constexpr animationFunction_t FLASH_LENSES[] = {flashLensesToBeat, nullptr};
+static_assert(FLASH_LENSES[COUNT_OF(FLASH_LENSES) - 1] == nullptr, "");
+const constexpr animationFunction_t BEAT_DETECTIONS[] = {rotateGearsToBeat, flashLensesToBeat, nullptr};
+static_assert(BEAT_DETECTIONS[COUNT_OF(BEAT_DETECTIONS) - 1] == nullptr, "");
+const constexpr animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS, SPECTRUM_ANALYZER, FLASH_LENSES, BEAT_DETECTIONS};
 // Use this for testing a single animation
-//const animationFunction_t TEST_ANIMATION[] = {lookAround, nullptr};
-//const animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
+//constexpr animationFunction_t TEST_ANIMATION[] = {lookAround, nullptr};
+//constexpr animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
 typedef void (*configurationFunction_t)(bool buttonPressed);
