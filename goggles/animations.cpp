@@ -182,7 +182,7 @@ void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t) {
 
   for (uint8_t i = 0; i < COUNT_OF(increasing); ++i) {
     if (increasing[i]) {
-      if (brightnessIndexes[i] < static_cast<int>(COUNT_OF(rippleBrightnesses))) {
+      if (brightnessIndexes[i] < static_cast<int>(COUNT_OF(rippleBrightnesses)) - 1) {
         ++brightnessIndexes[i];
       } else {
         increasing[i] = false;
