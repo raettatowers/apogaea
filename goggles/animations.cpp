@@ -381,6 +381,122 @@ void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
 }
 
 
+void circularWipe(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+  static uint8_t head = 0;
+  static uint32_t currentColor = 0xFF0000;
+  static uint32_t previousColor = 0x00FF00;
+
+  pixels->fill(currentColor, 0, head);
+  pixels->fill(previousColor, head, PIXEL_RING_COUNT - head);
+  if (head < PIXEL_RING_COUNT) {
+    ++head;
+  } else {
+    head = 0;
+    previousColor = currentColor;
+    currentColor = pixels->ColorHSV(hue);
+  }
+  mirrorLens(pixels);
+  pixels->show();
+  delay(50);
+}
+
+
+void pacMan(Adafruit_NeoPixel* const pixels, uint16_t) {
+  enum class PacManState {
+    RUNNING,
+    CHASING_BLUE,
+    CHASING_WHITE,
+  };
+  const uint8_t powerPillPosition = PIXEL_RING_COUNT - 1;
+  const uint32_t yellow = 0xFFFF00;
+  const uint32_t white = 0xFFFFFF;
+  const uint32_t blue = 0x0000FF;
+  const uint32_t ghostColors[4] = {0xFF0000, 0xFFB8FF, 0x00FFFF, 0xFFB852};
+
+  static PacManState state = PacManState::RUNNING;
+  static uint8_t pacManPosition = 9;
+  static uint8_t ghostPosition = pacManPosition - 2;
+  static bool ghostAlive[COUNT_OF(ghostColors)];
+
+  extern bool reset;
+  if (reset) {
+    state = PacManState::RUNNING;
+    pacManPosition = 9;
+    ghostPosition = pacManPosition - 2;
+    for (auto &ga : ghostAlive) {
+      ga = true;
+    }
+  }
+
+  // Redraw
+  pixels->fill(0, 0, PIXEL_RING_COUNT);
+  if (state == PacManState::RUNNING) {
+    pixels->setPixelColor(powerPillPosition, white);
+  }
+  for (uint8_t i = 0; i < COUNT_OF(ghostColors); ++i) {
+    if (ghostAlive[i]) {
+      uint32_t ghostColor;
+      switch (state) {
+        case PacManState::RUNNING:
+          ghostColor = ghostColors[i];
+          break;
+        case PacManState::CHASING_WHITE:
+          ghostColor = white;
+          break;
+        case PacManState::CHASING_BLUE:
+          ghostColor = blue;
+          break;
+         default:
+          // Do this just to appease a compiler error about uninitialized use.
+          // This shouldn't happen.
+          ghostColor = ghostColors[i];
+          break;
+      }
+      const uint8_t ghostPosition = ghostPosition - (i * 2);
+      pixels->setPixelColor(pacManPosition, ghostColor);
+    }
+  }
+  // Draw Pac-Man last, in case he's on top of something
+  pixels->setPixelColor(pacManPosition, yellow);
+
+  mirrorLens(pixels);
+  pixels->show();
+  delay(100);
+
+  switch (state) {
+    case PacManState::RUNNING:
+      if (pacManPosition == powerPillPosition) {
+        state = PacManState::CHASING_BLUE;
+      } else {
+        ++pacManPosition;
+        ++ghostPosition;
+      }
+      break;
+    case PacManState::CHASING_BLUE:
+      --pacManPosition;
+      for (uint8_t i = 0; i < COUNT_OF(ghostColors); ++i) {
+        const uint8_t thisGhost = ghostPosition - (i * 2);
+        if (pacManPosition == thisGhost) {
+          ghostAlive[i] = false;
+          break;
+        }
+      }
+      state = PacManState::CHASING_BLUE;
+      break;
+    case PacManState::CHASING_WHITE:
+      --pacManPosition;
+      --ghostPosition;
+      state = PacManState::CHASING_WHITE;
+      break;
+  }
+  // Once we enter the CHASING states, we never leave (until reset) so just
+  // have Pac-Man spin in circles
+  if (pacManPosition > PIXEL_RING_COUNT) {
+    pacManPosition = PIXEL_RING_COUNT - 1;
+  }
+}
+
+
 void copyLens(Adafruit_NeoPixel* const pixels, const uint8_t rotate) {
   // I didn't mount the lenses the same, so we need to fiddle a bit to get the copy effect
   const int OFFSET = 2;

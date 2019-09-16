@@ -123,9 +123,11 @@ typedef void (*animationFunction_t)(Adafruit_NeoPixel* pixels, uint16_t hue);
 
 // Static animations
 void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue);
+void circularWipe(Adafruit_NeoPixel* pixels, uint16_t hue);
 void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
 void lookAround(Adafruit_NeoPixel* pixels, uint16_t hue);
 void newtonsCradle(Adafruit_NeoPixel* pixels, uint16_t hue);
+void pacMan(Adafruit_NeoPixel* pixels, uint16_t hue);
 void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t hue);
 void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
 void ripples(Adafruit_NeoPixel* pixels, uint16_t hue);
@@ -147,8 +149,10 @@ constexpr animationFunction_t ANIMATIONS[] = {
   fadingSparks,
   lookAround,
   ripples,
+  circularWipe,
   shimmer,
   swirls,
+  pacMan,
   nullptr
 };
 static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
