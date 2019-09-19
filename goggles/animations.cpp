@@ -15,7 +15,7 @@ void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // It's a little less precise, but who cares.
   // Show 1/4 seconds instead of full seconds because it's more interesting. It
   // updates a lot faster and the other lens lights up faster.
-  uint32_t now = millis() >> 8;
+  auto now = millis() >> 8;
   const uint32_t color = pixels->ColorHSV(hue);
   showNumber(pixels, now, color);
   delay(100);
@@ -45,7 +45,7 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
   };
   static uint8_t target;
   static uint8_t current;
-  static uint32_t startTime_ms;
+  static decltype(millis()) startTime_ms;
   static BlinkState blinkState;
   static uint8_t blinkOffset;
   static uint8_t blinkCount;
@@ -68,7 +68,7 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     reset = false;
   }
 
-  const uint32_t timeOffset_ms = millis() - startTime_ms;
+  const auto timeOffset_ms = millis() - startTime_ms;
   if (timeOffset_ms < 1000) {
     delay(100);
     // We return so that the hue can still change

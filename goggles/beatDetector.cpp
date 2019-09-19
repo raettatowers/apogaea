@@ -54,7 +54,7 @@ static float beatFilter(const float sample) {
 
 // TODO: Do I want to convert this to an int, or just return a float?
 beatLevel_t getBeat() {
-  unsigned long time = micros(); // Used to track rate
+  auto time = micros(); // Used to track rate
   float sample, value, envelope;
 
   // Every 200 samples (25hz) filter the envelope
@@ -72,7 +72,7 @@ beatLevel_t getBeat() {
     envelope = envelopeFilter(value);
 
     // Consume excess clock cycles, to keep at SAMPLE_RATE_HZ hz
-    for (unsigned long up = time + SAMPLE_PERIOD_US; time > 20 && time < up; time = micros());
+    for (auto up = time + SAMPLE_PERIOD_US; time > 20 && time < up; time = micros());
   }
 
   // Filter out repeating bass sounds 100 - 180bpm

@@ -201,12 +201,12 @@ void loop() {
     CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
     // Do a regular animation
-    const uint32_t startAnimation_ms = millis();
+    const auto startAnimation_ms = millis();
     const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
     animations[mode](&pixels, hue);
 
     // Update the color
-    const uint32_t now_ms = millis();
+    const auto now_ms = millis();
     // We want to complete a full hue color cycle about every X seconds
     const int hueCycle_ms = 20000;
     const int hueCycleLimit = 65535;

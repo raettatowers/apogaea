@@ -20,8 +20,6 @@ static const int SAMPLE_COUNT = 128;
 
 
 void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
-  static int count = 0;
-  static uint32_t start = millis();
   // Most songs have notes in the lower end, so from experimental
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
@@ -41,13 +39,12 @@ void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
 
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
     // TODO: Do we need to worry about overflow?
-    const uint32_t before = micros();
+    const auto before = micros();
 
     vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
     vImaginary[i] = 0;
 
-    const uint32_t target_us = before + samplingPeriod_us;
-    const uint32_t now = micros();
+    const auto now = micros();
     // I don't know if this is better than a busy wait loop or not
     delayMicroseconds(before + samplingPeriod_us - now);
   }
