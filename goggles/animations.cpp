@@ -1,43 +1,43 @@
 /** Simpler animations go here */
 
-#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include <cstdint>
+#include <FastLED.h>
 
 #include "constants.hpp"
 
-static void showNumber(Adafruit_NeoPixel* pixels, uint32_t number, const uint32_t color);
-static void copyLens(Adafruit_NeoPixel* pixels, uint8_t rotate = 0);
-static void mirrorLens(Adafruit_NeoPixel* pixels, uint8_t rotate = 0);
+static void showNumber(CRGB pixels[], uint32_t number, const CHSV& color);
+static void copyLens(CRGB pixels[], uint8_t rotate = 0);
+static void mirrorLens(CRGB pixels[], uint8_t rotate = 0);
 
-void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue) {
+void binaryClock(CRGB pixels[], uint16_t hue) {
   // Do a binary shift instead of integer division because of speed and code size.
   // It's a little less precise, but who cares.
   // Show 1/4 seconds instead of full seconds because it's more interesting. It
   // updates a lot faster and the other lens lights up faster.
   auto now = millis() >> 8;
-  const uint32_t color = pixels->ColorHSV(hue);
+  const CHSV color(hue, 0xFF, 0xFF);
   showNumber(pixels, now, color);
   delay(100);
 }
 
 
-static void showNumber(Adafruit_NeoPixel* pixels, uint32_t number, const uint32_t color) {
+static void showNumber(CRGB pixels[], uint32_t number, const CHSV& color) {
   uint8_t counter = 0;
   while (number > 0) {
     if (number & 1) {
-      pixels->setPixelColor(counter, color);
+      pixels[counter] = color;
     } else {
-      pixels->setPixelColor(counter, 0);
+      pixels[counter] = CRGB::Black;
     }
     number >>= 1;
     counter += 2;
   }
-  pixels->show();
+  FastLED.show();
 }
 
 
-void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+void lookAround(CRGB pixels[], const uint16_t hue) {
   enum class BlinkState {
     DOWN,
     UP,
@@ -61,10 +61,10 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     blinkState = BlinkState::DOWN;
     blinkOffset = 0;
     blinkCount = 0;
-    pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
-    pixels->setPixelColor(current, pixels->ColorHSV(hue));
+    fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
+    pixels[current] = CHSV(hue, 0xFF, 0xFF);
     copyLens(pixels);
-    pixels->show();
+    FastLED.show();
     reset = false;
   }
 
@@ -78,12 +78,12 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
       target = (current + 4 - random(8) + PIXEL_RING_COUNT / 2) % PIXEL_RING_COUNT;
     }
     if (target != MOVE_2 && current != target) {
-      pixels->setPixelColor(current, 0);
+      pixels[current] = CRGB::Black;
       // TODO: Go in the closer direction, or a random direction
       current = (current + 1) % PIXEL_RING_COUNT;
-      pixels->setPixelColor(current, pixels->ColorHSV(hue));
+      pixels[current] = CHSV(hue, 0xFF, 0xFF);
       copyLens(pixels);
-      pixels->show();
+      FastLED.show();
     } else {
       target = MOVE_2;
     }
@@ -93,25 +93,25 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
       target = (current + 4 - random(8) + PIXEL_RING_COUNT / 2) % PIXEL_RING_COUNT;
     }
     if (current != target) {
-      pixels->setPixelColor(current, 0);
+      pixels[current] = CRGB::Black;
       // TODO: Go in the closer direction, or a random direction
       current = (current - 1 + PIXEL_RING_COUNT) % PIXEL_RING_COUNT;
-      pixels->setPixelColor(current, pixels->ColorHSV(hue));
+      pixels[current] = CHSV(hue, 0xFF, 0xFF);
       copyLens(pixels);
-      pixels->show();
+      FastLED.show();
     }
     delay(50);
   } else {
-    pixels->fill(0, 0, PIXEL_RING_COUNT);
-    pixels->setPixelColor(target, pixels->ColorHSV(hue));
-    const uint32_t blinkColor = pixels->ColorHSV(hue + 0x7FFF, 0xFF, 0xFF / 4);
+    fill_solid(&pixels[0], PIXEL_RING_COUNT, CRGB::Black);
+    pixels[target] = CHSV(hue, 0xFF, 0xFF);
+    const auto blinkColor = CHSV(hue + 0x7FFF, 0xFF, 0xFF / 4);
     switch (blinkState) { 
       case BlinkState::DOWN:
         for (int i = 0; i < blinkOffset; ++i) {
-          pixels->setPixelColor((i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels[(i + OFFSET) % PIXEL_RING_COUNT] = blinkColor;
+          pixels[((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
+          pixels[((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
+          pixels[((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
         }
         ++blinkOffset;
         if (blinkOffset == PIXEL_RING_COUNT / 4) {
@@ -120,10 +120,10 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
         break;
       case BlinkState::UP:
         for (int i = 0; i < blinkOffset; ++i) {
-          pixels->setPixelColor((i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
-          pixels->setPixelColor((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT, blinkColor);
+          pixels[((i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
+          pixels[((PIXEL_RING_COUNT / 2 - i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
+          pixels[((PIXEL_RING_COUNT / 2 + i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
+          pixels[((PIXEL_RING_COUNT - i + OFFSET) % PIXEL_RING_COUNT)] = blinkColor;
         }
         --blinkOffset;
         if (blinkOffset == 0) {
@@ -140,13 +140,13 @@ void lookAround(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     }
 
     copyLens(pixels);
-    pixels->show();
+    FastLED.show();
     delay(50);
   }
 }
 
 
-void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t) {
+void fadingSparks(CRGB pixels[], uint16_t) {
   // Like random sparks, but they fade in and out
   static bool increasing[2 * PIXEL_RING_COUNT] = {
     false, false, false, false, false, false, false, false,
@@ -187,25 +187,25 @@ void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t) {
       } else {
         increasing[i] = false;
       }
-      pixels->setPixelColor(i, pixels->ColorHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]));
+      pixels[i] = CHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
     } else {
       if (brightnessIndexes[i] > 0) {
         --brightnessIndexes[i];
-        pixels->setPixelColor(i, pixels->ColorHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]));
+        pixels[i] = CHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
       }
     }
   }
   delay(50);
-  pixels->show();
+  FastLED.show();
 }
 
 
-void newtonsCradle(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+void newtonsCradle(CRGB pixels[], const uint16_t hue) {
   static int8_t swingPosition = 0;
   static int8_t velocity = 7;
 
-  const uint32_t color = pixels->ColorHSV(hue);
-  const uint32_t cradleColor = pixels->ColorHSV(hue + 0x7FFF);
+  const auto color = CHSV(hue, 0xFF, 0xFF);
+  const auto cradleColor = CHSV(hue + 0x7FFF, 0xFF, 0xFF);
   const uint8_t center = 4;
   const uint8_t left = center - 1;
   const uint8_t right = center + 1;
@@ -227,22 +227,22 @@ void newtonsCradle(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
   movingLed = (movingLed + PIXEL_RING_COUNT) % PIXEL_RING_COUNT;
 
   // Draw the 3 cradle pixels
-  pixels->setPixelColor(left, cradleColor);
-  pixels->setPixelColor(center, cradleColor);
-  pixels->setPixelColor(right, cradleColor);
-  pixels->setPixelColor(staticLed, cradleColor);
+  pixels[left] = cradleColor;
+  pixels[center] = cradleColor;
+  pixels[right] = cradleColor;
+  pixels[staticLed] = cradleColor;
   // Draw the moving pixels
-  pixels->setPixelColor(movingLed, color);
+  pixels[movingLed] = color;
 
   copyLens(pixels);
-  pixels->show();
+  FastLED.show();
   delay(100);
 
-  pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
+  fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
 }
 
 
-void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t) {
+void rainbowSwirls(CRGB pixels[], uint16_t) {
   static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t head = 0;
   const uint8_t brightness[] = {255, 192, 128, 96, 64, 48, 32, 24, 16, 8, 4, 2, 1};
@@ -252,12 +252,12 @@ void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t) {
     const int8_t difference1 = head - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
       const uint16_t adjustedHue = hue + difference1 * 4096;
-      pixels->setPixelColor(i, pixels->ColorHSV(adjustedHue, 0xFF, brightness[difference1]));
+      pixels[i] = CHSV(adjustedHue, 0xFF, brightness[difference1]);
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
         const uint16_t adjustedHue = hue + difference2 * 64;
-        pixels->setPixelColor(i, pixels->ColorHSV(adjustedHue, 0xFF, brightness[difference2]));
+        pixels[i] = CHSV(adjustedHue, 0xFF, brightness[difference2]);
       }
     }
   }
@@ -267,36 +267,36 @@ void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t) {
   // Make the second lens swirl the other direction
   copyLens(pixels, PIXEL_RING_COUNT / 2);
 
-  pixels->show();
+  FastLED.show();
   delay(50);
 }
 
 
-void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue) {
+void randomSparks(CRGB pixels[], uint16_t hue) {
   // It's possible we might randomly choose the same LED multiple times per lens,
   // so this variable name isn't exactly accurate. I don't care though.
   const int LEDS_PER_LENS = 2;
 
   int used[2 * LEDS_PER_LENS] = {0};
-  const uint32_t color = pixels->ColorHSV(hue);
+  const auto color = CHSV(hue, 0xFF, 0xFF);
   for (int i = 0; i < LEDS_PER_LENS; ++i) {
     const uint8_t led1 = random(PIXEL_RING_COUNT);
-    pixels->setPixelColor(led1, color);
+    pixels[led1] = color;
     used[i] = led1;
     const uint8_t led2 = random(PIXEL_RING_COUNT) + PIXEL_RING_COUNT;
-    pixels->setPixelColor(led2, color);
+    pixels[led2] = color;
     used[i + LEDS_PER_LENS] = led2;
   }
-  pixels->show();
+  FastLED.show();
   delay(50);
   // And clear them
   for (int led : used) {
-    pixels->setPixelColor(led, 0);
+    pixels[led] = CRGB::Black;
   }
 }
 
 
-void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue) {
+void shimmer(CRGB pixels[], uint16_t hue) {
   // Start above 0 so that each light should be on a bit
   static const uint8_t brightness[] = {4, 8, 16, 32, 64, 128};
   static uint8_t values[PIXEL_RING_COUNT * 2] = {
@@ -328,34 +328,34 @@ void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue) {
   }
 
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[values[i]]));
+    pixels[i] = CHSV(hue, 0xFF, brightness[values[i]]);
   }
-  pixels->show();
+  FastLED.show();
   delay(50);
 }
 
 
-void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t) {
+void spinnyWheels(CRGB pixels[], uint16_t) {
   static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t offset = 0;  // Position of spinny eyes
 
-  const uint32_t color = pixels->ColorHSV(hue);
+  const auto color = CHSV(hue, 0xFF, 0xFF);
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
-    uint32_t c = 0;
+    CRGB c = CRGB::Black;
     if (((offset + i) & 0b111) < 2) {
       c = color;  // 4 pixels on...
     }
-    pixels->setPixelColor(i, c);  // First eye
+    pixels[i] = c;  // First eye
   }
   mirrorLens(pixels);
-  pixels->show();
+  FastLED.show();
   ++offset;
   hue += 20;
   delay(50);
 }
 
 
-void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
+void swirls(CRGB pixels[], uint16_t hue) {
   static uint8_t head1 = 0;
   static const uint8_t brightness[] = {255, 128, 64, 32, 16, 8, 4, 2, 1};
 
@@ -363,11 +363,11 @@ void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     const int8_t difference1 = head1 - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
-      pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[difference1]));
+      pixels[i] = CHSV(hue, 0xFF, brightness[difference1]);
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
-        pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness[difference2]));
+        pixels[i] = CHSV(hue, 0xFF, brightness[difference2]);
       }
     }
   }
@@ -376,41 +376,41 @@ void swirls(Adafruit_NeoPixel* pixels, uint16_t hue) {
   // Make the second lens swirl the other direction
   copyLens(pixels, PIXEL_RING_COUNT / 2);
 
-  pixels->show();
+  FastLED.show();
   delay(50);
 }
 
 
-void circularWipe(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+void circularWipe(CRGB pixels[], const uint16_t hue) {
   static uint8_t head = 0;
-  static uint32_t currentColor = 0xFF0000;
-  static uint32_t previousColor = 0x00FF00;
+  static CRGB currentColor = CRGB(0xFF0000);
+  static CRGB previousColor = CRGB(0x00FF00);
 
-  pixels->fill(currentColor, 0, head);
-  pixels->fill(previousColor, head, PIXEL_RING_COUNT - head);
+  fill_solid(&pixels[0], head, currentColor);
+  fill_solid(&pixels[head], PIXEL_RING_COUNT - head, previousColor);
   if (head < PIXEL_RING_COUNT) {
     ++head;
   } else {
     head = 0;
     previousColor = currentColor;
-    currentColor = pixels->ColorHSV(hue);
+    currentColor = CHSV(hue, 0xFF, 0xFF);
   }
   mirrorLens(pixels);
-  pixels->show();
+  FastLED.show();
   delay(50);
 }
 
 
-void pacMan(Adafruit_NeoPixel* const pixels, uint16_t) {
+void pacMan(CRGB pixels[], uint16_t) {
   enum class PacManState {
     RUNNING,
     CHASING_BLUE,
     CHASING_WHITE,
   };
   const uint8_t powerPillPosition = PIXEL_RING_COUNT - 1;
-  const uint32_t yellow = 0xFFFF00;
-  const uint32_t white = 0xFFFFFF;
-  const uint32_t blue = 0x0000FF;
+  const auto yellow = 0xFFFF00;
+  const auto white = 0xFFFFFF;
+  const auto blue = 0x0000FF;
   const uint32_t ghostColors[4] = {0xFF0000, 0xFFB8FF, 0x00FFFF, 0xFFB852};
 
   static PacManState state = PacManState::RUNNING;
@@ -429,9 +429,9 @@ void pacMan(Adafruit_NeoPixel* const pixels, uint16_t) {
   }
 
   // Redraw
-  pixels->fill(0, 0, PIXEL_RING_COUNT);
+  fill_solid(&pixels[0], PIXEL_RING_COUNT, CRGB::Black);
   if (state == PacManState::RUNNING) {
-    pixels->setPixelColor(powerPillPosition, white);
+    pixels[powerPillPosition] = white;
   }
   for (uint8_t i = 0; i < COUNT_OF(ghostColors); ++i) {
     if (ghostAlive[i]) {
@@ -453,14 +453,14 @@ void pacMan(Adafruit_NeoPixel* const pixels, uint16_t) {
           break;
       }
       const uint8_t ghostPosition = ghostPosition - (i * 2);
-      pixels->setPixelColor(pacManPosition, ghostColor);
+      pixels[pacManPosition] = ghostColor;
     }
   }
   // Draw Pac-Man last, in case he's on top of something
-  pixels->setPixelColor(pacManPosition, yellow);
+  pixels[pacManPosition] = yellow;
 
   mirrorLens(pixels);
-  pixels->show();
+  FastLED.show();
   delay(100);
 
   switch (state) {
@@ -497,19 +497,19 @@ void pacMan(Adafruit_NeoPixel* const pixels, uint16_t) {
 }
 
 
-void copyLens(Adafruit_NeoPixel* const pixels, const uint8_t rotate) {
+void copyLens(CRGB pixels[], const uint8_t rotate) {
   // I didn't mount the lenses the same, so we need to fiddle a bit to get the copy effect
   const int OFFSET = 2;
   for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
-    pixels->setPixelColor((i + rotate + PIXEL_RING_COUNT - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT, pixels->getPixelColor(i));
+    pixels[((i + rotate + PIXEL_RING_COUNT - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT)] = pixels[i];
   }
 }
 
 
-void mirrorLens(Adafruit_NeoPixel* const pixels, const uint8_t rotate) {
+void mirrorLens(CRGB pixels[], const uint8_t rotate) {
   // I didn't mount the lenses the same, so we need to fiddle a bit to get the mirror effect
   const int OFFSET = 2;
   for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
-    pixels->setPixelColor((PIXEL_RING_COUNT * 2 - i + rotate - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT, pixels->getPixelColor(i));
+    pixels[((PIXEL_RING_COUNT * 2 - i + rotate - OFFSET) % PIXEL_RING_COUNT + PIXEL_RING_COUNT)] = pixels[i];
   }
 }

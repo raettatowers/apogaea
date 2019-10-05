@@ -1,4 +1,4 @@
-#include <Adafruit_NeoPixel.h>
+#include <FastLED.h>
 #include <Adafruit_DotStar.h>
 
 #include "constants.hpp"
@@ -24,16 +24,16 @@ static ButtonState_t buttonState = ButtonState_t::UP;
 static bool buttonDown = false;
 
 static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
-static Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXEL_RING_COUNT * 2, NEOPIXELS_PIN);
+static CRGB pixels[PIXEL_RING_COUNT * 2];
 static uint16_t hue = 0;  // Start red
 bool reset;  // Indicates that an animation should clear its state
 
 
 void setup() {
-  pixels.begin();
-  pixels.setBrightness(INITIAL_BRIGHTNESS);
-  clearLeds(&pixels);
-  pixels.show();
+  FastLED.addLeds<NEOPIXEL, NEOPIXELS_PIN>(pixels, PIXEL_RING_COUNT * 2);
+  FastLED.setBrightness(INITIAL_BRIGHTNESS);
+  clearLeds(pixels);
+  FastLED.show();
 
   internalPixel.begin();
   // Just shut it off
@@ -93,8 +93,8 @@ void updateButtonState() {
 }
 
 
-static void clearLeds(Adafruit_NeoPixel* pixels) {
-  pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
+static void clearLeds(CRGB pixels[]) {
+  fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
 }
 
 
@@ -111,34 +111,34 @@ void configureBrightness(const bool buttonPressed) {
     }
   }
 
-  pixels.setBrightness(BRIGHTNESSES[brightnessIndex]);
+  FastLED.setBrightness(BRIGHTNESSES[brightnessIndex]);
   // Turn on an LED for each brightness
-  pixels.fill(0x700000, 0, brightnessIndex + 1);
-  pixels.fill(0, brightnessIndex + 1, PIXEL_RING_COUNT * 2 - brightnessIndex);
-  pixels.show();
+  fill_solid(&pixels[0], brightnessIndex + 1, CRGB(0x700000));
+  fill_solid(&pixels[brightnessIndex + 1], PIXEL_RING_COUNT * 2 - brightnessIndex, CRGB::Black);
+  FastLED.show();
 }
 
 
-typedef void (*animationFunction_t)(Adafruit_NeoPixel* pixels, uint16_t hue);
+typedef void (*animationFunction_t)(CRGB pixels[], uint16_t hue);
 
 // Static animations
-void binaryClock(Adafruit_NeoPixel* pixels, uint16_t hue);
-void circularWipe(Adafruit_NeoPixel* pixels, uint16_t hue);
-void fadingSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
-void lookAround(Adafruit_NeoPixel* pixels, uint16_t hue);
-void newtonsCradle(Adafruit_NeoPixel* pixels, uint16_t hue);
-void pacMan(Adafruit_NeoPixel* pixels, uint16_t hue);
-void rainbowSwirls(Adafruit_NeoPixel* pixels, uint16_t hue);
-void randomSparks(Adafruit_NeoPixel* pixels, uint16_t hue);
-void ripples(Adafruit_NeoPixel* pixels, uint16_t hue);
-void shimmer(Adafruit_NeoPixel* pixels, uint16_t hue);
-void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t hue);
-void spinnyWheels(Adafruit_NeoPixel* pixels, uint16_t hue);
-void swirls(Adafruit_NeoPixel* pixels, uint16_t hue);
+void binaryClock(CRGB pixels[], uint16_t hue);
+void circularWipe(CRGB pixels[], uint16_t hue);
+void fadingSparks(CRGB pixels[], uint16_t hue);
+void lookAround(CRGB pixels[], uint16_t hue);
+void newtonsCradle(CRGB pixels[], uint16_t hue);
+void pacMan(CRGB pixels[], uint16_t hue);
+void rainbowSwirls(CRGB pixels[], uint16_t hue);
+void randomSparks(CRGB pixels[], uint16_t hue);
+void ripples(CRGB pixels[], uint16_t hue);
+void shimmer(CRGB pixels[], uint16_t hue);
+void spectrumAnalyzer(CRGB pixels[], uint16_t hue);
+void spinnyWheels(CRGB pixels[], uint16_t hue);
+void swirls(CRGB pixels[], uint16_t hue);
 
 // Beat detection animations
-void flashLensesToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
-void rotateGearsToBeat(Adafruit_NeoPixel* pixels, uint16_t hue);
+void flashLensesToBeat(CRGB pixels[], uint16_t hue);
+void rotateGearsToBeat(CRGB pixels[], uint16_t hue);
 
 // Each animationFunction_t[] should end in nullptr
 constexpr animationFunction_t ANIMATIONS[] = {
@@ -194,7 +194,7 @@ void loop() {
     if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
       configurationsIndex = 0;
     }
-    clearLeds(&pixels);
+    clearLeds(pixels);
   }
 
   if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
@@ -203,7 +203,7 @@ void loop() {
     // Do a regular animation
     const auto startAnimation_ms = millis();
     const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
-    animations[mode](&pixels, hue);
+    animations[mode](pixels, hue);
 
     // Update the color
     const auto now_ms = millis();
@@ -217,7 +217,7 @@ void loop() {
       if (animations[mode] == nullptr) {
         mode = 0;
       }
-      clearLeds(&pixels);
+      clearLeds(pixels);
       reset = true;
       modeStartTime_ms = now_ms;
     } else {

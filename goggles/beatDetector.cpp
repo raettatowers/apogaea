@@ -1,8 +1,8 @@
 // Arduino Beat Detector originally Damian Peckett 2015
 // License: Public Domain.
 
-#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
+#include <FastLED.h>
 
 #include "constants.hpp"
 
@@ -210,7 +210,7 @@ static bool beatDetected() {
 }
 
 
-void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+void flashLensesToBeat(CRGB pixels[], const uint16_t hue) {
   // Flash the left lens, then the right
   static uint8_t lens = 0;
   static uint8_t brightness = 0;
@@ -233,7 +233,7 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     } else {
       brightness = 0;
       // Shut off that lens
-      pixels->fill(0, lens * PIXEL_RING_COUNT, PIXEL_RING_COUNT);
+      fill_solid(&pixels[lens * PIXEL_RING_COUNT], PIXEL_RING_COUNT, CRGB::Black);
       // Toggle lens
       lens ^= 1;
     }
@@ -241,13 +241,13 @@ void flashLensesToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     brightness = MAX_BRIGHTNESS;
   }
 
-  const uint32_t color = pixels->ColorHSV(hue, 0xFF, brightness);
-  pixels->fill(color, lens * PIXEL_RING_COUNT, PIXEL_RING_COUNT);
-  pixels->show();
+  const auto color = CHSV(hue, 0xFF, brightness);
+  fill_solid(&pixels[lens * PIXEL_RING_COUNT], PIXEL_RING_COUNT, color);
+  FastLED.show();
 }
 
 
-void rotateGearsToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
+void rotateGearsToBeat(CRGB pixels[], const uint16_t hue) {
   static uint8_t start = 0;
   static uint32_t lastBeatMillis = 0;
   const uint8_t SKIP = 4;
@@ -262,14 +262,14 @@ void rotateGearsToBeat(Adafruit_NeoPixel* const pixels, const uint16_t hue) {
     lastBeatMillis = millis();
   }
 
-  pixels->fill(0, 0, PIXEL_RING_COUNT * 2);
-  const uint32_t color = pixels->ColorHSV(hue, 0xFF, BRIGHTNESS);
+  fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
+  const auto color = CHSV(hue, 0xFF, BRIGHTNESS);
   for (int i = start; i < PIXEL_RING_COUNT; i += SKIP) {
-    pixels->setPixelColor(i, color);
+    pixels[i] = color;
   }
   // The second lens moves the opposite direction
   for (int i = PIXEL_RING_COUNT * 2 - start; i >= PIXEL_RING_COUNT; i -= SKIP) {
-    pixels->setPixelColor(i, color);
+    pixels[i] = color;
   }
-  pixels->show();
+  FastLED.show();
 }

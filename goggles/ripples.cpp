@@ -1,6 +1,6 @@
-#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include <cstdint>
+#include <FastLED.h>
 
 #include "constants.hpp"
 
@@ -19,11 +19,11 @@ static const int INITIAL_DELAY = 3;
 static const int RIPPLE_DELAY = 3;
 static const int LENS_MAX_RANDOM_DELAY = 5;
 
-static void ripple(int lens, int i, Adafruit_NeoPixel* pixels, uint16_t hue);
+static void ripple(int lens, int i, CRGB pixels[], uint16_t hue);
 static void resetLens(int lens);
 
 
-void ripples(Adafruit_NeoPixel* pixels, uint16_t hue) {
+void ripples(CRGB pixels[], uint16_t hue) {
   static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * DROP_OFF, "");
 
   extern bool reset;
@@ -58,12 +58,12 @@ void ripples(Adafruit_NeoPixel* pixels, uint16_t hue) {
     }
   }
 
-  pixels->show();
+  FastLED.show();
   delay(100);
 }
 
 
-void ripple(const int lens, const int i, Adafruit_NeoPixel* pixels, const uint16_t hue) {
+void ripple(const int lens, const int i, CRGB pixels[], const uint16_t hue) {
   // Each pixel operates independently without looking at its neighbors,
   // increasing up to some max brightness then turning around and decreasing to
   // 0 and then increasing again. Each time max is reached, the max is
@@ -104,7 +104,7 @@ void ripple(const int lens, const int i, Adafruit_NeoPixel* pixels, const uint16
     --delays[lens][i];
   }
 
-  pixels->setPixelColor(lens * PIXEL_RING_COUNT + i, pixels->ColorHSV(hue, 0xFF, brightnesses[lens][i]));
+  pixels[lens * PIXEL_RING_COUNT + i] = CHSV(hue, 0xFF, brightnesses[lens][i]);
 }
 
 

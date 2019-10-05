@@ -1,7 +1,7 @@
-#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include <arduinoFFT.h>
 #include <cstdint>
+#include <FastLED.h>
 
 #include "constants.hpp"
 
@@ -19,7 +19,7 @@ typedef float FftType;
 static const int SAMPLE_COUNT = 128;
 
 
-void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
+void spectrumAnalyzer(CRGB pixels[], uint16_t) {
   // Most songs have notes in the lower end, so from experimental
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
@@ -102,8 +102,8 @@ void spectrumAnalyzer(Adafruit_NeoPixel* pixels, uint16_t) {
     if (brightness < CUTOFF) {
       brightness = 0;
     }
-    pixels->setPixelColor(i, pixels->ColorHSV(hue, 0xFF, brightness));
+    pixels[i] = CHSV(hue, 0xFF, brightness);
   }
 
-  pixels->show();
+  FastLED.show();
 }
