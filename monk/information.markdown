@@ -20,11 +20,12 @@ Reflective Materials
 
 Double acrylic 50% VLT gives 9 reflections, very clean.
 
-80% VLT film gives maybe 12-14 reflections but there are so many bubbles on the
-surface that it is not clean at all. Supposedly they're from the water spray and
-will work their way out in time?
+80% VLT film gives maybe 12-14 reflections, but I can't see through it at all.
 
 Wiring
 ------
 
-LEDs take 5V. VCC: red, ground: white, data: green.
+LEDs take 5V.
+VCC: red
+ground: white
+data: green
