@@ -29,3 +29,7 @@ LEDs take 5V.
 VCC: red
 ground: white
 data: green
+
+D0: LED strip
+D3/A3: microphone
+D2: button
