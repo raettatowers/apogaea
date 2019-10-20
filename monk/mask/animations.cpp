@@ -184,3 +184,93 @@ void shimmer(const uint8_t hue) {
   FastLED.show();
   delay(20);
 }
+
+
+void pacMan(uint8_t) {
+  enum class PacManState {
+    RUNNING,
+    CHASING_BLUE,
+    CHASING_WHITE,
+  };
+  const uint8_t powerPillPosition = LED_COUNT - 1;
+  const CRGB::HTMLColorCode ghostColors[4] = {CRGB::Red, CRGB::Orange, CRGB::Pink, CRGB::Teal};
+
+  static PacManState state = PacManState::RUNNING;
+  static uint8_t pacManPosition = 20;
+  static uint8_t ghostPosition = pacManPosition - 5;
+  static bool ghostAlive[COUNT_OF(ghostColors)];
+
+  extern bool reset;
+  if (reset) {
+    reset = false;
+    state = PacManState::RUNNING;
+    pacManPosition = 20;
+    ghostPosition = pacManPosition - 5;
+    for (auto &ga : ghostAlive) {
+      ga = true;
+    }
+  }
+
+  // Redraw
+  fill_solid(&leds[0], LED_COUNT, CRGB::Black);
+  if (state == PacManState::RUNNING) {
+    leds[powerPillPosition] = CRGB::White;
+  }
+  for (uint8_t i = 0; i < COUNT_OF(ghostColors); ++i) {
+    if (ghostAlive[i]) {
+      auto ghostColor = CRGB::Black;
+      switch (state) {
+        case PacManState::RUNNING:
+          ghostColor = ghostColors[i];
+          break;
+        case PacManState::CHASING_WHITE:
+          ghostColor = CRGB::White;
+          break;
+        case PacManState::CHASING_BLUE:
+          ghostColor = CRGB::Blue;
+          break;
+      }
+      const uint8_t position = ghostPosition - (i * 2);
+      if (position > 0) {
+        leds[position] = ghostColor;
+      }
+    }
+  }
+  // Draw Pac-Man last, in case he's on top of something
+  leds[pacManPosition] = CRGB::Yellow;
+
+  FastLED.show();
+  delay(150);
+
+  switch (state) {
+    case PacManState::RUNNING:
+      if (pacManPosition == powerPillPosition) {
+        state = PacManState::CHASING_BLUE;
+      } else {
+        ++pacManPosition;
+        ++ghostPosition;
+      }
+      break;
+    case PacManState::CHASING_BLUE:
+      --pacManPosition;
+      for (uint8_t i = 0; i < COUNT_OF(ghostColors); ++i) {
+        const uint8_t thisGhost = ghostPosition - (i * 2);
+        if (pacManPosition == thisGhost) {
+          ghostAlive[i] = false;
+          break;
+        }
+      }
+      state = PacManState::CHASING_WHITE;
+      break;
+    case PacManState::CHASING_WHITE:
+      --pacManPosition;
+      --ghostPosition;
+      state = PacManState::CHASING_BLUE;
+      break;
+  }
+  // Once we enter the CHASING states, we never leave (until reset) so just
+  // have Pac-Man spin in circles
+  if (pacManPosition > LED_COUNT) {
+    pacManPosition = LED_COUNT - 1;
+  }
+}

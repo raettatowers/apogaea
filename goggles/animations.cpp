@@ -453,7 +453,7 @@ void pacMan(CRGB pixels[], uint16_t) {
           break;
       }
       const uint8_t ghostPosition = ghostPosition - (i * 2);
-      pixels[pacManPosition] = ghostColor;
+      pixels[ghostPosition] = ghostColor;
     }
   }
   // Draw Pac-Man last, in case he's on top of something

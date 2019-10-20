@@ -11,7 +11,7 @@ static const int INITIAL_BRIGHTNESS = 100;
 static const int MODE_TIME_MS = 8000;
 static const int MILLIS_PER_HUE = 100;
 
-// Function declarations
+// Function declarationsgh
 void setButtonDownState();
 
 // State machine for button presses
@@ -31,7 +31,7 @@ static ButtonState_t buttonState = ButtonState_t::UP;
 static bool buttonDown = false;
 
 // Non-static global variables
-bool reset;  // Indicates that an animation should clear its state
+bool reset = true;  // Indicates that an animation should clear its state
 CRGB leds[LED_COUNT];
 
 
@@ -78,6 +78,7 @@ ANIM(binaryClock);
 ANIM(breathe);
 ANIM(circularWipe);
 ANIM(fadingSparks);
+ANIM(pacMan);
 ANIM(rainbowSwirl);
 ANIM(shimmer);
 
@@ -88,6 +89,7 @@ constexpr animationFunction_t ANIMATIONS[] = {
   //binaryClock,
   circularWipe,
   fadingSparks,
+  //pacMan,
   rainbowSwirl,
   shimmer,
   nullptr
@@ -96,7 +98,7 @@ constexpr animationFunction_t ANIMATIONS[] = {
 static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
 const constexpr animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS};
 // Use this for testing a single animation
-//constexpr animationFunction_t TEST_ANIMATION[] = {circularWipe, nullptr};
+//constexpr animationFunction_t TEST_ANIMATION[] = {pacMan, nullptr};
 //const constexpr animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
