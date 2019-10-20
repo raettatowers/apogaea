@@ -24,9 +24,13 @@ static ButtonState_t buttonState = ButtonState_t::UP;
 static bool buttonDown = false;
 
 static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
-static CRGB pixels[PIXEL_RING_COUNT * 2];
-static uint16_t hue = 0;  // Start red
+// Start the hue red. The Adafruit library expected a 16-bit hue, but FastLED
+// expects an 8-bit hue. To keep a smooth transition, I'll track it using
+// 16-but but convert to 8 it when I need to.
+static uint16_t hue = 0;
+
 bool reset;  // Indicates that an animation should clear its state
+CRGB pixels[PIXEL_RING_COUNT * 2];
 
 
 void setup() {
@@ -119,26 +123,27 @@ void configureBrightness(const bool buttonPressed) {
 }
 
 
-typedef void (*animationFunction_t)(CRGB pixels[], uint16_t hue);
+typedef void (*animationFunction_t)(uint8_t hue);
 
 // Static animations
-void binaryClock(CRGB pixels[], uint16_t hue);
-void circularWipe(CRGB pixels[], uint16_t hue);
-void fadingSparks(CRGB pixels[], uint16_t hue);
-void lookAround(CRGB pixels[], uint16_t hue);
-void newtonsCradle(CRGB pixels[], uint16_t hue);
-void pacMan(CRGB pixels[], uint16_t hue);
-void rainbowSwirls(CRGB pixels[], uint16_t hue);
-void randomSparks(CRGB pixels[], uint16_t hue);
-void ripples(CRGB pixels[], uint16_t hue);
-void shimmer(CRGB pixels[], uint16_t hue);
-void spectrumAnalyzer(CRGB pixels[], uint16_t hue);
-void spinnyWheels(CRGB pixels[], uint16_t hue);
-void swirls(CRGB pixels[], uint16_t hue);
+#define ANIM(name) void name(uint8_t hue)
+ANIM(binaryClock);
+ANIM(circularWipe);
+ANIM(fadingSparks);
+ANIM(lookAround);
+ANIM(newtonsCradle);
+ANIM(pacMan);
+ANIM(rainbowSwirls);
+ANIM(randomSparks);
+ANIM(ripples);
+ANIM(shimmer);
+ANIM(spectrumAnalyzer);
+ANIM(spinnyWheels);
+ANIM(swirls);
 
 // Beat detection animations
-void flashLensesToBeat(CRGB pixels[], uint16_t hue);
-void rotateGearsToBeat(CRGB pixels[], uint16_t hue);
+ANIM(flashLensesToBeat);
+ANIM(rotateGearsToBeat);
 
 // Each animationFunction_t[] should end in nullptr
 constexpr animationFunction_t ANIMATIONS[] = {
@@ -203,13 +208,15 @@ void loop() {
     // Do a regular animation
     const auto startAnimation_ms = millis();
     const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
-    animations[mode](pixels, hue);
+    // To keep the transitions smooth, we track hue using a 16-bit number, but
+    // FastLED expects an 8-bit hue, so convert
+    animations[mode](hue >> 8);
 
     // Update the color
     const auto now_ms = millis();
     // We want to complete a full hue color cycle about every X seconds
     const int hueCycle_ms = 20000;
-    const int hueCycleLimit = 65535;
+    const int hueCycleLimit = 0xFFFF;
     hue += (now_ms - startAnimation_ms) * hueCycleLimit / hueCycle_ms;
 
     if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {

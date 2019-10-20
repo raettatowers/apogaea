@@ -19,11 +19,13 @@ static const int INITIAL_DELAY = 3;
 static const int RIPPLE_DELAY = 3;
 static const int LENS_MAX_RANDOM_DELAY = 5;
 
-static void ripple(int lens, int i, CRGB pixels[], uint16_t hue);
+static void ripple(int lens, int i, uint8_t hue);
 static void resetLens(int lens);
 
+extern CRGB pixels[2 * PIXEL_RING_COUNT];
 
-void ripples(CRGB pixels[], uint16_t hue) {
+
+void ripples(uint8_t hue) {
   static_assert(MAX_BRIGHTNESS > COUNT_OF(brightnesses) / 2 * DROP_OFF, "");
 
   extern bool reset;
@@ -54,7 +56,7 @@ void ripples(CRGB pixels[], uint16_t hue) {
 
     // Update the drops
     for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
-      ripple(lens, i, pixels, hue);
+      ripple(lens, i, hue);
     }
   }
 
@@ -63,7 +65,7 @@ void ripples(CRGB pixels[], uint16_t hue) {
 }
 
 
-void ripple(const int lens, const int i, CRGB pixels[], const uint16_t hue) {
+void ripple(const int lens, const int i, const uint8_t hue) {
   // Each pixel operates independently without looking at its neighbors,
   // increasing up to some max brightness then turning around and decreasing to
   // 0 and then increasing again. Each time max is reached, the max is

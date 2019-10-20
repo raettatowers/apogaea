@@ -6,23 +6,25 @@
 
 #include "constants.hpp"
 
-static void showNumber(CRGB pixels[], uint32_t number, const CHSV& color);
-static void copyLens(CRGB pixels[], uint8_t rotate = 0);
-static void mirrorLens(CRGB pixels[], uint8_t rotate = 0);
+extern CRGB pixels[2 * PIXEL_RING_COUNT];
 
-void binaryClock(CRGB pixels[], uint16_t hue) {
+static void showNumber(uint32_t number, const CHSV& color);
+static void copyLens(uint8_t rotate = 0);
+static void mirrorLens(uint8_t rotate = 0);
+
+void binaryClock(uint8_t hue) {
   // Do a binary shift instead of integer division because of speed and code size.
   // It's a little less precise, but who cares.
   // Show 1/4 seconds instead of full seconds because it's more interesting. It
   // updates a lot faster and the other lens lights up faster.
   auto now = millis() >> 8;
   const CHSV color(hue, 0xFF, 0xFF);
-  showNumber(pixels, now, color);
+  showNumber(now, color);
   delay(100);
 }
 
 
-static void showNumber(CRGB pixels[], uint32_t number, const CHSV& color) {
+static void showNumber(uint32_t number, const CHSV& color) {
   uint8_t counter = 0;
   while (number > 0) {
     if (number & 1) {
@@ -37,7 +39,7 @@ static void showNumber(CRGB pixels[], uint32_t number, const CHSV& color) {
 }
 
 
-void lookAround(CRGB pixels[], const uint16_t hue) {
+void lookAround(const uint8_t hue) {
   enum class BlinkState {
     DOWN,
     UP,
@@ -63,7 +65,7 @@ void lookAround(CRGB pixels[], const uint16_t hue) {
     blinkCount = 0;
     fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
     pixels[current] = CHSV(hue, 0xFF, 0xFF);
-    copyLens(pixels);
+    copyLens();
     FastLED.show();
     reset = false;
   }
@@ -82,7 +84,7 @@ void lookAround(CRGB pixels[], const uint16_t hue) {
       // TODO: Go in the closer direction, or a random direction
       current = (current + 1) % PIXEL_RING_COUNT;
       pixels[current] = CHSV(hue, 0xFF, 0xFF);
-      copyLens(pixels);
+      copyLens();
       FastLED.show();
     } else {
       target = MOVE_2;
@@ -97,7 +99,7 @@ void lookAround(CRGB pixels[], const uint16_t hue) {
       // TODO: Go in the closer direction, or a random direction
       current = (current - 1 + PIXEL_RING_COUNT) % PIXEL_RING_COUNT;
       pixels[current] = CHSV(hue, 0xFF, 0xFF);
-      copyLens(pixels);
+      copyLens();
       FastLED.show();
     }
     delay(50);
@@ -139,14 +141,14 @@ void lookAround(CRGB pixels[], const uint16_t hue) {
         break;
     }
 
-    copyLens(pixels);
+    copyLens();
     FastLED.show();
     delay(50);
   }
 }
 
 
-void fadingSparks(CRGB pixels[], uint16_t) {
+void fadingSparks(uint8_t) {
   // Like random sparks, but they fade in and out
   static bool increasing[2 * PIXEL_RING_COUNT] = {
     false, false, false, false, false, false, false, false,
@@ -200,7 +202,7 @@ void fadingSparks(CRGB pixels[], uint16_t) {
 }
 
 
-void newtonsCradle(CRGB pixels[], const uint16_t hue) {
+void newtonsCradle(const uint8_t hue) {
   static int8_t swingPosition = 0;
   static int8_t velocity = 7;
 
@@ -234,7 +236,7 @@ void newtonsCradle(CRGB pixels[], const uint16_t hue) {
   // Draw the moving pixels
   pixels[movingLed] = color;
 
-  copyLens(pixels);
+  copyLens();
   FastLED.show();
   delay(100);
 
@@ -242,7 +244,7 @@ void newtonsCradle(CRGB pixels[], const uint16_t hue) {
 }
 
 
-void rainbowSwirls(CRGB pixels[], uint16_t) {
+void rainbowSwirls(uint8_t) {
   static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t head = 0;
   const uint8_t brightness[] = {255, 192, 128, 96, 64, 48, 32, 24, 16, 8, 4, 2, 1};
@@ -265,14 +267,14 @@ void rainbowSwirls(CRGB pixels[], uint16_t) {
   hue += 1000;
 
   // Make the second lens swirl the other direction
-  copyLens(pixels, PIXEL_RING_COUNT / 2);
+  copyLens(PIXEL_RING_COUNT / 2);
 
   FastLED.show();
   delay(50);
 }
 
 
-void randomSparks(CRGB pixels[], uint16_t hue) {
+void randomSparks(uint8_t hue) {
   // It's possible we might randomly choose the same LED multiple times per lens,
   // so this variable name isn't exactly accurate. I don't care though.
   const int LEDS_PER_LENS = 2;
@@ -296,7 +298,7 @@ void randomSparks(CRGB pixels[], uint16_t hue) {
 }
 
 
-void shimmer(CRGB pixels[], uint16_t hue) {
+void shimmer(uint8_t hue) {
   // Start above 0 so that each light should be on a bit
   static const uint8_t brightness[] = {4, 8, 16, 32, 64, 128};
   static uint8_t values[PIXEL_RING_COUNT * 2] = {
@@ -335,7 +337,7 @@ void shimmer(CRGB pixels[], uint16_t hue) {
 }
 
 
-void spinnyWheels(CRGB pixels[], uint16_t) {
+void spinnyWheels(uint8_t) {
   static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t offset = 0;  // Position of spinny eyes
 
@@ -347,7 +349,7 @@ void spinnyWheels(CRGB pixels[], uint16_t) {
     }
     pixels[i] = c;  // First eye
   }
-  mirrorLens(pixels);
+  mirrorLens();
   FastLED.show();
   ++offset;
   hue += 20;
@@ -355,7 +357,7 @@ void spinnyWheels(CRGB pixels[], uint16_t) {
 }
 
 
-void swirls(CRGB pixels[], uint16_t hue) {
+void swirls(uint8_t hue) {
   static uint8_t head1 = 0;
   static const uint8_t brightness[] = {255, 128, 64, 32, 16, 8, 4, 2, 1};
 
@@ -374,14 +376,14 @@ void swirls(CRGB pixels[], uint16_t hue) {
   head1 = (head1 + 1) % PIXEL_RING_COUNT;
 
   // Make the second lens swirl the other direction
-  copyLens(pixels, PIXEL_RING_COUNT / 2);
+  copyLens(PIXEL_RING_COUNT / 2);
 
   FastLED.show();
   delay(50);
 }
 
 
-void circularWipe(CRGB pixels[], const uint16_t hue) {
+void circularWipe(const uint8_t hue) {
   static uint8_t head = 0;
   static CRGB currentColor = CRGB(0xFF0000);
   static CRGB previousColor = CRGB(0x00FF00);
@@ -395,13 +397,13 @@ void circularWipe(CRGB pixels[], const uint16_t hue) {
     previousColor = currentColor;
     currentColor = CHSV(hue, 0xFF, 0xFF);
   }
-  mirrorLens(pixels);
+  mirrorLens();
   FastLED.show();
   delay(50);
 }
 
 
-void pacMan(CRGB pixels[], uint16_t) {
+void pacMan(uint8_t) {
   enum class PacManState {
     RUNNING,
     CHASING_BLUE,
@@ -459,7 +461,7 @@ void pacMan(CRGB pixels[], uint16_t) {
   // Draw Pac-Man last, in case he's on top of something
   pixels[pacManPosition] = yellow;
 
-  mirrorLens(pixels);
+  mirrorLens();
   FastLED.show();
   delay(100);
 
@@ -497,7 +499,7 @@ void pacMan(CRGB pixels[], uint16_t) {
 }
 
 
-void copyLens(CRGB pixels[], const uint8_t rotate) {
+void copyLens(const uint8_t rotate) {
   // I didn't mount the lenses the same, so we need to fiddle a bit to get the copy effect
   const int OFFSET = 2;
   for (int i = 0; i < PIXEL_RING_COUNT; ++i) {
@@ -506,7 +508,7 @@ void copyLens(CRGB pixels[], const uint8_t rotate) {
 }
 
 
-void mirrorLens(CRGB pixels[], const uint8_t rotate) {
+void mirrorLens(const uint8_t rotate) {
   // I didn't mount the lenses the same, so we need to fiddle a bit to get the mirror effect
   const int OFFSET = 2;
   for (int i = 0; i < PIXEL_RING_COUNT; ++i) {

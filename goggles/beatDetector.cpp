@@ -17,6 +17,8 @@ static const beatLevel_t THRESHOLD = 5;
 const int MINIMUM_PEAK_INTERVAL = 9;  // 166.67 BPM
 const int MAXIMUM_PEAK_INTERVAL = 18;  // 83.33 BPM
 
+extern CRGB pixels[2 * PIXEL_RING_COUNT];
+
 // 20 - 200 hz Single Pole Bandpass IIR Filter
 static float bassFilter(const float sample) {
   static float xv[3] = {0, 0, 0}, yv[3] = {0, 0, 0};
@@ -210,7 +212,7 @@ static bool beatDetected() {
 }
 
 
-void flashLensesToBeat(CRGB pixels[], const uint16_t hue) {
+void flashLensesToBeat(const uint8_t hue) {
   // Flash the left lens, then the right
   static uint8_t lens = 0;
   static uint8_t brightness = 0;
@@ -247,7 +249,7 @@ void flashLensesToBeat(CRGB pixels[], const uint16_t hue) {
 }
 
 
-void rotateGearsToBeat(CRGB pixels[], const uint16_t hue) {
+void rotateGearsToBeat(const uint8_t hue) {
   static uint8_t start = 0;
   static uint32_t lastBeatMillis = 0;
   const uint8_t SKIP = 4;

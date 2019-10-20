@@ -18,8 +18,10 @@ typedef float FftType;
 // I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
 static const int SAMPLE_COUNT = 128;
 
+extern CRGB pixels[2 * PIXEL_RING_COUNT];
 
-void spectrumAnalyzer(CRGB pixels[], uint16_t) {
+
+void spectrumAnalyzer(uint8_t) {
   // Most songs have notes in the lower end, so from experimental
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
