@@ -3,17 +3,34 @@
 
 #include "constants.hpp"
 
+// Constants
 static const int LED_PIN = 2;
 static const int BUTTON_PIN = 3;
 static const int ONBOARD_LED_PIN = 13;
+static const int INITIAL_BRIGHTNESS = 20;
+static const int MODE_TIME_MS = 8000;
 
-static CRGB leds[LED_COUNT];
+// State machine for button presses
+enum class ButtonState_t {
+  UP,
+  DEBOUNCE_DOWN,
+  DOWN,
+  LONG_BUTTON_PRESS,
+  BUTTON_PRESS,
+  AFTER_BUTTON_PRESS,
+};
+
+CRGB leds[LED_COUNT];
 static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
+
+void setButtonDownState();
 
 
 void setup() {
+  Serial.begin(9600);
+
   FastLED.addLeds<WS2812B, LED_PIN>(leds, LED_COUNT);
-  FastLED.setBrightness(1.0 * 255);
+  FastLED.setBrightness(0.25 * 255);
 
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
@@ -22,190 +39,174 @@ void setup() {
   digitalWrite(BUTTON_PIN, HIGH);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
 
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), setButtonDownState, CHANGE);
+
   internalPixel.begin();
   internalPixel.setBrightness(5);
-  // Blink it for a few seconds, so that if I screw something up,
-  // I can still upload code for a little bit
-  uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
-  for (int i = 0; i < 3; ++i) {
-    for (auto color : colors) {
-      internalPixel.setPixelColor(0, color);
-      internalPixel.show();
-      delay(250);
+  // Pause if the button is pressed so that if I mess something up,
+  // I can still upload code and recover
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
+    for (int i = 0; i < 10; ++i) {
+      for (auto color : colors) {
+        internalPixel.setPixelColor(0, color);
+        internalPixel.show();
+        delay(250);
+      }
     }
   }
   // Just shut off the internal pixel
   internalPixel.setPixelColor(0, 0);
   internalPixel.show();
-  delay(250);
-
-  Serial.begin(9600);
 }
 
+
+typedef void (*animationFunction_t)(uint8_t hue);
+
+// Static animations
+void breathe(uint8_t hue);
+void rainbowSwirl(uint8_t hue);
+
+
+// Each animationFunction_t[] should end in nullptr
+constexpr animationFunction_t ANIMATIONS[] = {
+  breathe,
+  rainbowSwirl,
+  nullptr
+};
+
+static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
+const constexpr animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS};
+// Use this for testing a single animation
+//constexpr animationFunction_t TEST_ANIMATION[] = {rainbowSwirl, nullptr};
+//const constexpr animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
+
+
+typedef void (*configurationFunction_t)(bool buttonPressed);
+const constexpr configurationFunction_t CONFIGURATION_FUNCTIONS[] = {configureBrightness, nullptr};
+static_assert(CONFIGURATION_FUNCTIONS[COUNT_OF(CONFIGURATION_FUNCTIONS) - 1] == nullptr, "");
+
+
+
+bool reset;  // Indicates that an animation should clear its state
+static const int MIN_MILLIS_PER_HUE = 100;
+static uint8_t hue = 0;
+static decltype(millis()) buttonDownTime = 0;
+static ButtonState_t buttonState = ButtonState_t::UP;
+static bool buttonDown = false;
 
 void loop() {
-  while (true) {
-    uint8_t hue = 0;
-    setBrightnessOnSound();
-    ++hue;
+  if (millis() > 20000 && millis() < 21000) {
+    FastLED.setBrightness(25);
   }
-}
+  static auto modeStartTime_ms = millis();
+  static uint8_t mode = 0;  // Current animation effect
+  static uint8_t animationsIndex = 0;
+  static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
 
-
-void showLedOnButtonPress() {
-  if (digitalRead(BUTTON_PIN) == HIGH) {
-    digitalWrite(ONBOARD_LED_PIN, LOW);
-  } else {
-    digitalWrite(ONBOARD_LED_PIN, HIGH);
-  }
-  delay(50);
-}
-
-
-void setBrightnessOnSound() {
-  const int SAMPLE_RATE = 16000;
-  const int MICROS_PER_SAMPLE = 1000000 / SAMPLE_RATE;
-
-  static uint32_t baseLineAverage = 0;
-
-  // First get a baseline
-  if (baseLineAverage == 0) {
-    const int BASE_SAMPLE_COUNT = 128;
-    for (int i = 0; i < BASE_SAMPLE_COUNT; ++i) {
-      const auto start = micros();
-      const auto microphoneValue = analogRead(MICROPHONE_ANALOG_PIN);
-      baseLineAverage += microphoneValue;
-      Serial.print(microphoneValue, DEC);
-      Serial.print(" ");
-      Serial.println();
-      while (micros() < start + MICROS_PER_SAMPLE);
-    }
-    baseLineAverage /= BASE_SAMPLE_COUNT;
-  }
-
-  const int SAMPLE_COUNT = 32;
-  uint32_t sum = 0;
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    const auto start = micros();
-    sum += analogRead(MICROPHONE_ANALOG_PIN);
-    while (micros() < start + MICROS_PER_SAMPLE);
-  }
-  sum /= SAMPLE_COUNT;
-  const int16_t brightness = baseLineAverage - sum * 1.2;
-  const uint8_t constrainedBrightness = brightness >= 0 ? (brightness <= 255 ? brightness : 255) : 0;
-  internalPixel.setBrightness(255);
-  internalPixel.setPixelColor(0, internalPixel.ColorHSV(0, 0xFF, constrainedBrightness));
-  internalPixel.show();
-  delay(50);
-}
-
-
-void oneAtATime(const uint8_t hue) {
-  static uint8_t led = 9;
-
-  if (Serial.available() > 0) {
-    char arr[5];
-    Serial.readBytesUntil('\n', arr, COUNT_OF(arr) - 1);
-    while (Serial.available() > 0) {
-      Serial.read();
-    }
-    arr[COUNT_OF(arr) - 1] = '\0';
-    led = min(atoi(arr), LED_COUNT);
-  }
-
-  FastLED.clear();
-  leds[led] = CRGB::White;
-  FastLED.show();
-  delay(10);
-}
-
-
-void oneAtATimeCycle(const uint8_t hue) {
-  static uint8_t led = 0;
-  static bool rainbow = true;
-  static uint32_t colorCodes[] = {0x0000FF, 0x00FF00, 0x00FFFF, 0xFF0000, 0xFF00FF, 0xFFFF00, 0xFFFFFF};
-  static uint8_t colorIndex = 0;
-  static typeof(millis()) colorTime_ms;
-
-  const typeof(millis()) colorTimeout_ms = 3 * 1000;
-  const typeof(millis()) rainbowTimeout_ms = 8 * 1000;
-
-  if (Serial.available() > 0) {
-    char arr[5];
-    Serial.readBytesUntil('\n', arr, COUNT_OF(arr) - 1);
-    while (Serial.available() > 0) {
-      Serial.read();
-    }
-    arr[COUNT_OF(arr) - 1] = '\0';
-    led = min(atoi(arr), LED_COUNT);
-  }
-
-  FastLED.clear();
-  if (rainbow) {
-    leds[led] = CHSV(hue, 0xFF, 0xFF);
-
-    if (millis() - colorTime_ms > rainbowTimeout_ms) {
-      colorTime_ms = millis();
-      rainbow = false;
-    }
-  } else {
-    leds[led] = CRGB(colorCodes[colorIndex]);
-
-    if (millis() - colorTime_ms > colorTimeout_ms) {
-      colorTime_ms = millis();
-      ++colorIndex;
-      if (colorIndex >= COUNT_OF(colorCodes)) {
-        colorIndex = 0;
-        rainbow = true;
+  setButtonDownState();
+  updateButtonState();
+  if (buttonState == ButtonState_t::BUTTON_PRESS) {
+    // If we're not configuring, go to the next animation set
+    if (CONFIGURATION_FUNCTIONS[configurationsIndex] == nullptr) {
+      ++animationsIndex;
+      if (animationsIndex == COUNT_OF(ANIMATIONS_LIST)) {
+        animationsIndex = 0;
       }
+      mode = 0;
     }
-  }
-  FastLED.show();
-  delay(10);
-}
-
-
-void rainbowRipple(const uint8_t hue) {
-  const uint8_t rippleLength = 4;
-  const uint8_t brightness[rippleLength] = {30, 60, 120, 240};
-  static uint8_t rippleStart = 0;
-
-  FastLED.clear();
-  for (uint8_t i = 0; i < rippleLength; ++i) {
-    const int index = (rippleStart + i) % LED_COUNT;
-    const int rippleHue = hue + i;
-    leds[index].setHSV(rippleHue, 0xFF, brightness[i]);
-  }
-  FastLED.show();
-  delay(40);
-  rippleStart = (rippleStart + 1) % LED_COUNT;
-}
-
-
-void breathe(const uint8_t hue) {
-  static uint8_t brightness = 1;
-  static decltype(millis()) zeroTimeout_ms = 0;
-  static uint8_t step = 1;
-
-  const decltype(millis()) zeroPauseTime_ms = 1000;
-
-  FastLED.clear();
-  if (zeroTimeout_ms > 0) {
-    if (millis() > zeroTimeout_ms) {
-      zeroTimeout_ms = 0;
+  } else if (buttonState == ButtonState_t::LONG_BUTTON_PRESS) {
+    ++configurationsIndex;
+    if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
+      configurationsIndex = 0;
     }
+    fill_solid(&leds[0], LED_COUNT, CRGB::Black);
+  }
+
+  if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
+    CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
-    brightness += step;
-    if (brightness == 255) {
-      step = -1;
-    } else if (brightness == 0) {
-      step = 1;
-      zeroTimeout_ms = millis() + zeroPauseTime_ms;
-    }
-    for (auto& value : leds) {
-      value.setHSV(hue, 0xFF, brightness);
+    // Do a regular animation
+    const auto startAnimation_ms = millis();
+    const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
+    animations[mode](hue);
+
+    // Update the color
+    const auto now_ms = millis();
+    hue += (now_ms - startAnimation_ms) / MIN_MILLIS_PER_HUE + 1;
+
+    if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
+      ++mode;
+      if (animations[mode] == nullptr) {
+        mode = 0;
+      }
+      fill_solid(&leds[0], LED_COUNT, CRGB::Black);
+      reset = true;  // Animation functions need to clear reset (if they care)
+      modeStartTime_ms = now_ms;
     }
   }
+}
+
+
+void setButtonDownState() {
+  buttonDown = (digitalRead(BUTTON_PIN) == LOW);
+}
+
+
+void updateButtonState() {
+  const auto now = millis();
+  switch (buttonState) {
+    case ButtonState_t::UP:
+      if (buttonDown) {
+        buttonState = ButtonState_t::DEBOUNCE_DOWN;
+        buttonDownTime = millis();
+      }
+      break;
+    case ButtonState_t::DEBOUNCE_DOWN:
+      if (buttonDown && now - buttonDownTime > 20) {
+        buttonState = ButtonState_t::DOWN;
+      } else if (!buttonDown) {
+        buttonState = ButtonState_t::UP;
+      }
+      break;
+    case ButtonState_t::DOWN:
+      if (now - buttonDownTime > 500) {
+        buttonState = ButtonState_t::LONG_BUTTON_PRESS;
+      } else if (!buttonDown) {
+        buttonState = ButtonState_t::BUTTON_PRESS;
+      }
+      break;
+    case ButtonState_t::LONG_BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::BUTTON_PRESS:
+      buttonState = ButtonState_t::AFTER_BUTTON_PRESS;
+      break;
+    case ButtonState_t::AFTER_BUTTON_PRESS:
+      if (!buttonDown) {
+        buttonState = ButtonState_t::UP;
+      }
+      break;
+  }
+}
+
+
+void configureBrightness(const bool buttonPressed) {
+  constexpr uint8_t BRIGHTNESSES[] = {5, 10, 15, 20, 40, 60, 100, 150, 200};
+  const uint8_t INITIAL_INDEX = 3;
+  static_assert(INITIAL_BRIGHTNESS == BRIGHTNESSES[INITIAL_INDEX], "");
+  static uint8_t brightnessIndex = INITIAL_INDEX;
+
+  if (buttonPressed) {
+    ++brightnessIndex;
+    if (brightnessIndex == COUNT_OF(BRIGHTNESSES)) {
+      brightnessIndex = 0;
+    }
+  }
+
+  FastLED.setBrightness(BRIGHTNESSES[brightnessIndex]);
+  // Turn on an LED for each brightness
+  fill_solid(&leds[0], brightnessIndex + 1, CRGB(0x700000));
+  fill_solid(&leds[brightnessIndex + 1], LED_COUNT - brightnessIndex, CRGB::Black);
   FastLED.show();
-  delay(10);
 }
