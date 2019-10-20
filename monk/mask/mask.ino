@@ -7,8 +7,12 @@
 static const int LED_PIN = 2;
 static const int BUTTON_PIN = 3;
 static const int ONBOARD_LED_PIN = 13;
-static const int INITIAL_BRIGHTNESS = 20;
+static const int INITIAL_BRIGHTNESS = 100;
 static const int MODE_TIME_MS = 8000;
+static const int MILLIS_PER_HUE = 100;
+
+// Function declarations
+void setButtonDownState();
 
 // State machine for button presses
 enum class ButtonState_t {
@@ -20,10 +24,15 @@ enum class ButtonState_t {
   AFTER_BUTTON_PRESS,
 };
 
-CRGB leds[LED_COUNT];
+// Static global variables
 static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
+static decltype(millis()) buttonDownTime = 0;
+static ButtonState_t buttonState = ButtonState_t::UP;
+static bool buttonDown = false;
 
-void setButtonDownState();
+// Non-static global variables
+bool reset;  // Indicates that an animation should clear its state
+CRGB leds[LED_COUNT];
 
 
 void setup() {
@@ -31,6 +40,7 @@ void setup() {
 
   FastLED.addLeds<WS2812B, LED_PIN>(leds, LED_COUNT);
   FastLED.setBrightness(0.25 * 255);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 1000);
 
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
@@ -62,23 +72,31 @@ void setup() {
 
 
 typedef void (*animationFunction_t)(uint8_t hue);
-
 // Static animations
-void breathe(uint8_t hue);
-void rainbowSwirl(uint8_t hue);
+#define ANIM(name) void name(uint8_t hue)
+ANIM(binaryClock);
+ANIM(breathe);
+ANIM(circularWipe);
+ANIM(fadingSparks);
+ANIM(rainbowSwirl);
+ANIM(shimmer);
 
 
 // Each animationFunction_t[] should end in nullptr
 constexpr animationFunction_t ANIMATIONS[] = {
   breathe,
+  //binaryClock,
+  circularWipe,
+  fadingSparks,
   rainbowSwirl,
+  shimmer,
   nullptr
 };
 
 static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
 const constexpr animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS};
 // Use this for testing a single animation
-//constexpr animationFunction_t TEST_ANIMATION[] = {rainbowSwirl, nullptr};
+//constexpr animationFunction_t TEST_ANIMATION[] = {circularWipe, nullptr};
 //const constexpr animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
 
 
@@ -87,22 +105,13 @@ const constexpr configurationFunction_t CONFIGURATION_FUNCTIONS[] = {configureBr
 static_assert(CONFIGURATION_FUNCTIONS[COUNT_OF(CONFIGURATION_FUNCTIONS) - 1] == nullptr, "");
 
 
-
-bool reset;  // Indicates that an animation should clear its state
-static const int MIN_MILLIS_PER_HUE = 100;
-static uint8_t hue = 0;
-static decltype(millis()) buttonDownTime = 0;
-static ButtonState_t buttonState = ButtonState_t::UP;
-static bool buttonDown = false;
-
 void loop() {
-  if (millis() > 20000 && millis() < 21000) {
-    FastLED.setBrightness(25);
-  }
   static auto modeStartTime_ms = millis();
   static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
   static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
+  static uint8_t hue = 0;
+  static auto hueChangeTime_ms = millis();
 
   setButtonDownState();
   updateButtonState();
@@ -127,14 +136,17 @@ void loop() {
     CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
     // Do a regular animation
-    const auto startAnimation_ms = millis();
     const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
     animations[mode](hue);
 
     // Update the color
     const auto now_ms = millis();
-    hue += (now_ms - startAnimation_ms) / MIN_MILLIS_PER_HUE + 1;
+    if (now_ms >= hueChangeTime_ms + MILLIS_PER_HUE) {
+      hue += (now_ms - hueChangeTime_ms) / MILLIS_PER_HUE;
+      hueChangeTime_ms = now_ms;
+    }
 
+    // Go to the next mode
     if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
       ++mode;
       if (animations[mode] == nullptr) {
@@ -193,7 +205,7 @@ void updateButtonState() {
 
 void configureBrightness(const bool buttonPressed) {
   constexpr uint8_t BRIGHTNESSES[] = {5, 10, 15, 20, 40, 60, 100, 150, 200};
-  const uint8_t INITIAL_INDEX = 3;
+  const uint8_t INITIAL_INDEX = 6;
   static_assert(INITIAL_BRIGHTNESS == BRIGHTNESSES[INITIAL_INDEX], "");
   static uint8_t brightnessIndex = INITIAL_INDEX;
 
