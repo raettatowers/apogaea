@@ -8,10 +8,9 @@ static const int LED_PIN = 2;
 static const int BUTTON_PIN = 3;
 static const int ONBOARD_LED_PIN = 13;
 static const int INITIAL_BRIGHTNESS = 100;
-static const int MODE_TIME_MS = 8000;
 static const int MILLIS_PER_HUE = 100;
 
-// Function declarationsgh
+// Function declarations
 void setButtonDownState();
 
 // State machine for button presses
@@ -95,11 +94,8 @@ constexpr animationFunction_t ANIMATIONS[] = {
   nullptr
 };
 
-static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
-const constexpr animationFunction_t* ANIMATIONS_LIST[] = {ANIMATIONS};
 // Use this for testing a single animation
-//constexpr animationFunction_t TEST_ANIMATION[] = {pacMan, nullptr};
-//const constexpr animationFunction_t* ANIMATIONS_LIST[] = {TEST_ANIMATION};
+//constexpr animationFunction_t ANIMATIONS[] = {pacMan};
 
 
 typedef void (*configurationFunction_t)(bool buttonPressed);
@@ -108,8 +104,6 @@ static_assert(CONFIGURATION_FUNCTIONS[COUNT_OF(CONFIGURATION_FUNCTIONS) - 1] == 
 
 
 void loop() {
-  static auto modeStartTime_ms = millis();
-  static uint8_t mode = 0;  // Current animation effect
   static uint8_t animationsIndex = 0;
   static uint8_t configurationsIndex = COUNT_OF(CONFIGURATION_FUNCTIONS) - 1;
   static uint8_t hue = 0;
@@ -118,13 +112,14 @@ void loop() {
   setButtonDownState();
   updateButtonState();
   if (buttonState == ButtonState_t::BUTTON_PRESS) {
-    // If we're not configuring, go to the next animation set
+    // If we're not configuring, go to the next animation
     if (CONFIGURATION_FUNCTIONS[configurationsIndex] == nullptr) {
       ++animationsIndex;
-      if (animationsIndex == COUNT_OF(ANIMATIONS_LIST)) {
+      if (animationsIndex == COUNT_OF(ANIMATIONS)) {
         animationsIndex = 0;
       }
-      mode = 0;
+      fill_solid(&leds[0], LED_COUNT, CRGB::Black);
+      reset = true;  // Animation functions need to clear reset (if they care)
     }
   } else if (buttonState == ButtonState_t::LONG_BUTTON_PRESS) {
     ++configurationsIndex;
@@ -138,25 +133,13 @@ void loop() {
     CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
     // Do a regular animation
-    const animationFunction_t* animations = ANIMATIONS_LIST[animationsIndex];
-    animations[mode](hue);
+    ANIMATIONS[animationsIndex](hue);
 
     // Update the color
     const auto now_ms = millis();
     if (now_ms >= hueChangeTime_ms + MILLIS_PER_HUE) {
       hue += (now_ms - hueChangeTime_ms) / MILLIS_PER_HUE;
       hueChangeTime_ms = now_ms;
-    }
-
-    // Go to the next mode
-    if ((now_ms - modeStartTime_ms) > MODE_TIME_MS) {
-      ++mode;
-      if (animations[mode] == nullptr) {
-        mode = 0;
-      }
-      fill_solid(&leds[0], LED_COUNT, CRGB::Black);
-      reset = true;  // Animation functions need to clear reset (if they care)
-      modeStartTime_ms = now_ms;
     }
   }
 }
