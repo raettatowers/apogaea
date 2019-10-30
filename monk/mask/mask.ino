@@ -80,6 +80,7 @@ ANIM(fadingSparks);
 ANIM(pacMan);
 ANIM(rainbowSwirl);
 ANIM(shimmer);
+ANIM(spectrumAnalyzer);
 
 
 // Each animationFunction_t[] should end in nullptr
@@ -91,7 +92,7 @@ constexpr animationFunction_t ANIMATIONS[] = {
   //pacMan,
   rainbowSwirl,
   shimmer,
-  nullptr
+  spectrumAnalyzer
 };
 
 // Use this for testing a single animation
