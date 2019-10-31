@@ -146,19 +146,26 @@ void fadingSparks(uint8_t) {
 }
 
 
-void rainbowSwirl(const uint8_t hue) {
+void rainbowSwirl(uint8_t) {
   const uint8_t brightness[] = {30, 60, 90, 120, 180, 240};
   static uint8_t swirlStart = 0;
+  static uint8_t hue = 0;
 
   FastLED.clear();
+  // Make 2 swirls
   for (uint8_t i = 0; i < COUNT_OF(brightness); ++i) {
     const int index = (swirlStart + i) % LED_COUNT;
-    const int swirlHue = hue + i;
+    const uint8_t swirlHue = hue + i;
     leds[index].setHSV(swirlHue, 0xFF, brightness[i]);
+    const int index2 = (swirlStart + LED_COUNT / 2 + i) % LED_COUNT;
+    const uint8_t swirlHue2 = hue + i + 0x80;
+    leds[index2].setHSV(swirlHue2, 0xFF, brightness[i]);
   }
+
   FastLED.show();
   delay(40);
   swirlStart = (swirlStart + 1) % LED_COUNT;
+  hue += 2;
 }
 
 
