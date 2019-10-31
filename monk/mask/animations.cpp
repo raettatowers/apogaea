@@ -73,19 +73,33 @@ void breathe(const uint8_t hue) {
 
 
 void circularWipe(const uint8_t hue) {
-  const int HUE_INCREMENT = 30;
+  const int HUE_INCREMENT = 60;
+  const int DIMMER = 60;
+  const int BRIGHTNESS_DROP = 30;
   static uint8_t head = 0;
   static uint8_t hueOffset = 0;
 
-  const CRGB previousColor = CHSV(hue + hueOffset, 0xFF, 0xFF);
-  const CRGB currentColor = CHSV(hue + hueOffset + HUE_INCREMENT, 0xFF, 0xFF);
+  const uint8_t previousColorHue = hue + hueOffset;
+  const CRGB previousColor = CHSV(previousColorHue, 0xFF, DIMMER);
+  const uint8_t currentColorHue = hue + hueOffset + HUE_INCREMENT;
+  const CRGB currentColor = CHSV(currentColorHue, 0xFF, DIMMER);
 
+  // First fill the rest
   fill_solid(&leds[0], head, currentColor);
   fill_solid(&leds[head], LED_COUNT - head, previousColor);
+  // Then make the start of the swirl brighter
+  for (int i = 0; 0xFF - i * BRIGHTNESS_DROP > DIMMER; ++i) {
+    const int brightness = 0xFF - i * BRIGHTNESS_DROP;
+    const auto color = i <= head
+      ? CHSV(currentColorHue, 0xFF, brightness)
+      : CHSV(previousColorHue, 0xFF, brightness);
+    leds[(head + LED_COUNT - i) % LED_COUNT] = color;
+  };
+
   if (head < LED_COUNT) {
     ++head;
   } else {
-    head = 0;
+    head = 1;
     hueOffset += HUE_INCREMENT;
   }
   FastLED.show();
