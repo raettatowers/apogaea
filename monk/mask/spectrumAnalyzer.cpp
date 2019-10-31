@@ -30,7 +30,7 @@ void spectrumAnalyzer(uint8_t) {
   const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
   static uint8_t previousValues[LED_COUNT] = {0};
   // Change the base hue of low intensity sounds so we can get more colors
-  static uint32_t baseHue = 0;
+  static uint8_t baseHue = 0;
 
   FftType vReal[SAMPLE_COUNT];
   FftType vImaginary[SAMPLE_COUNT];
@@ -38,7 +38,7 @@ void spectrumAnalyzer(uint8_t) {
   const int usableValues = COUNT_OF(vReal) / 2;
   const int stepSize = usableValues / COUNT_OF(sampleAverages);
 
-  baseHue += 100;
+  baseHue += 1;
 
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
     // TODO: Do we need to worry about overflow?
@@ -81,7 +81,7 @@ void spectrumAnalyzer(uint8_t) {
     max_ = max(max_, sa);
   }
   // Set a default max so that if it's quiet, we're not visualizing random noises
-  max_ = max(max_, 400);
+  max_ = max(max_, 1000);
   const FftType MULTIPLIER = 1.0 / max_;
   // Clamp them all to 0.0 - 1.0
   for (auto& sa : sampleAverages) {
@@ -98,7 +98,7 @@ void spectrumAnalyzer(uint8_t) {
     const int FADE_OFF = 20;
     const uint8_t value_ = max(previousValues[i] > FADE_OFF ? previousValues[i] - FADE_OFF : 0, sampleAverages[i] * 0xFF);
     previousValues[i] = value_;
-    const uint32_t hue = static_cast<uint32_t>(value_) * 0xFF + baseHue;
+    const uint8_t hue = value_ + baseHue;
     uint8_t brightness = min(MAX_BRIGHTNESS, value_);
     // The visualization looks like garbage when brightness is high because all of the
     // LEDs turn on, and I want dim LEDs off
