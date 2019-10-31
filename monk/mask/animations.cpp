@@ -9,7 +9,6 @@
 
 extern CRGB leds[LED_COUNT];
 
-
 void binaryClock(uint8_t hue) {
   void showNumber(uint32_t number, const CHSV & color);
   // Do a binary shift instead of integer division because of speed and code size.
@@ -58,7 +57,7 @@ void breathe(const uint8_t hue) {
     }
   } else {
     brightness += step;
-    if (brightness == 255) {
+    if (brightness == 192) {
       step = -1;
     } else if (brightness == 0) {
       step = 1;
