@@ -5,7 +5,7 @@
 
 // Constants
 static const int LED_PIN = 2;
-static const int BUTTON_PIN = 3;
+static const int BUTTON_PIN = 1;
 static const int ONBOARD_LED_PIN = 13;
 static const int INITIAL_BRIGHTNESS = 100;
 static const int MILLIS_PER_HUE = 100;
@@ -45,7 +45,6 @@ void setup() {
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT);
-  digitalWrite(BUTTON_PIN, HIGH);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), setButtonDownState, CHANGE);
@@ -54,7 +53,7 @@ void setup() {
   internalPixel.setBrightness(5);
   // Pause if the button is pressed so that if I mess something up,
   // I can still upload code and recover
-  if (digitalRead(BUTTON_PIN) == LOW) {
+  if (digitalRead(BUTTON_PIN) == HIGH) {
     uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
     for (int i = 0; i < 10; ++i) {
       for (auto color : colors) {
@@ -147,7 +146,7 @@ void loop() {
 
 
 void setButtonDownState() {
-  buttonDown = (digitalRead(BUTTON_PIN) == LOW);
+  buttonDown = (digitalRead(BUTTON_PIN) == HIGH);
 }
 
 

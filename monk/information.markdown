@@ -32,4 +32,4 @@ data: green
 
 D0: LED strip
 D3/A3: microphone
-D2: button
+D1: button
