@@ -91,8 +91,8 @@ void circularWipe(const uint8_t hue) {
   for (int i = 0; 0xFF - i * BRIGHTNESS_DROP > DIMMER; ++i) {
     const int brightness = 0xFF - i * BRIGHTNESS_DROP;
     const auto color = i <= head
-      ? CHSV(currentColorHue, 0xFF, brightness)
-      : CHSV(previousColorHue, 0xFF, brightness);
+                       ? CHSV(currentColorHue, 0xFF, brightness)
+                       : CHSV(previousColorHue, 0xFF, brightness);
     leds[(head + LED_COUNT - i) % LED_COUNT] = color;
   };
 
@@ -292,5 +292,46 @@ void pacMan(uint8_t) {
   // have Pac-Man spin in circles
   if (pacManPosition > LED_COUNT) {
     pacManPosition = LED_COUNT - 1;
+  }
+}
+
+
+void fourInchWorms(const uint8_t hue) {
+  extern bool reset;
+  static bool stretching = true;
+  static int length = 1;
+
+  if (reset) {
+    reset = false;
+    stretching = true;
+    length = 1;
+  }
+  // This kind of sucks, because LED_COUNT isn't divisible by 4 :(
+  const int lengthToBrightness[LED_COUNT / 4] = {0, 255, 200, 150, 120, 100, 80, 70, 60, 50, 40};
+  const auto color = CHSV(hue, 0xFF, lengthToBrightness[length]);
+
+  fill_solid(&leds[0], LED_COUNT, CRGB::Black);
+  for (int i = 0; i < 4; ++i) {
+    const int start = i * (LED_COUNT / 4) + (stretching ? 0 : length);
+    for (int j = 0; j < length; ++j) {
+      leds[start + j] = color;
+    }
+  }
+  FastLED.show();
+  delay(200);
+
+  if (stretching) {
+    ++length;
+    if (length == LED_COUNT / 4) {
+      stretching = false;
+      --length;
+      delay(200);
+    }
+  } else {
+    --length;
+    if (length == 0) {
+      stretching = true;
+      ++length;
+    }
   }
 }
