@@ -24,6 +24,7 @@ extern CRGB leds[LED_COUNT];
 
 // collectSamples returns a reference to an array of FftType with size LED_SIZE
 static FftType (&collectSamples())[LED_COUNT];
+static FftType averagePower;
 
 
 void spectrumAnalyzer(uint8_t) {
@@ -36,13 +37,24 @@ void spectrumAnalyzer(uint8_t) {
 
   FftType (&sampleAverages)[LED_COUNT] = collectSamples();
 
-  FftType max_ = -1;
+  // The bassline really drowns out the other samples, so reduce its effect
+  // Actually, is that because the FFT has very small buckets for lower samples?
+  // If the average intensity of half an octave is stuffed into a single bucket,
+  // that might be causing it to be overrepresented. TODO
+  for (uint8_t i = 0; i < COUNT_OF(sampleAverages) / 8; ++i) {
+    sampleAverages[i] *= 0.5;
+  }
+  for (uint8_t i = 0; i < COUNT_OF(sampleAverages) / 4; ++i) {
+    sampleAverages[i] *= 0.5;
+  }
+
+  FftType maxSample = -1;
   for (auto sa : sampleAverages) {
-    max_ = max(max_, sa);
+    maxSample = max(maxSample, sa);
   }
   // Set a default max so that if it's quiet, we're not visualizing random noises
-  max_ = max(max_, 1000);
-  const FftType MULTIPLIER = 1.0 / max_;
+  maxSample = max(maxSample, 1000);
+  const FftType MULTIPLIER = 1.0 / maxSample;
   // Clamp them all to 0.0 - 1.0
   for (auto& sa : sampleAverages) {
     sa *= MULTIPLIER;
@@ -99,6 +111,9 @@ FftType (&collectSamples())[LED_COUNT] {
     delayMicroseconds(before + samplingPeriod_us - now);
   }
 
+  // I tried all the windowing types with music and with a pure sine wave.
+  // For music, FFT_WIN_TYP_HAMMING seemed to do best, but FFT_WIN_TYP_TRIANGLE
+  // seemed best for the sine wave. HANN and TRIANGLE also did well.
   FFT.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
   FFT.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
   FFT.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
@@ -107,6 +122,7 @@ FftType (&collectSamples())[LED_COUNT] {
   // Samples < 20Hz are so low that humans can't hear them, so skip those too.
   const int SKIP = 2 + 5;
   uint8_t counter = SKIP;
+  averagePower = vReal[0];
   for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     sampleAverages[i] = 0;
     // The FFT gives us equally spaced buckets (e.g. bucket 1 is 0-100 Hz, bucket 2 is 100-200 Hz)
