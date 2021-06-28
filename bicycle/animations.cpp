@@ -35,6 +35,27 @@ void UsaColors::reset() {
 }
 
 
+RainbowColors::RainbowColors(uint8_t skipPerLed_, uint8_t skipPerIteration_) :
+  hue(0),
+  skipPerLed(skipPerLed_),
+  skipPerIteration(skipPerIteration_),
+  offset(hue)
+{
+}
+
+
+CRGB RainbowColors::getColor() {
+  offset += skipPerLed;
+  return CHSV(offset, 255, 255);
+}
+
+
+void RainbowColors::reset() {
+  hue += skipPerIteration;
+  offset = hue;
+}
+
+
 InchWormAnimation::InchWormAnimation(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start) :
   state(),
   leds(leds_),

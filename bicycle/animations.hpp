@@ -3,6 +3,7 @@
 class ColorFunctor {
   public:
     virtual CRGB getColor() = 0;
+    // Notifies the functor that the animation frame has completed, and it can prepare for the next frame
     virtual void reset() = 0;
 };
 
@@ -22,7 +23,7 @@ class SingleColor : public ColorFunctor {
 };
 
 
-class UsaColors: public ColorFunctor {
+class UsaColors : public ColorFunctor {
   private:
     uint8_t count;
   public:
@@ -31,6 +32,17 @@ class UsaColors: public ColorFunctor {
     void reset();
 };
 
+class RainbowColors : public ColorFunctor {
+  private:
+    uint8_t hue;
+    const uint8_t skipPerLed;
+    const uint8_t skipPerIteration;
+    uint8_t offset;
+  public:
+    RainbowColors(uint8_t skipPerLed_, uint8_t skipPerIteration_);
+    CRGB getColor();
+    void reset();
+};
 
 class InchWormAnimation : public Animation {
   public:
