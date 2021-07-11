@@ -3,7 +3,7 @@
 const int NUM_LEDS = 40;
 CRGB leds[NUM_LEDS];
 const int MAX_LEDS_AT_ONCE = 8;
-const int LED_PIN = 2;
+const int LED_PIN = 7;
 const int BUTTON_PIN = 11;
 
 #define COUNT_OF(x) (sizeof(x) / sizeof(0[x]))
@@ -67,11 +67,12 @@ void showCount() {
 }
 
 
-void showSnake(int snakeLength) {
+void showSnake() {
   const int MILLIS_PER_ITERATION = 100;
   static auto previousMillis = MILLIS_PER_ITERATION;
   static int startIndex = 0;
   static int endIndex = 1;
+  const int snakeLength = 5;
 
   if (snakeLength <= 0) {
     return;
