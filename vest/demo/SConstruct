@@ -1,0 +1,3 @@
+env = Environment()
+
+env.Program("demo", "demo.cpp", LIBS=["SDL2", "SDL2_gfx", "SDL2_image"])
