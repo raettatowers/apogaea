@@ -13,6 +13,8 @@ class Animation {
     virtual void animate(ColorFunctor&) = 0;
 };
 
+#ifndef ANIMATIONS_HPP
+#define ANIMATIONS_HPP
 
 class SingleColor : public ColorFunctor {
   public:
@@ -52,8 +54,19 @@ class InchWormAnimation : public Animation {
   private:
     enum class inchWormState_t { BEGIN, MIDDLE, END };
     inchWormState_t state = inchWormState_t::BEGIN;
-    CRGB const * leds;
+    CRGB * leds;
     const uint8_t numLeds;
     const uint8_t length;
     uint8_t index = 0;
 };
+
+class SpectrumAnalyzer : public Animation {
+  public:
+    SpectrumAnalyzer(CRGB * leds_, uint8_t numLeds_);
+    void animate(ColorFunctor & colorFunctor);
+  private:
+    CRGB const * leds;
+    const uint8_t numLeds;
+};
+
+#endif
