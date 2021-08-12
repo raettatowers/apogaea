@@ -1,47 +1,57 @@
 #ifndef ANIMATIONS_HPP
 #define ANIMATIONS_HPP
+#include <cstdint>
 
-class CRGB;
 
 class Animation {
 public:
-  virtual void animate(const CRGB& color) = 0; 
+  // Runs a tick of the animation, and returns the number of milliseconds until
+  // the next time it should be called
+  virtual int animate(uint32_t color) = 0;
+  virtual ~Animation() = default;
+
+  static void setLed(int x, int y, uint32_t color);
+  static void setLed(int index, uint32_t color);
 };
 
 
 class Count : public Animation {
 public:
-  void animate(const CRGB& color);
-  Count(CRGB& leds, int ledCount);
+  Count();
+  ~Count() = default;
+  int animate(uint32_t color);
 private:
-  CRGB& leds;
-  const int ledCount;
   int index;
-  unsigned long previousMillis;
 };
 
 
 class Snake : public Animation {
 public:
-  void animate(const CRGB& color);
-  Snake(CRGB& leds, int ledCount);
+  Snake();
+  ~Snake() = default;
+  int animate(uint32_t color);
 private:
-  CRGB& leds;
-  const int ledCount;
   int index;
-  unsigned long previousMillis;
 };
 
 
 class ShowBrightness : public Animation {
 public:
-  void animate(const CRGB& color);
-  ShowBrightness(CRGB& leds, int ledCount);
+  ShowBrightness();
+  ~ShowBrightness() = default;
+  int animate(uint32_t color);
 private:
-  CRGB& leds;
-  const int ledCount;
   int index;
-  unsigned long previousMillis;
+};
+
+
+class Ripple : public Animation {
+public:
+  Ripple();
+  ~Ripple() = default;
+  int animate(uint32_t color);
+private:
+  int index;
 };
 
 #endif

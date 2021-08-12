@@ -1,14 +1,17 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
-#include <cmath>
 #include <cassert>
+#include <cmath>
+#include <cstdint>
 
-#define COUNT_OF(x) (sizeof((x)) / sizeof(0[(x)]))
-
+#include "../animations.hpp"
+#include "../constants.hpp"
 
 const int WIDTH = 640;
 const int HEIGHT = 480;
+
+SDL_Renderer *renderer = nullptr;
 
 constexpr Sint16 widthFraction(uint8_t percent) {
   return static_cast<Sint16>(static_cast<float>(percent) / 100.0f * static_cast<float>(WIDTH));
@@ -31,19 +34,30 @@ void drawVest(SDL_Renderer *renderer) {
     hf(30), hf(30), hf(40), hf(70), hf(70), hf(40),
   };
   static_assert(COUNT_OF(leftSideXs) == COUNT_OF(leftSideYs));
-  polygonColor(renderer, leftSideXs, leftSideYs, COUNT_OF(leftSideXs), color);
+  if (polygonColor(renderer, leftSideXs, leftSideYs, COUNT_OF(leftSideXs), color) != 0) {
+    fprintf(stderr, "polygonColor failed\n");
+  }
 
   // Draw the right side
   Sint16 rightSideXs[COUNT_OF(leftSideXs)];
   for (unsigned int i = 0; i < COUNT_OF(leftSideXs); ++i) {
     rightSideXs[i] = WIDTH - leftSideXs[i];
   }
-  polygonColor(renderer, rightSideXs, leftSideYs, COUNT_OF(rightSideXs), color);
+  if (polygonColor(renderer, rightSideXs, leftSideYs, COUNT_OF(rightSideXs), color) != 0) {
+    fprintf(stderr, "polygonColor failed\n");
+  }
 
   // Draw the middle
   Sint16 middleXs[] = {
-    wf(
+    wf(30), wf(35), wf(65), wf(70), wf(70), wf(30)
   };
+  Sint16 middleYs[] = {
+    hf(40), hf(30), hf(30), hf(40), hf(70), hf(70)
+  };
+  static_assert(COUNT_OF(middleXs) == COUNT_OF(middleYs));
+  if (polygonColor(renderer, middleXs, middleYs, COUNT_OF(middleXs), color) != 0) {
+    fprintf(stderr, "polygonColor failed\n");
+  }
 }
 #undef wf
 #undef hf
@@ -58,72 +72,40 @@ int main(int argc, char *argv[]) {
   SDL_Window *win = SDL_CreateWindow("vest", SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0);
 
-  SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+  renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
   bool shouldClose = false;
-
-  int xSpeed = 5;
-  int ySpeed = 3;
-  const int RADIUS = 60;
-  int objectX = RADIUS;
-  int objectY = RADIUS;
+  Ripple ripple;
 
   // Animation loop
-  float angle_r = 0.0;
   while (!shouldClose) {
-    SDL_Event event;
-
-    // Events management
-    while (SDL_PollEvent(&event)) {
-      switch (event.type) {
-      case SDL_QUIT:
-        shouldClose = true;
-        break;
-
-      default:
-        break;
-      }
-    }
-
-    objectX += xSpeed;
-    if (objectX - RADIUS < 0) {
-      objectX = RADIUS;
-      xSpeed = -xSpeed;
-    } else if (objectX + RADIUS >= WIDTH) {
-      objectX = WIDTH - RADIUS;
-      xSpeed = -xSpeed;
-    }
-
-    objectY += ySpeed;
-    if (objectY - RADIUS < 0) {
-      objectY = RADIUS;
-      ySpeed = -ySpeed;
-    } else if (objectY + RADIUS >= HEIGHT) {
-      objectY = HEIGHT - RADIUS;
-      ySpeed = -ySpeed;
-    }
-
-    // Clears the screen
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
     drawVest(renderer);
-
-    // Draw a circle
-    const int red = static_cast<int>(sinf(angle_r) * 127 + 127);
-    const int green = static_cast<int>(sinf(angle_r + M_PI / 3) * 127 + 127);
-    const int blue = static_cast<int>(sinf(angle_r + M_PI * 2.0 / 3) * 127 + 127);
-    assert(0 <= red && red <= 255);
-    angle_r += 0.01;
-    if (filledCircleRGBA(renderer, objectX, objectY, RADIUS, red, green, blue, 255) != 0) {
-      printf("RGBA failed\n");
-    }
-
+    int delay_ms = ripple.animate(0xFF0000FF);
     SDL_RenderPresent(renderer);
 
-    // 60 FPS
-    SDL_Delay(1000 / 60);
+    while (delay_ms > 0) {
+      // 60 FPS
+      SDL_Delay(1000 / 60);
+      delay_ms -= 60;
+
+      SDL_Event event;
+      // Events management
+      while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+        case SDL_QUIT:
+          shouldClose = true;
+          goto exitDelay;
+
+        default:
+          break;
+        }
+      }
+    }
   }
+exitDelay:
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(win);

@@ -1,2 +1,3 @@
 .sconsign.dblite
-demo/demo
+vest/demo/demo
+vest/offsets.hpp

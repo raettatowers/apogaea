@@ -1,3 +1,12 @@
+# vi: ft=python
+
 env = Environment()
 
-env.Program("demo", "demo.cpp", LIBS=["SDL2", "SDL2_gfx", "SDL2_image"])
+sources = ["demo.cpp", "../animations.cpp"]
+libs = ["SDL2", "SDL2_gfx", "SDL2_image"]
+
+demo = env.Program(target="demo", source=sources)
+env.Append(LIBS=libs)
+env.Append(CCFLAGS="-DDEMO")
+
+Default(demo)
