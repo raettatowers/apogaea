@@ -63,6 +63,17 @@ void drawVest(SDL_Renderer *renderer) {
 #undef hf
 
 
+uint32_t colorFromHue(uint8_t hue) {
+  const float offset = static_cast<float>(hue) / 256.0 * 2.0 * M_PI;
+  return (
+      (static_cast<uint32_t>(sin(offset) * 127.0) + 127) << 24
+      | (static_cast<uint32_t>(sin(offset + ((1.0 / 3.0) * 2.0 * M_PI)) * 127.0) + 127) << 16
+      | (static_cast<uint32_t>(sin(offset + ((2.0 / 3.0) * 2.0 * M_PI)) * 127.0) + 127) << 8
+      | 0xFF
+  );
+}
+
+
 int main(int argc, char *argv[]) {
 
   // Returns zero on success else non-zero
@@ -75,7 +86,13 @@ int main(int argc, char *argv[]) {
   renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
   bool shouldClose = false;
+  uint8_t hue = 0;
+  int animation_ms = 0;
+
   Ripple ripple;
+  Snake snake;
+  Animation* const animations[] = {&ripple, &snake};
+  int animationIndex = 0;
 
   // Animation loop
   while (!shouldClose) {
@@ -83,13 +100,20 @@ int main(int argc, char *argv[]) {
     SDL_RenderClear(renderer);
 
     drawVest(renderer);
-    int delay_ms = ripple.animate(0xFF0000FF);
+    int delay_ms = animations[animationIndex]->animate(colorFromHue(hue));
+    ++hue;
     SDL_RenderPresent(renderer);
 
     while (delay_ms > 0) {
       // 60 FPS
       SDL_Delay(1000 / 60);
       delay_ms -= 60;
+
+      animation_ms += 1000 / 60;
+      if (animation_ms > 10000) {
+        animation_ms = 0;
+        animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+      }
 
       SDL_Event event;
       // Events management
