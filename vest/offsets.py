@@ -8,6 +8,8 @@ for x in range(len(led_counts)):
     for y in range(led_counts[x]):
         array[-1].append(str(count))
         count += 1
+    if len(array) % 2 == 0:
+        array[-1] = list(reversed(array[-1]))
     for y in range(led_counts[x], max(led_counts)):
         array[-1].append("UNUSED_LED")
 
@@ -16,6 +18,8 @@ for x in range(len(led_counts) - 1, -1, -1):
     for y in range(led_counts[x]):
         array[-1].append(str(count))
         count += 1
+    if len(array) % 2 == 0:
+        array[-1] = list(reversed(array[-1]))
     for y in range(led_counts[x], max(led_counts)):
         array[-1].append("UNUSED_LED")
 
