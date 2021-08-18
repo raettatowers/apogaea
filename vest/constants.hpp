@@ -1,6 +1,5 @@
 #ifndef CONSTANTS_HPP
 #define CONSTANTS_HPP
-#include <cstdint>
 
 #define COUNT_OF(x) (sizeof((x)) / sizeof(0[(x)]))
 

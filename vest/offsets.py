@@ -1,6 +1,6 @@
 # Generates C code for the array offsets
 # The generated offsets
-led_counts = [6, 7, 10, 11, 12, 12, 0, 0, 7, 11, 11, 11, 11, 11]
+led_counts = [6, 7, 10, 11, 12, 12, 6, 6, 7, 11, 11, 11, 11, 11]
 array = []
 count = 0
 for x in range(len(led_counts)):

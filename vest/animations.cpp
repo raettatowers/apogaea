@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstdint>
+#include <FastLED.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
@@ -7,66 +8,18 @@
 using std::max;
 using std::min;
 
-#ifdef DEMO
-#include <stdio.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
-extern SDL_Renderer* renderer;
-namespace demoConstants {
-  const int minXPixel = static_cast<int>(640 * 0.15) - 5;
-  const int maxXPixel = static_cast<int>(640 * 0.85) - 5;
-  const int minYPixel = static_cast<int>(480 * 0.3) + 5;
-  const int maxYPixel = static_cast<int>(480 * 0.7) - 5;
-  const float xMultiplier = static_cast<float>(maxXPixel - minXPixel) / LED_COLUMN_COUNT;
-  const float yMultiplier = static_cast<float>(maxYPixel - minYPixel) / LED_ROW_COUNT;
-  const int radius = 3;
-}
-
-void Animation::setLed(int x, int y, uint32_t color) {
-  using namespace demoConstants;
-
-  const int adjustedX = minXPixel + static_cast<int>(x * xMultiplier);
-  const int adjustedY = maxYPixel - static_cast<int>(y * yMultiplier);
-  if (adjustedX >= minXPixel && adjustedX <= maxXPixel && adjustedY >= minYPixel && adjustedY <= maxYPixel) {
-    if (filledCircleColor(renderer, adjustedX, adjustedY, radius, color) != 0) {
-      fprintf(stderr, "filledCircleColor failed\n");
-    }
-  }
-}
-
-void Animation::setLed(int index, uint32_t color) {
-  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] == index) {
-        setLed(x, y, color);
-        return;
-      }
-    }
-  }
-}
-
-void resetLeds() {
-  // TODO: FastLED won't wipe changes from previous runs, but I'm clearing SDL
-  // on every frame. This should emulate that behavior. Right now it doesn't
-  // matter because every animation calls this at the beginning to clear the
-  // LEDs anyway.
-}
-
-#else
-#include <FastLED.h>
 extern CRGB leds[LED_COUNT];
 
-static void Animation::setLed(int x, int y, uint32_t color) {
+void Animation::setLed(int x, int y, const CRGB& color) {
   leds[LED_STRIPS[x][y]] = color;
 }
-static void Animation::setLed(int index, uint32_t color) {
+void Animation::setLed(int index, const CRGB& color) {
   leds[index] = color;
 }
 
 void resetLeds() {
-  fill_solid(leds, ledCount, CRGB::BLACK);
+  fill_solid(leds, LED_COUNT, CRGB::Black);
 }
-#endif
 
 
 Count::Count() : index(0)
@@ -74,47 +27,59 @@ Count::Count() : index(0)
 }
 
 
-int Count::animate(const uint32_t color) {
+int Count::animate(const uint8_t hue) {
   const int millisPerIteration = 500;
 
   resetLeds();
-  setLed(index, color);
+  leds[index] = CHSV(hue, 255, 255);
   ++index;
   return millisPerIteration;
 }
 
 
-Snake::Snake() : index(0)
+Snake::Snake() : startIndex(0), endIndex(0)
 {
 }
 
 
-int Snake::animate(const uint32_t color) {
-  const unsigned millisPerIteration = 100;
+int Snake::animate(const uint8_t hue) {
+  const unsigned millisPerIteration = 20;
   const int length = 5;
 
   resetLeds();
-  const int end = min(index, LED_COUNT);
-  for (int i = max(index - length, 0); i < end; ++i) {
-    setLed(i, color);
-  }
-  ++index;
-  if (index > LED_COUNT) {
-    index = 0;
-  }
 
+  // Snake just entering
+  if (endIndex < length) {
+    fill_rainbow(&leds[0], endIndex, hue);
+    ++endIndex;
+    return millisPerIteration;
+  } else {
+    // Snake in the middle or exiting
+    const int endLength = min(length, LED_COUNT - startIndex);
+    fill_rainbow(&leds[startIndex], endLength, hue);
+
+    ++startIndex;
+    if (startIndex >= COUNT_OF(leds)) {
+      startIndex = 0;
+      endIndex = 1;
+    }
+  }
   return millisPerIteration;
 }
 
 
-int ShowBrightness::animate(const uint32_t color) {
+ShowBrightness::ShowBrightness() : index(10) {
+}
+
+
+int ShowBrightness::animate(const uint8_t hue) {
   const int millisPerIteration = 4000;
   const uint8_t brightnesses[] = {255, 128, 64, 32, 16};
 
   resetLeds();
 
   for (int i = COUNT_OF(brightnesses); i > COUNT_OF(brightnesses) - index - 1 && i >= 0; --i) {
-    setLed(i, color);
+    setLed(i, CHSV(hue, 255, 255));
   }
 
   return millisPerIteration;
@@ -126,10 +91,11 @@ Ripple::Ripple() : index(0)
 }
 
 
-int Ripple::animate(const uint32_t color) {
+int Ripple::animate(const uint8_t hue) {
   const int millisPerIteration = 250;
   resetLeds();
   ++index;
+  const CRGB color = CHSV(hue, 255, 255);
   if (index >= LED_COLUMN_COUNT + LED_ROW_COUNT) {
     index = 0;
   }

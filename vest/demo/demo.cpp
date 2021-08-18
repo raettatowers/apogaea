@@ -66,9 +66,9 @@ void drawVest(SDL_Renderer *renderer) {
 uint32_t colorFromHue(uint8_t hue) {
   const float offset = static_cast<float>(hue) / 256.0 * 2.0 * M_PI;
   return (
-      (static_cast<uint32_t>(sin(offset) * 127.0) + 127) << 24
-      | (static_cast<uint32_t>(sin(offset + ((1.0 / 3.0) * 2.0 * M_PI)) * 127.0) + 127) << 16
-      | (static_cast<uint32_t>(sin(offset + ((2.0 / 3.0) * 2.0 * M_PI)) * 127.0) + 127) << 8
+      (static_cast<uint32_t>(sin(offset) * 127) + 127) << 24
+      | (static_cast<uint32_t>(sin(offset + (2.0 / 3.0 * M_PI)) * 127) + 127) << 16
+      | (static_cast<uint32_t>(sin(offset + (4.0 / 3.0 * M_PI)) * 127) + 127) << 8
       | 0xFF
   );
 }
@@ -91,7 +91,8 @@ int main(int argc, char *argv[]) {
 
   Ripple ripple;
   Snake snake;
-  Animation* const animations[] = {&ripple, &snake};
+  Count count;
+  Animation* const animations[] = {&ripple, &snake, &count};
   int animationIndex = 0;
 
   // Animation loop
@@ -100,7 +101,8 @@ int main(int argc, char *argv[]) {
     SDL_RenderClear(renderer);
 
     drawVest(renderer);
-    int delay_ms = animations[animationIndex]->animate(colorFromHue(hue));
+    const uint32_t color = colorFromHue(hue);
+    int delay_ms = animations[animationIndex]->animate(color);
     ++hue;
     SDL_RenderPresent(renderer);
 

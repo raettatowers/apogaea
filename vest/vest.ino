@@ -1,168 +1,66 @@
 #include <FastLED.h>
 
-const int NUM_LEDS = 40;
-CRGB leds[NUM_LEDS];
-const int MAX_LEDS_AT_ONCE = 8;
-const int LED_PIN = 7;
-const int BUTTON_PIN = 11;
+#include "animations.hpp"
+#include "constants.hpp"
+
+CRGB leds[LED_COUNT];
+CRGB dotStar[1];
+const int LED_PIN = 0;
 
 
 void setup() {
   Serial.begin(9600);
   Serial.println("resetting");
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  LEDS.addLeds<WS2812, LED_PIN, RGB>(&leds[0], COUNT_OF(leds));
-  // Set to max brightness and rely on color to scale the brightness
-  LEDS.setBrightness(255);
-  LEDS.clear();
+  FastLED.addLeds<WS2812B, LED_PIN, GRB>(&leds[0], COUNT_OF(leds)).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<DOTSTAR, 7, 8>(leds, 1);
+  set_max_power_in_volts_and_milliamps(5, 800);
+  FastLED.setBrightness(64);
+  FastLED.clear();
+  leds[5] = CRGB::Red;
+  dotStar[0] = CRGB::Red;
+  FastLED.show();
+  delay(1000);
+  FastLED.clear();
+  FastLED.show();
+}
+
+int soundFunction() {
+  return 0;
 }
 
 static uint8_t hue = 0;
 auto color = CHSV(hue, 255, 32);
-const (*animations[])(void) = {showCount, showSnake, showBrightness};
+Ripple ripple;
+Snake snake;
+ShowBrightness showBrightness;
+Count count;
+SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
+Animation* const animations[] = { &snake };
 static uint8_t animationIndex = 0;
 
 
 void loop() {
-  const int millisPerHue = 50;
-  static auto previousMillis = millis();
-  static CRGB color = CHSV(hue, 255, 64);
+  const int hueDuration_ms = 50;
+  const int animationDuration_ms = 10000;
 
-  if (millis() > previousMillis + millisPerHue) {
-    previousMillis = millis();
-    // Default to 64/256 == 1/4 brightness
-    color = CHSV(hue, 255, 64);
-    ++hue;
-  }
+  auto hueStart_ms = millis();
+  auto animationStart_ms = millis();
+  while (true) {
+    CRGB color = CHSV(hue, 255, 255);
 
-  animations[animationIndex]();
-  if (buttonPressed()) {
-    animationIndex = (animationIndex + 1) % COUNT_OF(animations);
-    Serial.print("New index: ");
-    Serial.println(animationIndex);
-  }
-
-  FastLED.show();
-}
-
-
-void showCount() {
-  const int MILLIS_PER_ITERATION = 500;
-  static auto previousMillis = MILLIS_PER_ITERATION;
-  static int index = 0;
-
-  // Turn off all the LEDs
-  fill_solid(leds, COUNT_OF(leds), CRGB::Black);
-
-  leds[index] = color;
-
-  const auto now = millis();
-  if (now > previousMillis + MILLIS_PER_ITERATION) {
-    previousMillis = now;
-
-    ++index;
-    if (index >= COUNT_OF(leds)) {
-      index = 0;
-    }
-  }
-}
-
-
-void showSnake() {
-  const int MILLIS_PER_ITERATION = 100;
-  static auto previousMillis = MILLIS_PER_ITERATION;
-  static int startIndex = 0;
-  static int endIndex = 1;
-  const int snakeLength = 5;
-
-  if (snakeLength <= 0) {
-    return;
-  }
-  // Turn off all the LEDs
-  fill_solid(leds, COUNT_OF(leds), CRGB::Black);
-
-  bool needUpdate = false;
-  const auto now = millis();
-  if (now > previousMillis + MILLIS_PER_ITERATION) {
-    previousMillis = now;
-    needUpdate = true;
-  }
-
-  // Snake just entering
-  if (endIndex < snakeLength) {
-    for (int i = 0; i < endIndex; ++i) {
-      leds[i] = color;
+    if (millis() > hueStart_ms + hueDuration_ms) {
+      hueStart_ms = millis();
+      color = CHSV(hue, 255, 255);
+      ++hue;
     }
 
-    if (needUpdate) {
-      ++endIndex;
-    }
-  } else {
-    // Snake in the middle or exiting
-    for (int i = startIndex; i < min(COUNT_OF(leds), startIndex + snakeLength); ++i) {
-      leds[i] = color;
+    const int delay_ms = animations[animationIndex]->animate(color);
+    delay(delay_ms);
+    if (millis() > animationStart_ms + animationDuration_ms) {
+      animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+      animationStart_ms = millis();
     }
 
-    if (needUpdate) {
-      ++startIndex;
-      if (startIndex >= COUNT_OF(leds)) {
-        startIndex = 0;
-        endIndex = 1;
-      }
-    }
+    FastLED.show();
   }
-}
-
-
-void showBrightness() {
-  const int MILLIS_PER_ITERATION = 4000;
-  static auto previousMillis = MILLIS_PER_ITERATION;
-  static int index = 0;
-  const uint8_t brightnesses[] = {255, 128, 64, 32, 16};
-  static_assert(COUNT_OF(brightnesses) <= COUNT_OF(leds));
-
-  // Turn off all the LEDs
-  fill_solid(leds, COUNT_OF(leds), CRGB::Black);
-
-  const auto color = CHSV(hue, 255, brightnesses[index]);
-  for (int i = COUNT_OF(brightnesses); i > COUNT_OF(brightnesses) - index - 1 && i >= 0; --i) {
-    leds[i] = color;
-  }
-
-  const auto now = millis();
-  if (now > previousMillis + MILLIS_PER_ITERATION) {
-    previousMillis = now;
-    ++index;
-    if (index >= COUNT_OF(brightnesses)) {
-      index = 0;
-    }
-  }
-}
-
-
-bool buttonPressed() {
-  static int debounceTime_ms = 0;
-  static bool pressed = false;
-
-  if (millis() - debounceTime_ms < 25) {
-    // Just a bounce, ignore it
-    return false;
-  }
-
-  int buttonState = digitalRead(BUTTON_PIN);
-  if (buttonState == HIGH) {
-    // Not pressed
-    pressed = false;
-    digitalWrite(LED_BUILTIN, LOW);
-    return false;
-  }
-
-  debounceTime_ms = millis();
-  // Avoid continual presses
-  if (pressed) {
-    return false;
-  }
-  pressed = true;
-  digitalWrite(LED_BUILTIN, HIGH);
-  return true;
 }
