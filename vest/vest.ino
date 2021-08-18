@@ -29,13 +29,15 @@ int soundFunction() {
 }
 
 static uint8_t hue = 0;
-auto color = CHSV(hue, 255, 32);
+
 Ripple ripple;
 Snake snake;
 ShowBrightness showBrightness;
 Count count;
+CountXY countXY;
+Shimmer shimmer;
 SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
-Animation* const animations[] = { &snake };
+Animation* const animations[] = { &snake, &shimmer };
 static uint8_t animationIndex = 0;
 
 
@@ -46,19 +48,16 @@ void loop() {
   auto hueStart_ms = millis();
   auto animationStart_ms = millis();
   while (true) {
-    CRGB color = CHSV(hue, 255, 255);
-
     if (millis() > hueStart_ms + hueDuration_ms) {
       hueStart_ms = millis();
-      color = CHSV(hue, 255, 255);
       ++hue;
     }
 
-    const int delay_ms = animations[animationIndex]->animate(color);
+    const int delay_ms = animations[animationIndex]->animate(hue);
     delay(delay_ms);
     if (millis() > animationStart_ms + animationDuration_ms) {
-      animationIndex = (animationIndex + 1) % COUNT_OF(animations);
       animationStart_ms = millis();
+      animationIndex = (animationIndex + 1) % COUNT_OF(animations);
     }
 
     FastLED.show();

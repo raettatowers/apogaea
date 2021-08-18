@@ -29,6 +29,16 @@ private:
 };
 
 
+class CountXY : public Animation {
+public:
+  CountXY();
+  ~CountXY() = default;
+  int animate(uint8_t hue);
+private:
+  int index;
+};
+
+
 class Snake : public Animation {
 public:
   Snake();
@@ -79,6 +89,7 @@ public:
 private:
   bool increasing[LED_COUNT];
   int amount[LED_COUNT];
+  uint8_t hues[LED_COUNT];
 };
 
 
