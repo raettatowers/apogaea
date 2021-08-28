@@ -45,7 +45,7 @@ CountXY::CountXY() : index(0) {
 }
 
 
-int CountXY::animate(uint8_t hue) {
+int CountXY::animate(uint8_t) {
   const int millisPerIteration = 500;
   resetLeds();
 
@@ -209,12 +209,12 @@ Blobs::Blobs(const int count_) :
 
 
 int Blobs::animate(const uint8_t hue) {
-  const int millisPerIteration = 100;
-  const float speedChange = 0.1f;
-  const float maxSpeed = 0.3f;
+  const int millisPerIteration = 50;
+  const float speedChange = 0.05f;
+  const float maxSpeed = 3 * speedChange;
   const float radius = 2.0f;
   const float radius2 = radius * radius;
-  const float reachedDistance2 = 3.0f;
+  const float reachedDistance2 = 2.0f;
 
   resetLeds();
 
@@ -225,6 +225,7 @@ int Blobs::animate(const uint8_t hue) {
       targetY[i] = static_cast<float>(rand() % LED_ROW_COUNT);
     }
 
+    // TODO: Update the speed based on the direction to the target
     if (x[i] < targetX[i]) {
       xSpeed[i] += speedChange;
       if (xSpeed[i] > maxSpeed) {
@@ -281,4 +282,40 @@ Blobs::~Blobs() {
   delete [] y;
   delete [] xSpeed;
   delete [] ySpeed;
+}
+
+
+Plasma::Plasma() : time(0) {
+}
+
+
+int Plasma::animate(uint8_t) {
+  const float ONE_THIRD = 1.0f / 3.0f;
+  const float M_PI_F = static_cast<float>(M_PI);
+  time += 0.01;
+  float cys[LED_ROW_COUNT];
+  for (int y = 0; y < LED_ROW_COUNT; ++y) {
+    cys[y] = y + 0.5f * cosf(time * ONE_THIRD);
+  }
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    const float v1 = sinf(x * time * 10.0f);
+    const float cx = sinf(x + 0.5 * sinf(time * 0.2f));
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      if (LED_STRIPS[x][y] != UNUSED_LED) {
+        const float v2 = sinf(10.0f * (x * sinf(time * 0.5f) + y * cosf(time * ONE_THIRD)) + time);
+        const float v3 = sin(sqrtf(100.0f * (cx * cx + cys[y] * cys[y]) + 1) + time);
+        const float v = v1 + v2 + v3;
+        const float red = sinf(v * M_PI_F);
+        const float green = sinf(v * M_PI_F + (2.0f / 3.0f) * M_PI_F);
+        const float blue = sinf(v * M_PI_F + (4.0f / 3.0f) * M_PI_F);
+#define CONVERT(value) static_cast<uint8_t>((value + 1.0f) * 0.5f)
+        const uint8_t r = CONVERT(red);
+        const uint8_t g = CONVERT(green);
+        const uint8_t b = CONVERT(blue);
+#undef CONVERT
+        leds[x][y] = CRGB(r, g, b);
+      }
+    }
+  }
+  return 0;
 }
