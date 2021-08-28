@@ -1,6 +1,6 @@
 #ifndef ANIMATIONS_HPP
 #define ANIMATIONS_HPP
-#include <cstdint>
+#include <stdint.h>
 
 #include "constants.hpp"
 
@@ -13,6 +13,8 @@ public:
   // the next time it should be called
   virtual int animate(const uint8_t hue) = 0;
   virtual ~Animation() = default;
+  virtual void reset() {
+  }
 
   static void setLed(int x, int y, const CRGB& color);
   static void setLed(int index, const CRGB& color);
@@ -50,23 +52,15 @@ private:
 };
 
 
-class ShowBrightness : public Animation {
+class HorizontalSnake : public Animation {
 public:
-  ShowBrightness();
-  ~ShowBrightness() = default;
+  HorizontalSnake();
+  ~HorizontalSnake() = default;
   int animate(uint8_t hue);
 private:
-  const int index;
-};
-
-
-class Ripple : public Animation {
-public:
-  Ripple();
-  ~Ripple() = default;
-  int animate(uint8_t hue);
-private:
-  int index;
+  int x;
+  int y;
+  bool xIncreasing;
 };
 
 
@@ -81,10 +75,10 @@ private:
 };
 
 
-class Shimmer : public Animation {
+class Shine : public Animation {
 public:
-  Shimmer();
-  ~Shimmer() = default;
+  Shine();
+  ~Shine() = default;
   int animate(uint8_t hue);
 private:
   bool increasing[LED_COUNT];
@@ -100,6 +94,22 @@ public:
   int animate(uint8_t hue);
 private:
   int (*soundFunction)(void);
+};
+
+
+class Blobs : public Animation {
+public:
+  Blobs(int count_);
+  ~Blobs();
+  int animate(uint8_t hue);
+private:
+  const int count;
+  float* targetX;
+  float* targetY;
+  float* x;
+  float* y;
+  float* xSpeed;
+  float* ySpeed;
 };
 
 #endif

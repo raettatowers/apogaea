@@ -6,11 +6,18 @@
 CRGB leds[LED_COUNT];
 CRGB dotStar[1];
 const int LED_PIN = 0;
+const int BUTTON_PIN = 3;
+
+#define USE_BUTTON 1
 
 
 void setup() {
   Serial.begin(9600);
   Serial.println("resetting");
+
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(&leds[0], COUNT_OF(leds)).setCorrection(TypicalLEDStrip);
   FastLED.addLeds<DOTSTAR, 7, 8>(leds, 1);
   set_max_power_in_volts_and_milliamps(5, 800);
@@ -30,20 +37,22 @@ int soundFunction() {
 
 static uint8_t hue = 0;
 
-Ripple ripple;
 Snake snake;
-ShowBrightness showBrightness;
+HorizontalSnake horizontalSnake;
 Count count;
 CountXY countXY;
-Shimmer shimmer;
+Shine shine;
+Blobs blobs(3);
 SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
-Animation* const animations[] = { &snake, &shimmer };
+//Animation* const animations[] = { &count, &countXY, &horizontalSnake };
+Animation* const animations[] = { &snake, &blobs, &shine };
 static uint8_t animationIndex = 0;
 
 
 void loop() {
   const int hueDuration_ms = 50;
   const int animationDuration_ms = 10000;
+  int previousButtonState = digitalRead(BUTTON_PIN);
 
   auto hueStart_ms = millis();
   auto animationStart_ms = millis();
@@ -54,10 +63,24 @@ void loop() {
     }
 
     const int delay_ms = animations[animationIndex]->animate(hue);
-    delay(delay_ms);
-    if (millis() > animationStart_ms + animationDuration_ms) {
-      animationStart_ms = millis();
-      animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+    const auto start = millis();
+    while (millis() < start + delay_ms) {
+      const int buttonState = digitalRead(BUTTON_PIN);
+#if USE_BUTTON
+      if (buttonState == HIGH && previousButtonState != buttonState) {
+#else
+      if (millis() > animationStart_ms + animationDuration_ms) {
+#endif
+        ++animationIndex;
+        if (animationIndex == COUNT_OF(animations)) {
+          animationIndex = 0;
+        }
+        animations[animationIndex]->reset();
+        previousButtonState = buttonState;
+        delay(20);  // Debounce
+        break;
+      }
+      previousButtonState = buttonState;
     }
 
     FastLED.show();

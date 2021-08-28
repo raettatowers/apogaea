@@ -28,7 +28,7 @@ print(f"const int LED_COUNT = {sum(led_counts) * 2};")
 print(f"const int LED_COLUMN_COUNT = 2 * {len(led_counts)};")
 print(f"const int LED_ROW_COUNT = {max(led_counts)};")
 print("// x first then y, starting at lower left corner")
-print(f"const uint8_t LED_STRIPS[2 * {len(led_counts)}][{max(led_counts)}] = {{")
+print(f"const uint16_t_t LED_STRIPS[2 * {len(led_counts)}][{max(led_counts)}] = {{")
 for x in range(len(array)):
     items = [array[x][y] for y in range(len(array[x]))]
     print(f"    {{{', '.join(items)}}},")
