@@ -8,8 +8,6 @@ CRGB dotStar[1];
 const int LED_PIN = 0;
 const int BUTTON_PIN = 3;
 
-#define USE_BUTTON 1
-
 
 void setup() {
   Serial.begin(9600);
@@ -37,23 +35,28 @@ int soundFunction() {
 
 static uint8_t hue = 0;
 
-Snake snake;
-HorizontalSnake horizontalSnake;
-Count count;
-CountXY countXY;
-Shine shine;
-Blobs blobs(3);
-SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
-//Animation* const animations[] = { &count, &countXY, &horizontalSnake };
-Animation* const animations[] = { &snake, &blobs, &shine };
-static uint8_t animationIndex = 0;
+static Snake snake;
+static HorizontalSnake horizontalSnake;
+static Count count;
+static CountXY countXY;
+static Shine shine;
+static Blobs blobs(3);
+static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
+static Animation* goodAnimations[] = { &snake, &blobs, &shine, nullptr };
+static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
+static Animation* snakeOnly[] = { &snake, nullptr };
+static Animation* shineOnly[] = { &shine, nullptr };
+static Animation* blobOnly[] = { &blobs, nullptr };
+static Animation** const animationSets[] = { goodAnimations, testAnimations, snakeOnly, shineOnly, blobOnly };
+static uint8_t animationSetIndex = 0;
+static uint8_t animationIndex = 0;
 
 void loop() {
   const int hueDuration_ms = 50;
   const int animationDuration_ms = 10000;
-  int previousButtonState = digitalRead(BUTTON_PIN);
 
+  int previousButtonState = digitalRead(BUTTON_PIN);
   auto hueStart_ms = millis();
   auto animationStart_ms = millis();
   while (true) {
@@ -62,25 +65,36 @@ void loop() {
       ++hue;
     }
 
-    const int delay_ms = animations[animationIndex]->animate(hue);
+    const int delay_ms = animationSets[animationSetIndex][animationIndex]->animate(hue);
+    FastLED.show();
     const auto start = millis();
-    while (millis() < start + delay_ms) {
+    do {
       const int buttonState = digitalRead(BUTTON_PIN);
-#if USE_BUTTON
       if (buttonState == HIGH && previousButtonState != buttonState) {
-#else
-      if (millis() > animationStart_ms + animationDuration_ms) {
-#endif
-        ++animationIndex;
-        if (animationIndex == COUNT_OF(animations)) {
-          animationIndex = 0;
+        // Button pressed
+        ++animationSetIndex;
+        if (animationSetIndex > COUNT_OF(animationSets)) {
+          animationSetIndex = 0;
         }
-        animations[animationIndex]->reset();
+        animationIndex = 0;
+        animationSets[0][0]->reset();
         previousButtonState = buttonState;
-        delay(20);  // Debounce
+        delay(20);  // Hacky debounce
         break;
       }
       previousButtonState = buttonState;
+    } while (millis() < start + delay_ms);
+
+    if (millis() > animationStart_ms + animationDuration_ms) {
+      animationStart_ms = millis();
+      ++animationIndex;
+      if (animationSets[animationSetIndex][animationIndex] == nullptr) {
+        // Some sets only have 1 animation; don't reset those
+        if (animationIndex != 1) {
+          animationSets[animationSetIndex][0]->reset();
+        }
+        animationIndex = 0;
+      }
     }
 
     FastLED.show();
