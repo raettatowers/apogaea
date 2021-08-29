@@ -22,7 +22,7 @@ void setup() {
   FastLED.setBrightness(64);
   FastLED.clear();
   leds[5] = CRGB::Red;
-  dotStar[0] = CRGB::Red;
+  dotStar[0] = CRGB::Blue;
   FastLED.show();
   delay(1000);
   FastLED.clear();
@@ -41,14 +41,16 @@ static Count count;
 static CountXY countXY;
 static Shine shine;
 static Blobs blobs(3);
+static Plasma plasma(0.15f, 0.1);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &snake, &blobs, &shine, nullptr };
+static Animation* goodAnimations[] = { &snake, &blobs, &shine, &plasma, nullptr };
 static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
 static Animation* snakeOnly[] = { &snake, nullptr };
 static Animation* shineOnly[] = { &shine, nullptr };
 static Animation* blobOnly[] = { &blobs, nullptr };
-static Animation** const animationSets[] = { goodAnimations, testAnimations, snakeOnly, shineOnly, blobOnly };
+static Animation* plasmaOnly[] = { &plasma, nullptr };
+static Animation** const animationSets[] = { plasmaOnly, goodAnimations, testAnimations, snakeOnly, shineOnly, blobOnly, plasmaOnly };
 static uint8_t animationSetIndex = 0;
 static uint8_t animationIndex = 0;
 
@@ -78,6 +80,7 @@ void loop() {
         }
         animationIndex = 0;
         animationSets[0][0]->reset();
+        animationStart_ms = millis();
         previousButtonState = buttonState;
         delay(20);  // Hacky debounce
         break;
@@ -96,7 +99,5 @@ void loop() {
         animationIndex = 0;
       }
     }
-
-    FastLED.show();
   }
 }

@@ -115,11 +115,18 @@ class Blobs : public Animation {
 
 class Plasma : public Animation {
   public:
-    Plasma();
+    // 0.15, 0.1 works well
+    Plasma(float multiplier, float timeIncrement);
     ~Plasma() = default;
     int animate(uint8_t hue);
   private:
     float time;
+    const float multiplier;
+    const float timeIncrement;
+
+    static uint8_t convert(const float f) {
+      return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
+    }
 };
 
 #endif
