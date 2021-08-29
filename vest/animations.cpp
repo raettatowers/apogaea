@@ -291,8 +291,41 @@ Blobs::~Blobs() {
 Plasma::Plasma(float multiplier_, float timeIncrement_) :
   time(0),
   multiplier(multiplier_),
-  timeIncrement(timeIncrement_)
+  timeIncrement(timeIncrement_),
+  redMultiplier(1.0f),
+  greenMultiplier(1.0f),
+  blueMultiplier(1.0f),
+  redOffset(0.0f),
+  greenOffset(2.0f / 3.0f * M_PI),
+  blueOffset(4.0f / 3.0f * M_PI)
 {
+}
+
+
+Plasma::Plasma(
+  float multiplier_,
+  float timeIncrement_,
+  float redMultiplier_,
+  float greenMultiplier_,
+  float blueMultiplier_,
+  float redOffset_,
+  float greenOffset_,
+  float blueOffset_
+) : time(0),
+  multiplier(multiplier_),
+  timeIncrement(timeIncrement_),
+  redMultiplier(redMultiplier_),
+  greenMultiplier(greenMultiplier_),
+  blueMultiplier(blueMultiplier_),
+  redOffset(redOffset_),
+  greenOffset(greenOffset_),
+  blueOffset(blueOffset_)
+{
+}
+
+
+uint8_t Plasma::convert(const float f) {
+  return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
 }
 
 
@@ -315,9 +348,9 @@ int Plasma::animate(uint8_t) {
         const float v3 = sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
         const float v = v1 + v2 + v3;
         //const float v = v1 + v2;
-        const float red = sinf(v * M_PI_F);
-        const float green = sinf(v * M_PI_F + (2.0f / 3.0f) * M_PI_F);
-        const float blue = sinf(v * M_PI_F + (4.0f / 3.0f) * M_PI_F);
+        const float red = redMultiplier * sinf(v * M_PI_F + redOffset);
+        const float green = greenMultiplier * sinf(v * M_PI_F + greenOffset);
+        const float blue = blueMultiplier * sinf(v * M_PI_F + blueOffset);
         const uint8_t r = convert(red);
         const uint8_t g = convert(green);
         const uint8_t b = convert(blue);

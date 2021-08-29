@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include <math.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
@@ -41,16 +42,17 @@ static Count count;
 static CountXY countXY;
 static Shine shine;
 static Blobs blobs(3);
-static Plasma plasma(0.15f, 0.1);
+static Plasma rainbowPlasma(0.15f, 0.1f);
+static Plasma pastelPlasma(0.15f, 0.1f, 1.0f, 1.0f, 0.0f, 0.0f, 3.0f / 2.0f * M_PI, 0.0f);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &snake, &blobs, &shine, &plasma, nullptr };
+static Animation* goodAnimations[] = { &snake, &blobs, &shine, &rainbowPlasma, nullptr };
 static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
 static Animation* snakeOnly[] = { &snake, nullptr };
 static Animation* shineOnly[] = { &shine, nullptr };
 static Animation* blobOnly[] = { &blobs, nullptr };
-static Animation* plasmaOnly[] = { &plasma, nullptr };
-static Animation** const animationSets[] = { plasmaOnly, goodAnimations, testAnimations, snakeOnly, shineOnly, blobOnly, plasmaOnly };
+static Animation* plasmasOnly[] = { &rainbowPlasma, &pastelPlasma, nullptr };
+static Animation** const animationSets[] = { goodAnimations, testAnimations, snakeOnly, plasmasOnly, shineOnly, blobOnly };
 static uint8_t animationSetIndex = 0;
 static uint8_t animationIndex = 0;
 

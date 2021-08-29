@@ -117,16 +117,30 @@ class Plasma : public Animation {
   public:
     // 0.15, 0.1 works well
     Plasma(float multiplier, float timeIncrement);
+    Plasma(
+      float multiplier,
+      float timeIncrement,
+      float redMultiplier,
+      float greenMultiplier,
+      float blueMultiplier,
+      float redOffset,
+      float greenOffset,
+      float blueOffset
+    );
     ~Plasma() = default;
     int animate(uint8_t hue);
   private:
     float time;
     const float multiplier;
     const float timeIncrement;
+    const float redMultiplier;
+    const float greenMultiplier;
+    const float blueMultiplier;
+    const float redOffset;
+    const float greenOffset;
+    const float blueOffset;
 
-    static uint8_t convert(const float f) {
-      return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
-    }
+    static uint8_t convert(const float f);
 };
 
 #endif
