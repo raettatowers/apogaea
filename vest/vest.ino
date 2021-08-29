@@ -36,7 +36,7 @@ int soundFunction() {
 
 static uint8_t hue = 0;
 
-static Snake snake;
+static Snake snake(10, 2);
 static HorizontalSnake horizontalSnake;
 static Count count;
 static CountXY countXY;

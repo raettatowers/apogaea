@@ -43,12 +43,14 @@ class CountXY : public Animation {
 
 class Snake : public Animation {
   public:
-    Snake();
+    Snake(int length, int count);
     ~Snake() = default;
     int animate(uint8_t hue);
   private:
-    int startIndex;
-    int endIndex;
+    const int length;
+    const int count;
+    int* startIndexes;
+    int* endIndexes;
 };
 
 

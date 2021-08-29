@@ -112,31 +112,43 @@ int HorizontalSnake::animate(const uint8_t hue) {
 }
 
 
-Snake::Snake() : startIndex(0), endIndex(0)
+Snake::Snake(int length_, int count_) :
+  length(length_),
+  count(count_),
+  startIndexes(new int[count_]),
+  endIndexes(new int[count_])
 {
+  for (int i = 0; i < count; ++i) {
+    startIndexes[i] = static_cast<int>(static_cast<float>(LED_COUNT) / count * i);
+    // Force all the snakes to start entirely on the vest
+    endIndexes[i] = LED_COUNT;
+  }
 }
 
 
-int Snake::animate(const uint8_t hue) {
+int Snake::animate(const uint8_t originalHue) {
   const unsigned millisPerIteration = 20;
-  const int length = 5;
 
   resetLeds();
 
-  // Snake just entering
-  if (endIndex < length) {
-    fill_rainbow(&leds[0], endIndex, hue);
-    ++endIndex;
-    return millisPerIteration;
-  } else {
-    // Snake in the middle or exiting
-    const int endLength = min(length, LED_COUNT - startIndex);
-    fill_rainbow(&leds[startIndex], endLength, hue);
+  for (int i = 0; i < count; ++i) {
+    // Make the hues cycle faster
+    const uint8_t hue = originalHue * 4 + (255 / count) * i;
 
-    ++startIndex;
-    if (startIndex >= COUNT_OF(leds)) {
-      startIndex = 0;
-      endIndex = 1;
+    // Snake just entering
+    if (endIndexes[i] < length) {
+      fill_rainbow(&leds[0], endIndexes[i], hue);
+      ++endIndexes[i];
+    } else {
+      // Snake in the middle or exiting
+      const int endLength = min(length, LED_COUNT - startIndexes[i]);
+      fill_rainbow(&leds[startIndexes[i]], endLength, hue);
+
+      ++startIndexes[i];
+      if (startIndexes[i] >= COUNT_OF(leds)) {
+        startIndexes[i] = 0;
+        endIndexes[i] = 1;
+      }
     }
   }
   return millisPerIteration;
