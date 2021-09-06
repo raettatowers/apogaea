@@ -1,8 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 #include <SDL2/SDL_timer.h>
-#include <cassert>
-#include <cmath>
 #include <cstdint>
 
 #include "../constants.hpp"
@@ -21,21 +19,22 @@ void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
               uint8_t *green, uint8_t *blue);
 
 // https://lodev.org/cgtutor/plasma.html
-int plasma1(int time, SDL_Renderer *const renderer) {
+const char* plasma0(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 128 + (sin16(x * (PI_1_0 / 4))) / 256;
-      const uint8_t p2 = 128 + (sin16(y * (PI_1_0 / 2) + time / 4)) / 256;
+      const uint8_t p1 = 128 + (sin16(x * (PI_1_0 / 4) + time / 4)) / 256;
+      const uint8_t p2 = 128 + (sin16(y * (PI_1_0 / 4) + time / 4)) / 256;
       const uint8_t p3 = 128 + (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256;
       const uint8_t p4 = 128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
       const uint8_t hue = (p1 + p2 + p3 + p4) / 4;
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
-};
+  return __func__;
+}
 
-int plasma2(int time, SDL_Renderer *const renderer) {
+
+const char* plasma1(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       const int xOffset = (x - LED_COLUMN_COUNT) / 2;
@@ -51,98 +50,133 @@ int plasma2(int time, SDL_Renderer *const renderer) {
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
+  return __func__;
 }
 
-int plasma3(int time, SDL_Renderer *const renderer) {
+
+const char* plasma2(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t hue = static_cast<uint8_t>(
-          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
-           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
-           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
-           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
-          4);
-
+      const uint8_t p1 = 128 + (sin16(x * (PI_1_0 / 8) + time / 4)) / 256;
+      const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) / 256;
+      const uint8_t p3 = 128 + (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256;
+      // cx = x + 0.5 * sin(time / 5)
+      // cy = y + 0.5 * cos(time / 3)
+      // v = sin(sqrt(100 * (cx**2 + cy ** 2) + 1) + time)
+      const uint16_t cx = x + sin16(time / 8) / 1024;
+      const uint16_t cy = y + sin16(time / 16) / 1024;
+      const uint8_t p4 = 128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_1_0 / 2) + time) / 512;
+      const uint8_t hue = (p1 + p2 + p3 + p4) / 3;
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
-};
+  return __func__;
+}
 
-int plasma4(int time, SDL_Renderer *const renderer) {
+
+const char* p1_only(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t hue = static_cast<uint8_t>(
-          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
-           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
-           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
-           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
-          4);
-
+      const uint8_t p1 = 128 + (sin16(x * (PI_1_0 / 8) + time / 4)) / 256;
+      const uint8_t p2 = 0;
+      const uint8_t p3 = 0;
+      const uint8_t p4 = 0;
+      const uint8_t hue = (p1 + p2 + p3 + p4);
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
+  return __func__;
 };
 
-int plasma5(int time, SDL_Renderer *const renderer) {
+
+const char* p2_only(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t hue = static_cast<uint8_t>(
-          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
-           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
-           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
-           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
-          4);
-
+      const uint8_t p1 = 0;
+      // sin(10 * (x * sin(time / 2) + y * cos(time / 3)) + time)
+      const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) / 256;
+      const uint8_t p3 = 0;
+      const uint8_t p4 = 0;
+      const uint8_t hue = (p1 + p2 + p3 + p4);
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
+  return __func__;
 };
 
-int plasma6(int time, SDL_Renderer *const renderer) {
+
+const char* p3_only(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t hue = static_cast<uint8_t>(
-          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
-           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
-           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
-           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
-          4);
-
+      const uint8_t p1 = 0;
+      const uint8_t p2 = 0;
+      const uint8_t p3 = 128 + (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256;
+      const uint8_t p4 = 0;
+      const uint8_t hue = (p1 + p2 + p3 + p4);
       setLed(x, y, hue, renderer);
     }
   }
-  return 100;
+  return __func__;
 };
+
+
+const char* p4_only(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t p1 = 0;
+      const uint8_t p2 = 0;
+      const uint8_t p3 = 0;
+      const uint8_t p4 = 128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
+      const uint8_t hue = (p1 + p2 + p3 + p4);
+      setLed(x, y, hue, renderer);
+    }
+  }
+  return __func__;
+};
+
+
+const char* ringsOnly(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      // cx = x + 0.5 * sin(time / 5)
+      // cy = y + 0.5 * cos(time / 3)
+      // v = sin(sqrt(100 * (cx**2 + cy ** 2) + 1) + time)
+      const uint16_t cx = x + sin16(time / 4) / 2048;
+      const uint16_t cy = y + sin16(time / 3) / 2048;
+      const uint8_t p4 = 128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_1_0 / 8) + time / 2) / 256;
+      const uint8_t hue = p4;
+      setLed(x, y, hue, renderer);
+    }
+  }
+  return __func__;
+}
 
 
 int main() {
+  bool shouldClose = false;
+  uint8_t hue = 0;
+  int animation_ms = 0;
+  int time = 0;
+  int animationIndex = 0;
+  const char* (*animations[])(int, SDL_Renderer*) = {&ringsOnly, &plasma0, &plasma1, &plasma2, &p1_only, &p2_only, &p3_only, &p4_only};
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
     printf("error initializing SDL: %s\n", SDL_GetError());
   }
-  SDL_Window *win = SDL_CreateWindow("vest", SDL_WINDOWPOS_CENTERED,
+  SDL_Window *window = SDL_CreateWindow("vest", SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0);
 
-  renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-
-  bool shouldClose = false;
-  uint8_t hue = 0;
-  int animation_ms = 0;
-  int time;
-  int animationIndex = 0;
-  int (*animations[])(int, SDL_Renderer*) = {&plasma1, &plasma2, &plasma3, nullptr};
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  SDL_SetWindowTitle(window, animations[0](time, renderer));
 
   // Animation loop
   while (!shouldClose) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    int delay_ms = animations[animationIndex](time, renderer);
+    animations[animationIndex](time, renderer);
+    int delay_ms = 100;
     time += 1000;
     ++hue;
     SDL_RenderPresent(renderer);
@@ -156,6 +190,7 @@ int main() {
 
       SDL_Event event;
       // Events management
+      const char* name;
       while (SDL_PollEvent(&event)) {
         switch (event.type) {
         case SDL_QUIT:
@@ -163,10 +198,10 @@ int main() {
           goto exitDelay;
 
         case SDL_KEYDOWN:
-          ++animationIndex;
-          if (animations[animationIndex] == nullptr) {
-            animationIndex = 0;
-          }
+          animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+          name = animations[animationIndex](time, renderer);
+          SDL_SetWindowTitle(window, name);
+          break;
 
         default:
           break;
@@ -177,7 +212,7 @@ int main() {
 exitDelay:
 
   SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(win);
+  SDL_DestroyWindow(window);
   SDL_Quit();
 
   return 0;
