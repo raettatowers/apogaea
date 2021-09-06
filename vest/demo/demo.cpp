@@ -15,14 +15,18 @@ int16_t sin16(uint16_t theta);
 uint8_t sin8(uint8_t theta);
 uint8_t sqrt16(uint16_t value);
 int16_t cos16(uint16_t theta);
+uint16_t rand16();
 void setLed(int x, int y, uint8_t hue, SDL_Renderer *renderer);
 void setLed(int x, int y, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedPastel(int x, int y, uint8_t v, SDL_Renderer *renderer);
+void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
               uint8_t *green, uint8_t *blue);
 typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
+
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 // https://lodev.org/cgtutor/plasma.html
 void plasma1(int time, setLed_t setLed, SDL_Renderer *const renderer) {
@@ -177,43 +181,63 @@ void ringsOnly(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   }
 }
 
-const char *plasma1Hue(int time, SDL_Renderer *const renderer) {
+const char *plasma1hue(int time, SDL_Renderer *const renderer) {
   plasma1(time, setLedHue, renderer);
   return __func__;
 }
 
-const char *plasma1Pastel(int time, SDL_Renderer *const renderer) {
+const char *plasma1pastel(int time, SDL_Renderer *const renderer) {
   plasma1(time, setLedPastel, renderer);
   return __func__;
 }
 
-const char *plasma2Hue(int time, SDL_Renderer *const renderer) {
+const char *plasma1fire(int time, SDL_Renderer *const renderer) {
+  plasma1(time, setLedFire, renderer);
+  return __func__;
+}
+
+const char *plasma2hue(int time, SDL_Renderer *const renderer) {
   plasma2(time, setLedHue, renderer);
   return __func__;
 }
 
-const char *plasma2Pastel(int time, SDL_Renderer *const renderer) {
+const char *plasma2pastel(int time, SDL_Renderer *const renderer) {
   plasma2(time, setLedPastel, renderer);
   return __func__;
 }
 
-const char *plasma3Hue(int time, SDL_Renderer *const renderer) {
+const char *plasma2fire(int time, SDL_Renderer *const renderer) {
+  plasma2(time, setLedFire, renderer);
+  return __func__;
+}
+
+const char *plasma3hue(int time, SDL_Renderer *const renderer) {
   plasma3(time, setLedHue, renderer);
   return __func__;
 }
 
-const char *plasma3Pastel(int time, SDL_Renderer *const renderer) {
+const char *plasma3pastel(int time, SDL_Renderer *const renderer) {
   plasma3(time, setLedPastel, renderer);
   return __func__;
 }
 
-const char *plasma4Hue(int time, SDL_Renderer *const renderer) {
+const char *plasma3fire(int time, SDL_Renderer *const renderer) {
+  plasma3(time, setLedFire, renderer);
+  return __func__;
+}
+
+const char *plasma4hue(int time, SDL_Renderer *const renderer) {
   plasma4(time, setLedHue, renderer);
   return __func__;
 }
 
-const char *plasma4Pastel(int time, SDL_Renderer *const renderer) {
+const char *plasma4pastel(int time, SDL_Renderer *const renderer) {
   plasma4(time, setLedPastel, renderer);
+  return __func__;
+}
+
+const char *plasma4fire(int time, SDL_Renderer *const renderer) {
+  plasma4(time, setLedFire, renderer);
   return __func__;
 }
 
@@ -267,6 +291,37 @@ const char *ringsOnlyPastel(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+static uint8_t fires[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{0}};
+void initializeFire() {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    fires[x][0] = 255;
+  }
+}
+
+void fireEffect(setLed_t setLed, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+      const int rand = rand16();
+      int offset = rand % 3 - 1;
+      if ((x == 0 && offset == -1) || (x == LED_ROW_COUNT - 1 && offset == 1)) {
+        offset = 0;
+      }
+      fires[x][y] =
+          MAX(static_cast<int>(fires[x + offset][y - 1]) - rand / 1024, 0);
+    }
+  }
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      setLed(x, y, fires[x][y], renderer);
+    }
+  }
+}
+
+const char *fire(int, SDL_Renderer *const renderer) {
+  fireEffect(setLedFire, renderer);
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -274,11 +329,15 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      plasma1Hue,    plasma2Hue,    plasma3Hue,     plasma4Hue,   plasma1Pastel,
-      plasma2Pastel, plasma3Pastel, plasma4Pastel,  p1onlyHue,    p2onlyHue,
-      p3onlyHue,     p4onlyHue,     p1onlyPastel,   p2onlyPastel, p3onlyPastel,
-      p4onlyPastel,  ringsOnlyHue,  ringsOnlyPastel};
+      plasma1hue,    plasma2hue,      plasma3hue,    plasma4hue,
+      plasma1fire,   plasma2fire,     plasma3fire,   plasma4fire,
+      plasma1pastel, plasma2pastel,   plasma3pastel, plasma4pastel,
+      p1onlyHue,     p2onlyHue,       p3onlyHue,     p4onlyHue,
+      p1onlyPastel,  p2onlyPastel,    p3onlyPastel,  p4onlyPastel,
+      ringsOnlyHue,  ringsOnlyPastel, fire,
+  };
 
+  initializeFire();
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
     printf("error initializing SDL: %s\n", SDL_GetError());
@@ -384,6 +443,12 @@ uint8_t sqrt16(const uint16_t value) {
 
 int16_t cos16(uint16_t theta) { return sin16(theta + 65536 / 4); }
 
+uint16_t rand16() {
+  static uint16_t seed = 231;
+  seed = seed * 2053 + 13489;
+  return seed;
+}
+
 const uint8_t b_m16_interleave[] = {0, 49, 49, 41, 90, 27, 117, 10};
 uint8_t sin8(uint8_t theta) {
   uint8_t offset = theta;
@@ -428,6 +493,12 @@ void setLedPastel(const int x, const int y, const uint8_t v,
   const uint8_t green = sin8(v + 2 * v / 3);
   const uint8_t blue = sin8(v + 4 * v / 3);
   setLed(x, y, red, green, blue, renderer);
+}
+
+void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer) {
+  const uint8_t red = v < 128 ? v * 2 : 255;
+  const uint8_t green = v >= 128 ? (v - 128) * 2 : 0;
+  setLed(x, y, red, green, 0, renderer);
 }
 
 void setLed(const int x, const int y, uint8_t red, uint8_t green, uint8_t blue,
