@@ -1,80 +1,125 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_timer.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
+#include <SDL2/SDL_timer.h>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
 
-#include "../animations.hpp"
 #include "../constants.hpp"
 
-const int WIDTH = 640;
+const int WIDTH = 720;
 const int HEIGHT = 480;
+const uint16_t PI_1_0 = 10430; // 1.0 / (3.14159 * 2) * 65536
 
 SDL_Renderer *renderer = nullptr;
 
-constexpr Sint16 widthFraction(uint8_t percent) {
-  return static_cast<Sint16>(static_cast<float>(percent) / 100.0f * static_cast<float>(WIDTH));
+int16_t sin16(uint16_t theta);
+uint8_t sqrt16(uint16_t value);
+int16_t cos16(uint16_t theta);
+void setLed(int x, int y, uint8_t hue, SDL_Renderer *renderer);
+void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
+              uint8_t *green, uint8_t *blue);
+
+// https://lodev.org/cgtutor/plasma.html
+int plasma1(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t p1 = 128 + (sin16(x * (PI_1_0 / 4))) / 256;
+      const uint8_t p2 = 128 + (sin16(y * (PI_1_0 / 2) + time / 4)) / 256;
+      const uint8_t p3 = 128 + (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256;
+      const uint8_t p4 = 128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
+      const uint8_t hue = (p1 + p2 + p3 + p4) / 4;
+      setLed(x, y, hue, renderer);
+    }
+  }
+  return 100;
+};
+
+int plasma2(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const int xOffset = (x - LED_COLUMN_COUNT) / 2;
+      const int yOffset = (y - LED_ROW_COUNT) / 2;
+      const uint8_t hue = static_cast<uint8_t>(
+          (128 + (sin16(x * (PI_1_0 / 16))) / 256 + 128 +
+           (sin16(y * (PI_1_0 / 32))) / 256 + 128 +
+           (sin16(sqrt16((xOffset * xOffset) + (yOffset * yOffset)) * 1000)) /
+               256 +
+           128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
+          4);
+
+      setLed(x, y, hue, renderer);
+    }
+  }
+  return 100;
 }
 
-constexpr Sint16 heightFraction(uint8_t percent) {
-  return static_cast<Sint16>(static_cast<float>(percent) / 100.0f * static_cast<float>(HEIGHT));
-}
+int plasma3(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t hue = static_cast<uint8_t>(
+          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
+           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
+           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
+           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
+          4);
 
-#define wf(x) widthFraction((x))
-#define hf(x) heightFraction((x))
-void drawVest(SDL_Renderer *renderer) {
-  const Uint32 color = 0xffffffff;
-
-  // Draw the left side
-  const Sint16 leftSideXs[] = {
-    wf(20), wf(25), wf(30), wf(30), wf(15), wf(15),
-  };
-  const Sint16 leftSideYs[] = {
-    hf(30), hf(30), hf(40), hf(70), hf(70), hf(40),
-  };
-  static_assert(COUNT_OF(leftSideXs) == COUNT_OF(leftSideYs));
-  if (polygonColor(renderer, leftSideXs, leftSideYs, COUNT_OF(leftSideXs), color) != 0) {
-    fprintf(stderr, "polygonColor failed\n");
+      setLed(x, y, hue, renderer);
+    }
   }
+  return 100;
+};
 
-  // Draw the right side
-  Sint16 rightSideXs[COUNT_OF(leftSideXs)];
-  for (unsigned int i = 0; i < COUNT_OF(leftSideXs); ++i) {
-    rightSideXs[i] = WIDTH - leftSideXs[i];
+int plasma4(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t hue = static_cast<uint8_t>(
+          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
+           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
+           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
+           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
+          4);
+
+      setLed(x, y, hue, renderer);
+    }
   }
-  if (polygonColor(renderer, rightSideXs, leftSideYs, COUNT_OF(rightSideXs), color) != 0) {
-    fprintf(stderr, "polygonColor failed\n");
+  return 100;
+};
+
+int plasma5(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t hue = static_cast<uint8_t>(
+          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
+           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
+           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
+           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
+          4);
+
+      setLed(x, y, hue, renderer);
+    }
   }
+  return 100;
+};
 
-  // Draw the middle
-  Sint16 middleXs[] = {
-    wf(30), wf(35), wf(65), wf(70), wf(70), wf(30)
-  };
-  Sint16 middleYs[] = {
-    hf(40), hf(30), hf(30), hf(40), hf(70), hf(70)
-  };
-  static_assert(COUNT_OF(middleXs) == COUNT_OF(middleYs));
-  if (polygonColor(renderer, middleXs, middleYs, COUNT_OF(middleXs), color) != 0) {
-    fprintf(stderr, "polygonColor failed\n");
+int plasma6(int time, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const uint8_t hue = static_cast<uint8_t>(
+          (128 + (sin16(x * (PI_1_0 / 4))) / 256 + 128 +
+           (sin16(y * (PI_1_0 / 2) + time / 4)) / 256 + 128 +
+           (sin16((x + y) * (PI_1_0 / 8) + time / 8)) / 256 + 128 +
+           (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
+          4);
+
+      setLed(x, y, hue, renderer);
+    }
   }
-}
-#undef wf
-#undef hf
+  return 100;
+};
 
 
-uint32_t colorFromHue(uint8_t hue) {
-  const float offset = static_cast<float>(hue) / 256.0 * 2.0 * M_PI;
-  return (
-      (static_cast<uint32_t>(sin(offset) * 127) + 127) << 24
-      | (static_cast<uint32_t>(sin(offset + (2.0 / 3.0 * M_PI)) * 127) + 127) << 16
-      | (static_cast<uint32_t>(sin(offset + (4.0 / 3.0 * M_PI)) * 127) + 127) << 8
-      | 0xFF
-  );
-}
-
-
-int main(int argc, char *argv[]) {
+int main() {
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -88,21 +133,17 @@ int main(int argc, char *argv[]) {
   bool shouldClose = false;
   uint8_t hue = 0;
   int animation_ms = 0;
-
-  Ripple ripple;
-  Snake snake;
-  Count count;
-  Animation* const animations[] = {&ripple, &snake, &count};
+  int time;
   int animationIndex = 0;
+  int (*animations[])(int, SDL_Renderer*) = {&plasma1, &plasma2, &plasma3, nullptr};
 
   // Animation loop
   while (!shouldClose) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    drawVest(renderer);
-    const uint32_t color = colorFromHue(hue);
-    int delay_ms = animations[animationIndex]->animate(color);
+    int delay_ms = animations[animationIndex](time, renderer);
+    time += 1000;
     ++hue;
     SDL_RenderPresent(renderer);
 
@@ -112,10 +153,6 @@ int main(int argc, char *argv[]) {
       delay_ms -= 60;
 
       animation_ms += 1000 / 60;
-      if (animation_ms > 10000) {
-        animation_ms = 0;
-        animationIndex = (animationIndex + 1) % COUNT_OF(animations);
-      }
 
       SDL_Event event;
       // Events management
@@ -124,6 +161,12 @@ int main(int argc, char *argv[]) {
         case SDL_QUIT:
           shouldClose = true;
           goto exitDelay;
+
+        case SDL_KEYDOWN:
+          ++animationIndex;
+          if (animations[animationIndex] == nullptr) {
+            animationIndex = 0;
+          }
 
         default:
           break;
@@ -138,4 +181,117 @@ exitDelay:
   SDL_Quit();
 
   return 0;
+}
+
+int16_t sin16(uint16_t theta) {
+  static const uint16_t base[] = {0,     6393,  12539, 18204,
+                                  23170, 27245, 30273, 32137};
+  static const uint8_t slope[] = {49, 48, 44, 38, 31, 23, 14, 4};
+
+  uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
+  if (theta & 0x4000) {
+    offset = 2047 - offset;
+  }
+
+  uint8_t section = offset / 256; // 0..7
+  uint16_t b = base[section];
+  uint8_t m = slope[section];
+
+  uint8_t secoffset8 = static_cast<uint8_t>(offset) / 2;
+
+  uint16_t mx = m * secoffset8;
+  int16_t y = mx + b;
+
+  if (theta & 0x8000) {
+    y = -y;
+  }
+
+  return y;
+}
+
+uint8_t sqrt16(const uint16_t value) {
+  uint8_t x = 0;
+  if (value > 65536 / 3) {
+    return 255;
+  }
+  while (x * x < value) {
+    ++x;
+  }
+  return x;
+}
+
+int16_t cos16(uint16_t theta) { return sin16(theta + 65536 / 4); }
+
+void setLed(const int x, const int y, const uint8_t hue,
+            SDL_Renderer *const renderer) {
+  SDL_Rect rectangle;
+  const int multiplier = 25;
+  if (x >= 0 && x < LED_COLUMN_COUNT) {
+    if (y >= 0 && y < LED_ROW_COUNT) {
+      const int index = LED_STRIPS[x][y];
+      if (index != UNUSED_LED) {
+        // The ys are inverted
+        rectangle.x = x * multiplier;
+        rectangle.y = LED_ROW_COUNT * multiplier - y * multiplier;
+        rectangle.w = multiplier;
+        rectangle.h = multiplier;
+        uint8_t red, green, blue;
+        hsvToRgb(hue, 255, 255, &red, &green, &blue);
+        SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
+        SDL_RenderFillRect(renderer, &rectangle);
+      }
+    }
+  }
+}
+
+void hsvToRgb(const uint8_t hue, const uint8_t saturation, const uint8_t value,
+              uint8_t *const red, uint8_t *const green, uint8_t *const blue) {
+  unsigned char region, remainder, p, q, t;
+
+  if (saturation == 0) {
+    *red = value;
+    *green = value;
+    *blue = value;
+    return;
+  }
+
+  region = hue / 43;
+  remainder = (hue - (region * 43)) * 6;
+
+  p = (value * (255 - saturation)) >> 8;
+  q = (value * (255 - ((saturation * remainder) >> 8))) >> 8;
+  t = (value * (255 - ((saturation * (255 - remainder)) >> 8))) >> 8;
+
+  switch (region) {
+  case 0:
+    *red = value;
+    *green = t;
+    *blue = p;
+    break;
+  case 1:
+    *red = q;
+    *green = value;
+    *blue = p;
+    break;
+  case 2:
+    *red = p;
+    *green = value;
+    *blue = t;
+    break;
+  case 3:
+    *red = p;
+    *green = q;
+    *blue = value;
+    break;
+  case 4:
+    *red = t;
+    *green = p;
+    *blue = value;
+    break;
+  default:
+    *red = value;
+    *green = p;
+    *blue = q;
+    break;
+  }
 }

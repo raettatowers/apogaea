@@ -2,7 +2,7 @@
 
 env = Environment()
 
-sources = ["demo.cpp", "../animations.cpp"]
+sources = ["demo.cpp"]
 libs = ["SDL2", "SDL2_gfx", "SDL2_image"]
 
 demo = env.Program(target="demo", source=sources)
