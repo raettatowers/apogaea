@@ -79,7 +79,7 @@ void plasma3(int time, setLed_t setLed, SDL_Renderer *const renderer) {
       const uint16_t cy = y + sin16(time / 16) / 1024;
       const uint8_t p4 =
           128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
-      const uint8_t v = (p1 + p2 + p3 + p4) / 3;
+      const uint8_t v = (p1 + p2 + p3 + p4) / 4;
       setLed(x, y, v, renderer);
     }
   }
@@ -179,6 +179,53 @@ void ringsOnly(int time, setLed_t setLed, SDL_Renderer *const renderer) {
       setLed(x, y, hue, renderer);
     }
   }
+}
+
+static uint8_t fires[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{0}};
+void initializeFire() {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    fires[x][0] = 255;
+  }
+}
+
+void fireEffect(setLed_t setLed, SDL_Renderer *const renderer) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+      const int rand = rand16();
+      int offset = rand % 3 - 1;
+      if ((x == 0 && offset == -1) || (x == LED_ROW_COUNT - 1 && offset == 1)) {
+        offset = 0;
+      }
+      fires[x][y] =
+          MAX(static_cast<int>(fires[x + offset][y - 1]) - rand / 1024, 0);
+    }
+  }
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      setLed(x, y, fires[x][y], renderer);
+    }
+  }
+}
+
+void testPalette(setLed_t setLed, SDL_Renderer *const renderer) {
+  static int start = 0;
+  uint8_t v = start;
+  int count = 0;
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      if (v == 0 && count < 3) {
+        setLed(x, y, v + 128, renderer);
+        ++count;
+      } else {
+        const int index = LED_STRIPS[x][y];
+        if (index != UNUSED_LED) {
+          setLed(x, y, v, renderer);
+          ++v;
+        }
+      }
+    }
+  }
+  ++start;
 }
 
 const char *plasma1hue(int time, SDL_Renderer *const renderer) {
@@ -291,34 +338,23 @@ const char *ringsOnlyPastel(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static uint8_t fires[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{0}};
-void initializeFire() {
-  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    fires[x][0] = 255;
-  }
-}
-
-void fireEffect(setLed_t setLed, SDL_Renderer *const renderer) {
-  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
-      const int rand = rand16();
-      int offset = rand % 3 - 1;
-      if ((x == 0 && offset == -1) || (x == LED_ROW_COUNT - 1 && offset == 1)) {
-        offset = 0;
-      }
-      fires[x][y] =
-          MAX(static_cast<int>(fires[x + offset][y - 1]) - rand / 1024, 0);
-    }
-  }
-  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      setLed(x, y, fires[x][y], renderer);
-    }
-  }
-}
-
 const char *fire(int, SDL_Renderer *const renderer) {
   fireEffect(setLedFire, renderer);
+  return __func__;
+}
+
+const char *testHue(int, SDL_Renderer *const renderer) {
+  testPalette(setLedHue, renderer);
+  return __func__;
+}
+
+const char *testPastel(int, SDL_Renderer *const renderer) {
+  testPalette(setLedPastel, renderer);
+  return __func__;
+}
+
+const char *testFire(int, SDL_Renderer *const renderer) {
+  testPalette(setLedFire, renderer);
   return __func__;
 }
 
@@ -334,7 +370,8 @@ int main() {
       plasma1pastel, plasma2pastel,   plasma3pastel, plasma4pastel,
       p1onlyHue,     p2onlyHue,       p3onlyHue,     p4onlyHue,
       p1onlyPastel,  p2onlyPastel,    p3onlyPastel,  p4onlyPastel,
-      ringsOnlyHue,  ringsOnlyPastel, fire,
+      ringsOnlyHue,  ringsOnlyPastel, fire,          testHue,
+      testPastel,    testFire,
   };
 
   initializeFire();
