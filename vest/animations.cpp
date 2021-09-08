@@ -275,18 +275,28 @@ int Blobs::animate(const uint8_t hue) {
     y[i] += ySpeed[i];
 
     // Just find all the LEDs in range
-    const int startX = static_cast<int>(x[i] - radius);
-    const int endX = static_cast<int>(x[i] + radius + 1);
-    const int startY = static_cast<int>(y[i] - radius);
-    const int endY = static_cast<int>(y[i] + radius + 1);
+    const int startX = max(static_cast<int>(x[i] - radius), 0);
+    const int endX = min(static_cast<int>(x[i] + radius + 1), LED_COLUMN_COUNT);
+    const int startY = max(static_cast<int>(y[i] - radius), 0);
+    const int endY = min(static_cast<int>(y[i] + radius + 1), LED_ROW_COUNT);
     const uint8_t hueOffset = 256 / count * i;
-    for (int xIter = startX; xIter <= endX; ++xIter) {
-      for (int yIter = startY; yIter <= endY; ++yIter) {
+    for (int xIter = startX; xIter < endX; ++xIter) {
+      for (int yIter = startY; yIter < endY; ++yIter) {
+        const auto index = LED_STRIPS[xIter][yIter];
+        if (index == UNUSED_LED) {
+          continue;
+        }
         const float distance2 = static_cast<float>((xIter - x[i]) * (xIter - x[i]) + (yIter - y[i]) * (yIter - y[i]));
-        const float ratio = (radius2 - distance2) / radius2;
+        const float ratio = sqrtf((radius2 - distance2) / radius2);
         if (ratio > 0.0f) {
           const int brightness = static_cast<int>(255 * ratio);
-          setLed(xIter, yIter, CHSV(hue + hueOffset, 255, brightness));
+          const CHSV color = CHSV(hue + hueOffset, 255, brightness);
+          if (leds[index]) {
+            const CRGB blended = blend(color, leds[index], 128);
+            setLed(xIter, yIter, blended);
+          } else {
+            setLed(xIter, yIter, color);
+          }
         }
       }
     }
@@ -377,4 +387,102 @@ int Plasma::animate(uint8_t) {
     }
   }
   return 0;
+}
+
+
+Plasma1::Plasma1(ColorGenerator& colorGenerator_) :
+  colorGenerator(colorGenerator_),
+  time(0)
+{
+}
+
+
+int Plasma1::animate(uint8_t) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const auto index = LED_STRIPS[x][y];
+      if (index != UNUSED_LED) {
+        const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 4) + time / 4)) / 256;
+        const uint8_t p2 = 128 + (sin16(y * (PI_16_1_0 / 4) + time / 4)) / 256;
+        const uint8_t p3 =
+          128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
+        const uint8_t p4 =
+          128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
+        const uint8_t v = (p1 + p2 + p3 + p4) / 4;
+        setLed(x, y, colorGenerator.getColor(v));
+      }
+    }
+  }
+  time += 1000;
+  return 10;
+}
+
+Plasma2::Plasma2(ColorGenerator& colorGenerator_) :
+  colorGenerator(colorGenerator_),
+  time(0)
+{
+}
+
+
+int Plasma2::animate(uint8_t) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const auto index = LED_STRIPS[x][y];
+      if (index != UNUSED_LED) {
+        const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
+        const uint8_t p2 =
+          128 +
+          sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) /
+          256;
+        const uint8_t p3 =
+          128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
+        // cx = x + 0.5 * sin(time / 5)
+        // cy = y + 0.5 * cos(time / 3)
+        // v = sin(sqrt(100 * (cx**2 + cy ** 2) + 1) + time)
+        const uint16_t cx = x + sin16(time / 8) / 1024;
+        const uint16_t cy = y + sin16(time / 16) / 1024;
+        const uint8_t p4 =
+          128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
+        const uint8_t v = (p1 + p2 + p3 + p4) / 4;
+        setLed(x, y, colorGenerator.getColor(v));
+      }
+    }
+  }
+  time += 1000;
+  return 10;
+}
+
+Plasma3::Plasma3(ColorGenerator& colorGenerator_) :
+  colorGenerator(colorGenerator_),
+  time(0)
+{
+}
+
+
+int Plasma3::animate(uint8_t) {
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const auto index = LED_STRIPS[x][y];
+      if (index != UNUSED_LED) {
+        const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
+        const uint8_t p2 =
+          128 +
+          sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) /
+          256;
+        const uint8_t p3 =
+          128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
+        // cx = x + 0.5 * sin(time / 5)
+        // cy = y + 0.5 * cos(time / 3)
+        // v = sin(sqrt(100 * (cx**2 + cy ** 2) + 1) + time)
+        const uint16_t cx = x + sin16(time / 8) / 1024;
+        const uint16_t cy = y + sin16(time / 16) / 1024;
+        const uint8_t p4 =
+          128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
+        const uint8_t v = (p1 + p2 + p3 + p4) / 4;
+        setLed(x, y, colorGenerator.getColor(v));
+      }
+    }
+  }
+  time += 1000;
+  return 10;
 }

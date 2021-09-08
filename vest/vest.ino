@@ -7,6 +7,7 @@
 CRGB leds[LED_COUNT];
 CRGB dotStar[1];
 const int LED_PIN = 0;
+const int BUILT_IN_LED_PIN = 13;
 const int BUTTON_PIN = 3;
 
 
@@ -15,6 +16,7 @@ void setup() {
   Serial.println("resetting");
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(BUILT_IN_LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(&leds[0], COUNT_OF(leds)).setCorrection(TypicalLEDStrip);
@@ -36,6 +38,8 @@ int soundFunction() {
 
 static uint8_t hue = 0;
 
+static HueGenerator hueGenerator;
+
 static Snake snake(10, 2);
 static HorizontalSnake horizontalSnake;
 static Count count;
@@ -44,25 +48,24 @@ static Shine shine;
 static Blobs blobs(3);
 static Plasma rainbowPlasma(0.15f, 0.1f);
 static Plasma pastelPlasma(0.15f, 0.1f, 1.0f, 1.0f, 0.0f, 0.0f, 3.0f / 2.0f * M_PI, 0.0f);
+static Plasma1 rainbowPlasma1(hueGenerator);
+static Plasma2 rainbowPlasma2(hueGenerator);
+static Plasma2 rainbowPlasma3(hueGenerator);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &snake, &blobs, &shine, &rainbowPlasma, nullptr };
+static Animation* goodAnimations[] = { &rainbowPlasma1, &snake, &rainbowPlasma2, &blobs, &rainbowPlasma3, &shine, &rainbowPlasma, nullptr };
 static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
-static Animation* snakeOnly[] = { &snake, nullptr };
-static Animation* shineOnly[] = { &shine, nullptr };
-static Animation* blobOnly[] = { &blobs, nullptr };
-static Animation* plasmasOnly[] = { &rainbowPlasma, &pastelPlasma, nullptr };
-static Animation** const animationSets[] = { goodAnimations, testAnimations, snakeOnly, plasmasOnly, shineOnly, blobOnly };
+static Animation** const animationSets[] = { goodAnimations, testAnimations };
 static uint8_t animationSetIndex = 0;
 static uint8_t animationIndex = 0;
+bool cycling = true;
+unsigned long animationStart_ms = millis();
 
 void loop() {
   const int hueDuration_ms = 50;
   const int animationDuration_ms = 10000;
 
-  int previousButtonState = digitalRead(BUTTON_PIN);
-  auto hueStart_ms = millis();
-  auto animationStart_ms = millis();
+  unsigned long hueStart_ms = millis();
   while (true) {
     if (millis() > hueStart_ms + hueDuration_ms) {
       hueStart_ms = millis();
@@ -71,26 +74,9 @@ void loop() {
 
     const int delay_ms = animationSets[animationSetIndex][animationIndex]->animate(hue);
     FastLED.show();
-    const auto start = millis();
-    do {
-      const int buttonState = digitalRead(BUTTON_PIN);
-      if (buttonState == HIGH && previousButtonState != buttonState) {
-        // Button pressed
-        ++animationSetIndex;
-        if (animationSetIndex > COUNT_OF(animationSets)) {
-          animationSetIndex = 0;
-        }
-        animationIndex = 0;
-        animationSets[0][0]->reset();
-        animationStart_ms = millis();
-        previousButtonState = buttonState;
-        delay(20);  // Hacky debounce
-        break;
-      }
-      previousButtonState = buttonState;
-    } while (millis() < start + delay_ms);
+    delayAndCheckForButton(delay_ms);
 
-    if (millis() > animationStart_ms + animationDuration_ms) {
+    if (cycling && millis() > animationStart_ms + animationDuration_ms) {
       animationStart_ms = millis();
       ++animationIndex;
       if (animationSets[animationSetIndex][animationIndex] == nullptr) {
@@ -102,4 +88,42 @@ void loop() {
       }
     }
   }
+}
+
+
+void delayAndCheckForButton(const int delay_ms) {
+  const unsigned long start = millis();
+  const int buttonState = digitalRead(BUTTON_PIN);
+  do {
+    // Button pressed
+    if (buttonState == LOW) {
+      if (cycling) {
+        animationIndex = 0;
+        ++animationSetIndex;
+        if (animationSetIndex == COUNT_OF(animationSets)) {
+          animationSetIndex = 0;
+          animationSets[0][0]->reset();
+          cycling = !cycling;
+        }
+      } else {
+        ++animationIndex;
+        if (animationSets[animationSetIndex][animationIndex] == nullptr) {
+          animationIndex = 0;
+          ++animationSetIndex;
+          if (animationSetIndex == COUNT_OF(animationSets)) {
+            animationSetIndex = 0;
+            animationSets[0][0]->reset();
+            cycling = !cycling;
+          }
+        }
+      }
+
+      // Wait for the button to stop being pressed
+      delay(20); // Hacky debounce
+      while (digitalRead(BUTTON_PIN) == LOW) {}
+      animationStart_ms = millis();
+      return;
+    }
+
+  } while (millis() < start + delay_ms);
 }
