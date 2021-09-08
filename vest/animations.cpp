@@ -155,6 +155,12 @@ int Snake::animate(const uint8_t originalHue) {
 }
 
 
+Snake::~Snake() {
+  delete [] startIndexes;
+  delete [] endIndexes;
+}
+
+
 Shine::Shine() : increasing(), amount() {
   static_assert(COUNT_OF(increasing) == LED_COUNT);
   static_assert(COUNT_OF(increasing) == COUNT_OF(amount));
