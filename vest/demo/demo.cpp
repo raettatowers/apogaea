@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 #include <SDL2/SDL_timer.h>
+#include <cassert>
 #include <cstdint>
 
 #include "../constants.hpp"
@@ -55,7 +56,6 @@ void plasma2(int time, setLed_t setLed, SDL_Renderer *const renderer) {
                256 +
            128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256) /
           4);
-
       setLed(x, y, v, renderer);
     }
   }
@@ -357,6 +357,81 @@ const char *testFire(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *plasmaBidoulle(int, SDL_Renderer *const renderer) {
+  const float multiplier = 0.15f;
+  const float timeIncrement = 0.1f;
+  const float M_PI_F = 3.14159265358979;
+
+  static float time = 0.0f;
+
+  time += timeIncrement;
+  float cys[LED_ROW_COUNT];
+  for (int y = 0; y < LED_ROW_COUNT; ++y) {
+    cys[y] = y + 0.5f * cosf(time * (1.0f / 3.0f));
+  }
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    const float v1 = sinf(multiplier * x + time);
+    const float cx = sinf(x + 0.5 * sinf(time * 0.2f));
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      if (LED_STRIPS[x][y] != UNUSED_LED) {
+        const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) +
+                                            y * cosf(time * (1.0f / 3.0f))) +
+                              time);
+        const float v3 =
+            sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
+        const float v = v1 + v2 + v3;
+        const float red = sinf(v * M_PI_F);
+        const float green = sinf(v * M_PI_F + 2.0 * M_PI_F / 3.0);
+        const float blue = sinf(v * M_PI_F + 4.0 * M_PI_F / 3.0);
+        const uint8_t r = 128 + red * 127;
+        const uint8_t g = 128 + green * 127;
+        const uint8_t b = 128 + blue * 127;
+        setLed(x, y, r, g, b, renderer);
+      }
+    }
+  }
+  return __func__;
+}
+
+const char *plasmaBidoulleFast(int, SDL_Renderer *const renderer) {
+  // This fast implementation isn't perfect. I couldn't get v3 working right.
+  // But it still looks decent.
+  const uint16_t multiplier = 0.15f * PI_16_1_0;
+  const uint16_t timeIncrement = 0.1f * PI_16_1_0;
+
+  static uint32_t time = 0;
+
+  time += timeIncrement;
+  /*
+  int32_t cys[LED_ROW_COUNT];
+  for (int y = 0; y < LED_ROW_COUNT; ++y) {
+    cys[y] = y * 32768 + cos16(time / 3) / 2;  // good
+  }
+  */
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    const int16_t v1 = sin16(multiplier * x + time); // good
+    // const int16_t cx = sin16(multiplier * x + sin16(time / 5) / 2);  // bad
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      if (LED_STRIPS[x][y] != UNUSED_LED) {
+        const int16_t v2 = sin16(
+            (multiplier * (x * sin16(time / 2) + y * cos16(time / 3)) + time) /
+            16384); // bad values, but looks good?
+        /*
+        const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
+        PI_16_1_0 + time);  // bad
+        */
+        // const int16_t v = v1 + v2 + v3;
+        const int16_t v = v1 + v2;
+        const uint8_t red = (sin16(v) / 256) + 128;
+        const int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
+        const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+        setLed(x, y, red, green, blue, renderer);
+      }
+    }
+  }
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -364,13 +439,34 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      plasma1hue,    plasma2hue,      plasma3hue,    plasma4hue,
-      plasma1fire,   plasma2fire,     plasma3fire,   plasma4fire,
-      plasma1pastel, plasma2pastel,   plasma3pastel, plasma4pastel,
-      p1onlyHue,     p2onlyHue,       p3onlyHue,     p4onlyHue,
-      p1onlyPastel,  p2onlyPastel,    p3onlyPastel,  p4onlyPastel,
-      ringsOnlyHue,  ringsOnlyPastel, fire,          testHue,
-      testPastel,    testFire,
+      plasmaBidoulle,
+      plasmaBidoulleFast,
+      plasma1hue,
+      plasma2hue,
+      plasma3hue,
+      plasma4hue,
+      plasma1fire,
+      plasma2fire,
+      plasma3fire,
+      plasma4fire,
+      plasma1pastel,
+      plasma2pastel,
+      plasma3pastel,
+      plasma4pastel,
+      p1onlyHue,
+      p2onlyHue,
+      p3onlyHue,
+      p4onlyHue,
+      p1onlyPastel,
+      p2onlyPastel,
+      p3onlyPastel,
+      p4onlyPastel,
+      ringsOnlyHue,
+      ringsOnlyPastel,
+      fire,
+      testHue,
+      testPastel,
+      testFire,
   };
 
   initializeFire();

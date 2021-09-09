@@ -316,7 +316,7 @@ Blobs::~Blobs() {
 }
 
 
-Plasma::Plasma(float multiplier_, float timeIncrement_) :
+PlasmaBidoulle::PlasmaBidoulle(float multiplier_, float timeIncrement_) :
   time(0),
   multiplier(multiplier_),
   timeIncrement(timeIncrement_),
@@ -330,7 +330,7 @@ Plasma::Plasma(float multiplier_, float timeIncrement_) :
 }
 
 
-Plasma::Plasma(
+PlasmaBidoulle::PlasmaBidoulle(
   float multiplier_,
   float timeIncrement_,
   float redMultiplier_,
@@ -352,12 +352,12 @@ Plasma::Plasma(
 }
 
 
-uint8_t Plasma::convert(const float f) {
+uint8_t PlasmaBidoulle::convert(const float f) {
   return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
 }
 
 
-int Plasma::animate(uint8_t) {
+int PlasmaBidoulle::animate(uint8_t) {
   // Adapted from https://www.bidouille.org/prog/plasma
   const float M_PI_F = static_cast<float>(M_PI);
 
@@ -387,6 +387,49 @@ int Plasma::animate(uint8_t) {
     }
   }
   return 0;
+}
+
+
+PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator& colorGenerator_) :
+  colorGenerator(colorGenerator_),
+  time(0)
+{
+}
+
+
+int PlasmaBidoulleFast::animate(uint8_t) {
+  // Partially adapted from https://www.bidouille.org/prog/plasma, using fast integer
+  // math. This fast implementation isn't perfect. I couldn't get v3 working right.
+  // But it still looks decent.
+  const uint16_t multiplier = 0.15f * PI_16_1_0;
+  const uint16_t timeIncrement = 0.1f * PI_16_1_0;
+
+  time += timeIncrement;
+  /*
+  int32_t cys[LED_ROW_COUNT];
+  for (int y = 0; y < LED_ROW_COUNT; ++y) {
+    cys[y] = y * 32768 + cos16(time / 3) / 2;  // good
+  }
+  */
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    const int16_t v1 = sin16(multiplier * x + time); // good
+    // const int16_t cx = sin16(multiplier * x + sin16(time / 5) / 2);  // bad
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      if (LED_STRIPS[x][y] != UNUSED_LED) {
+        const int16_t v2 = sin16(
+            (multiplier * (x * sin16(time / 2) + y * cos16(time / 3)) + time) /
+            16384); // bad values, but looks good?
+        /*
+        const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
+        PI_16_1_0 + time);  // bad
+        */
+        // const int16_t v = v1 + v2 + v3;
+        const int8_t v = (v1 + v2) / 256 + 128;
+        setLed(x, y, colorGenerator.getColor(v));
+      }
+    }
+  }
+  return 20;
 }
 
 

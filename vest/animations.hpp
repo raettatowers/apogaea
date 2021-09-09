@@ -111,11 +111,11 @@ class Blobs : public Animation {
     float* ySpeed;
 };
 
-class Plasma : public Animation {
+class PlasmaBidoulle : public Animation {
   public:
     // 0.15, 0.1 works well
-    Plasma(float multiplier, float timeIncrement);
-    Plasma(
+    PlasmaBidoulle(float multiplier, float timeIncrement);
+    PlasmaBidoulle(
       float multiplier,
       float timeIncrement,
       float redMultiplier,
@@ -125,7 +125,7 @@ class Plasma : public Animation {
       float greenOffset,
       float blueOffset
     );
-    ~Plasma() = default;
+    ~PlasmaBidoulle() = default;
     int animate(uint8_t hue);
   private:
     float time;
@@ -139,6 +139,18 @@ class Plasma : public Animation {
     const float blueOffset;
 
     static uint8_t convert(const float f);
+};
+
+
+// A (partial) implementation of Bidoulle's animation, using fast 16-bit math
+class PlasmaBidoulleFast : public Animation {
+  public:
+    PlasmaBidoulleFast(ColorGenerator& colorGenerator);
+    ~PlasmaBidoulleFast() = default;
+    int animate(uint8_t hue);
+  private:
+    ColorGenerator& colorGenerator;
+    uint32_t time;
 };
 
 class Plasma1 : public Animation {
