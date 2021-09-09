@@ -7,7 +7,6 @@
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
-const uint16_t PI_16_1_0 = 1.0 / (3.14159 * 2) * 65536;
 
 SDL_Renderer *renderer = nullptr;
 
