@@ -45,7 +45,7 @@ static HorizontalSnake horizontalSnake;
 static Count count;
 static CountXY countXY;
 static Shine shine;
-static Blobs blobs(3);
+static Blobs blobs(4);
 static PlasmaBidoulle plasmaBidoulleHue(0.15f, 0.1f);
 static PlasmaBidoulle plasmaBidoullePastel(0.15f, 0.1f, 1.0f, 1.0f, 0.0f, 0.0f, 3.0f / 2.0f * M_PI, 0.0f);
 static PlasmaBidoulleFast plasmaBidoulleFastHue(hueGenerator);

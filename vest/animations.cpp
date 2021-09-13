@@ -417,7 +417,7 @@ int PlasmaBidoulleFast::animate(uint8_t) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 2) + y * cos16(time / 3)) + time) /
+            (multiplier * (x * sin16(time / 4) / 2 + y * cos16(time / 3)) + time) /
             16384); // bad values, but looks good?
         /*
         const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
