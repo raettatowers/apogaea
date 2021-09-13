@@ -542,21 +542,39 @@ int main() {
           goto exitDelay;
 
         case SDL_KEYDOWN:
-          if (event.key.keysym.sym == SDLK_LEFT) {
-            --animationIndex;
-            if (animationIndex < 0) {
-              animationIndex = COUNT_OF(animations) - 1;
-            }
-            name = animations[animationIndex](time, renderer);
-          } else if (event.key.keysym.sym == SDLK_RIGHT) {
-            animationIndex = (animationIndex + 1) % COUNT_OF(animations);
-            name = animations[animationIndex](time, renderer);
+          if (event.key.keysym.sym == SDLK_RIGHT) {
+            goto nextAnimation;
+          } else if (event.key.keysym.sym == SDLK_LEFT) {
+            goto previousAnimation;
           }
-          SDL_SetWindowTitle(window, name);
+          break;
+
+        case SDL_MOUSEBUTTONDOWN:
+          if (event.button.button == SDL_BUTTON_LEFT) {
+            goto nextAnimation;
+          } else if (event.button.button == SDL_BUTTON_RIGHT) {
+            goto previousAnimation;
+          }
           break;
 
         default:
           break;
+
+        nextAnimation:
+          animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+          name = animations[animationIndex](time, renderer);
+          goto setTitle;
+
+        previousAnimation:
+          --animationIndex;
+          if (animationIndex < 0) {
+            animationIndex = COUNT_OF(animations) - 1;
+          }
+          name = animations[animationIndex](time, renderer);
+          goto setTitle;
+
+        setTitle:
+          SDL_SetWindowTitle(window, name);
         }
       }
     }
