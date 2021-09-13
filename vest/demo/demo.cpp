@@ -150,6 +150,7 @@ void p3only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
 }
 
 void p4only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
+  // Oops, I think this is doing v3 of Bidoulle
   static bool precomputed = false;
   static uint8_t rings[LED_COLUMN_COUNT * 2][LED_ROW_COUNT * 2];
   if (!precomputed) {
@@ -179,6 +180,7 @@ void p4only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
 }
 
 void p4onlyFloat(int time_, setLed_t setLed, SDL_Renderer *const renderer) {
+  // Oops, I think this is doing v3 of Bidoulle
   float time = static_cast<float>(time_) / 10000;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
@@ -422,35 +424,38 @@ const char *plasmaBidoulle(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *plasmaBidoulleFast(int, SDL_Renderer *const renderer) {
-  // This fast implementation isn't perfect. I couldn't get v3 working right.
-  // But it still looks decent.
+const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   const uint16_t multiplier = 0.15f * PI_16_1_0;
-  const uint16_t timeIncrement = 0.1f * PI_16_1_0;
+  static bool precomputed = false;
+  static uint16_t rings[LED_COLUMN_COUNT * 2][LED_ROW_COUNT * 2];
 
-  static uint32_t time = 0;
-
-  time += timeIncrement;
-  /*
-  int32_t cys[LED_ROW_COUNT];
-  for (int y = 0; y < LED_ROW_COUNT; ++y) {
-    cys[y] = y * 32768 + cos16(time / 3) / 2;  // good
+  if (!precomputed) {
+    for (int x = -LED_COLUMN_COUNT / 2; x < 3 * LED_COLUMN_COUNT / 2; ++x) {
+      for (int y = -LED_ROW_COUNT / 2; y < 3 * LED_ROW_COUNT / 2; ++y) {
+        int xSqr = x - LED_COLUMN_COUNT / 2;
+        xSqr *= xSqr;
+        int ySqr = y - LED_ROW_COUNT / 2;
+        ySqr *= ySqr;
+        const uint16_t value = (sinf(sqrtf(.1f * (xSqr + ySqr) + 1)) + 1) * 32767;
+        rings[x + LED_COLUMN_COUNT / 2][y + LED_ROW_COUNT / 2] = value;
+      }
+    }
+    precomputed = true;
   }
-  */
+
+  const int xOffset = sin16(time / 2) / 4096;
+  const int yOffset = sin16(time / 3) / 8192;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     const int16_t v1 = sin16(multiplier * x + time); // good
-    // const int16_t cx = sin16(multiplier * x + sin16(time / 5) / 2);  // bad
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
             (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) + time) /
             16384); // bad values, but looks good?
-        /*
-        const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
-        PI_16_1_0 + time);  // bad
-        */
-        // const int16_t v = v1 + v2 + v3;
-        const int16_t v = v1 + v2;
+        const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+        const int adjustedY = y + yOffset + LED_ROW_COUNT / 2;
+        const int16_t v3 = rings[adjustedX][adjustedY];
+        const int16_t v = v1 + v2 + v3;
         const uint8_t red = (sin16(v) / 256) + 128;
         const int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
         const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
