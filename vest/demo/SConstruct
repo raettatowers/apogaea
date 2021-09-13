@@ -11,6 +11,6 @@ env.Python3("../offsets.hpp", "../offsets.py")
 
 demo = env.Program(target="demo", source=sources)
 env.Append(LIBS=libs)
-env.Append(CCFLAGS="-DDEMO")
+env.Append(CCFLAGS="-DDEMO -g")
 
 Default(demo)

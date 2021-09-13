@@ -116,7 +116,7 @@ void p1only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
       setLed(x, y, hue, renderer);
     }
   }
-};
+}
 
 void p2only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -133,7 +133,7 @@ void p2only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
       setLed(x, y, hue, renderer);
     }
   }
-};
+}
 
 void p3only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -147,21 +147,50 @@ void p3only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
       setLed(x, y, hue, renderer);
     }
   }
-};
+}
 
 void p4only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
+  static bool precomputed = false;
+  static uint8_t rings[LED_COLUMN_COUNT * 2][LED_ROW_COUNT * 2];
+  if (!precomputed) {
+    for (int x = -LED_COLUMN_COUNT / 2; x < 3 * LED_COLUMN_COUNT / 2; ++x) {
+      for (int y = -LED_ROW_COUNT / 2; y < 3 * LED_ROW_COUNT / 2; ++y) {
+        int xSqr = x - LED_COLUMN_COUNT / 2;
+        xSqr *= xSqr;
+        int ySqr = y - LED_ROW_COUNT / 2;
+        ySqr *= ySqr;
+        const uint8_t value = (sinf(sqrtf(.1f * (xSqr + ySqr) + 1)) + 1) * 127;
+        rings[x + LED_COLUMN_COUNT / 2][y + LED_ROW_COUNT / 2] = value;
+      }
+    }
+    precomputed = true;
+  }
+
+  const uint8_t offset = time / 1000;
+  const int xOffset = sin16(time / 2) / 4096;
+  const int yOffset = sin16(time / 3) / 8192;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 0;
-      const uint8_t p2 = 0;
-      const uint8_t p3 = 0;
-      const uint8_t p4 =
-          128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
-      const uint8_t hue = (p1 + p2 + p3 + p4);
+      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2;
+      setLed(x, y, rings[adjustedX][adjustedY] + offset, renderer);
+    }
+  }
+}
+
+void p4onlyFloat(int time_, setLed_t setLed, SDL_Renderer *const renderer) {
+  float time = static_cast<float>(time_) / 10000;
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      float cx = 0.5 * (x - LED_COLUMN_COUNT / 2) + 0.5 * sinf(time / 5);
+      float cy = 0.5 * (y - LED_ROW_COUNT / 2) + 0.5 * cosf(time / 3);
+      float v = sinf(sqrtf(1 * (cx * cx + cy * cy) + 1) + time);
+      const uint8_t hue = (v + 1) * 127;
+      printf("%d %d %f\n", x, y, v);
       setLed(x, y, hue, renderer);
     }
   }
-};
+}
 
 void ringsOnly(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -414,7 +443,7 @@ const char *plasmaBidoulleFast(int, SDL_Renderer *const renderer) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 2) + y * cos16(time / 3)) + time) /
+            (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) + time) /
             16384); // bad values, but looks good?
         /*
         const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
