@@ -1,13 +1,64 @@
-#include <stdint.h>
 #include <FastLED.h>
+#include <stdint.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
 
-
 extern CRGB leds[LED_COUNT];
 
-void Animation::setLed(int x, int y, const CRGB& color) {
+CRGB HueGenerator::getColor(const uint8_t v) {
+  return CHSV(v, 255, 255);
+}
+
+CRGB HueGenerator::getColor(const uint16_t v) {
+  CRGB crgb;
+  hsv2rgb_raw(CHSV(v / 256, 255, 255), crgb);
+  return crgb;
+}
+
+CRGB RedGreenGenerator::getColor(const uint8_t v) {
+  const uint8_t red = (sin16(v * 256) / 256) + 128;
+  const uint8_t green = (cos16(v * 256) / 256) + 128;
+  const uint8_t blue = 0;
+  return CRGB(red, green, blue);
+}
+
+CRGB RedGreenGenerator::getColor(const uint16_t v) {
+  const uint8_t red = (sin16(v) / 256) + 128;
+  const uint8_t green = (cos16(v) / 256) + 128;
+  const uint8_t blue = 0;
+  return CRGB(red, green, blue);
+}
+
+CRGB PastelGenerator::getColor(const uint8_t v) {
+  const uint8_t red = 255;
+  const uint8_t green = (cos16(v * 256) / 256) + 128;
+  const uint8_t blue = (sin16(v * 256) / 256) + 128;
+  return CRGB(red, green, blue);
+}
+
+CRGB PastelGenerator::getColor(const uint16_t v) {
+  const uint8_t red = 255;
+  const uint8_t green = (cos16(v) / 256) + 128;
+  const uint8_t blue = (sin16(v) / 256) + 128;
+  return CRGB(red, green, blue);
+}
+
+CRGB NeonGenerator::getColor(const uint8_t v) {
+  const uint8_t red = (sin16(v * 256) / 256) + 128;
+  const uint8_t green = (sin16(v * 256 + 2 * 32768 / 3) / 256) + 128;
+  const uint8_t blue = (sin16(v * 256 + 4 * 32768 / 3) / 256) + 128;
+  return CRGB(red, green, blue);
+}
+
+CRGB NeonGenerator::getColor(const uint16_t v) {
+  const uint8_t red = (sin16(v) / 256) + 128;
+  const uint8_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
+  const uint8_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+  return CRGB(red, green, blue);
+}
+
+void Animation::setLed(int x, int y, const CRGB &color) {
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {
       const int index = LED_STRIPS[x][y];
@@ -17,7 +68,8 @@ void Animation::setLed(int x, int y, const CRGB& color) {
     }
   }
 }
-void Animation::setLed(int index, const CRGB& color) {
+
+void Animation::setLed(int index, const CRGB &color) {
   leds[index] = color;
 }
 
@@ -25,11 +77,7 @@ void resetLeds() {
   fill_solid(leds, LED_COUNT, CRGB::Black);
 }
 
-
-Count::Count() : index(0)
-{
-}
-
+Count::Count() : index(0) {}
 
 int Count::animate(const uint8_t hue) {
   const int millisPerIteration = 500;
@@ -43,10 +91,7 @@ int Count::animate(const uint8_t hue) {
   return millisPerIteration;
 }
 
-
-CountXY::CountXY() : index(0) {
-}
-
+CountXY::CountXY() : index(0) {}
 
 int CountXY::animate(uint8_t) {
   const int millisPerIteration = 500;
@@ -78,11 +123,7 @@ int CountXY::animate(uint8_t) {
   return millisPerIteration;
 }
 
-
-HorizontalSnake::HorizontalSnake() : x(0), y(0), xIncreasing(true)
-{
-}
-
+HorizontalSnake::HorizontalSnake() : x(0), y(0), xIncreasing(true) {}
 
 int HorizontalSnake::animate(const uint8_t hue) {
   resetLeds();
@@ -111,20 +152,16 @@ int HorizontalSnake::animate(const uint8_t hue) {
   return 250;
 }
 
-
-Snake::Snake(int length_, int count_) :
-  length(length_),
-  count(count_),
-  startIndexes(new int[count_]),
-  endIndexes(new int[count_])
-{
+Snake::Snake(int length_, int count_)
+  : length(length_), count(count_), startIndexes(new int[count_]),
+    endIndexes(new int[count_]) {
   for (int i = 0; i < count; ++i) {
-    startIndexes[i] = static_cast<int>(static_cast<float>(LED_COUNT) / count * i);
+    startIndexes[i] =
+      static_cast<int>(static_cast<float>(LED_COUNT) / count * i);
     // Force all the snakes to start entirely on the vest
     endIndexes[i] = LED_COUNT;
   }
 }
-
 
 int Snake::animate(const uint8_t originalHue) {
   const unsigned millisPerIteration = 20;
@@ -154,12 +191,10 @@ int Snake::animate(const uint8_t originalHue) {
   return millisPerIteration;
 }
 
-
 Snake::~Snake() {
-  delete [] startIndexes;
-  delete [] endIndexes;
+  delete[] startIndexes;
+  delete[] endIndexes;
 }
-
 
 Shine::Shine() : increasing(), amount() {
   static_assert(COUNT_OF(increasing) == LED_COUNT);
@@ -173,14 +208,13 @@ Shine::Shine() : increasing(), amount() {
   }
 }
 
-
 int Shine::animate(uint8_t hue) {
   const int millisPerIteration = 100;
   const int maxAmount = 120;
   const int changeAmount = 10;
   static_assert(maxAmount % changeAmount == 0);
 
-  hue *= 4;  // Make it cycle faster
+  hue *= 4; // Make it cycle faster
   resetLeds();
 
   // Randomly start increasing an LED
@@ -208,16 +242,10 @@ int Shine::animate(uint8_t hue) {
   return millisPerIteration;
 }
 
-
-Blobs::Blobs(const int count_) :
-  count(count_),
-  targetX(new float[count_]),
-  targetY(new float[count_]),
-  x(new float[count_]),
-  y(new float[count_]),
-  xSpeed(new float[count_]),
-  ySpeed(new float[count_])
-{
+Blobs::Blobs(const int count_)
+  : count(count_), targetX(new float[count_]), targetY(new float[count_]),
+    x(new float[count_]), y(new float[count_]), xSpeed(new float[count_]),
+    ySpeed(new float[count_]) {
   for (int i = 0; i < count; ++i) {
     targetX[i] = static_cast<float>(rand() % LED_COLUMN_COUNT);
     targetY[i] = static_cast<float>(rand() % LED_ROW_COUNT);
@@ -227,7 +255,6 @@ Blobs::Blobs(const int count_) :
     ySpeed[i] = 0.0f;
   }
 }
-
 
 int Blobs::animate(const uint8_t hue) {
   const int millisPerIteration = 50;
@@ -240,7 +267,8 @@ int Blobs::animate(const uint8_t hue) {
   resetLeds();
 
   for (int i = 0; i < count; ++i) {
-    const float distance2 = (targetX[i] - x[i]) * (targetX[i] - x[i]) + (targetY[i] - y[i]) * (targetY[i] - y[i]);
+    const float distance2 = (targetX[i] - x[i]) * (targetX[i] - x[i]) +
+                            (targetY[i] - y[i]) * (targetY[i] - y[i]);
     if (distance2 < reachedDistance2) {
       targetX[i] = static_cast<float>(rand() % LED_COLUMN_COUNT);
       targetY[i] = static_cast<float>(rand() % LED_ROW_COUNT);
@@ -286,7 +314,8 @@ int Blobs::animate(const uint8_t hue) {
         if (index == UNUSED_LED) {
           continue;
         }
-        const float distance2 = static_cast<float>((xIter - x[i]) * (xIter - x[i]) + (yIter - y[i]) * (yIter - y[i]));
+        const float distance2 = static_cast<float>(
+                                  (xIter - x[i]) * (xIter - x[i]) + (yIter - y[i]) * (yIter - y[i]));
         const float ratio = sqrtf((radius2 - distance2) / radius2);
         if (ratio > 0.0f) {
           const int brightness = static_cast<int>(255 * ratio);
@@ -305,57 +334,33 @@ int Blobs::animate(const uint8_t hue) {
   return millisPerIteration;
 }
 
-
 Blobs::~Blobs() {
-  delete [] targetX;
-  delete [] targetY;
-  delete [] x;
-  delete [] y;
-  delete [] xSpeed;
-  delete [] ySpeed;
+  delete[] targetX;
+  delete[] targetY;
+  delete[] x;
+  delete[] y;
+  delete[] xSpeed;
+  delete[] ySpeed;
 }
 
+PlasmaBidoulle::PlasmaBidoulle(float multiplier_, float timeIncrement_)
+  : time(0), multiplier(multiplier_), timeIncrement(timeIncrement_),
+    redMultiplier(1.0f), greenMultiplier(1.0f), blueMultiplier(1.0f),
+    redOffset(0.0f), greenOffset(2.0f / 3.0f * M_PI),
+    blueOffset(4.0f / 3.0f * M_PI) {}
 
-PlasmaBidoulle::PlasmaBidoulle(float multiplier_, float timeIncrement_) :
-  time(0),
-  multiplier(multiplier_),
-  timeIncrement(timeIncrement_),
-  redMultiplier(1.0f),
-  greenMultiplier(1.0f),
-  blueMultiplier(1.0f),
-  redOffset(0.0f),
-  greenOffset(2.0f / 3.0f * M_PI),
-  blueOffset(4.0f / 3.0f * M_PI)
-{
-}
-
-
-PlasmaBidoulle::PlasmaBidoulle(
-  float multiplier_,
-  float timeIncrement_,
-  float redMultiplier_,
-  float greenMultiplier_,
-  float blueMultiplier_,
-  float redOffset_,
-  float greenOffset_,
-  float blueOffset_
-) : time(0),
-  multiplier(multiplier_),
-  timeIncrement(timeIncrement_),
-  redMultiplier(redMultiplier_),
-  greenMultiplier(greenMultiplier_),
-  blueMultiplier(blueMultiplier_),
-  redOffset(redOffset_),
-  greenOffset(greenOffset_),
-  blueOffset(blueOffset_)
-{
-}
-
+PlasmaBidoulle::PlasmaBidoulle(float multiplier_, float timeIncrement_,
+                               float redMultiplier_, float greenMultiplier_,
+                               float blueMultiplier_, float redOffset_,
+                               float greenOffset_, float blueOffset_)
+  : time(0), multiplier(multiplier_), timeIncrement(timeIncrement_),
+    redMultiplier(redMultiplier_), greenMultiplier(greenMultiplier_),
+    blueMultiplier(blueMultiplier_), redOffset(redOffset_),
+    greenOffset(greenOffset_), blueOffset(blueOffset_) {}
 
 uint8_t PlasmaBidoulle::convert(const float f) {
   return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
 }
-
 
 int PlasmaBidoulle::animate(uint8_t) {
   // Adapted from https://www.bidouille.org/prog/plasma
@@ -372,10 +377,13 @@ int PlasmaBidoulle::animate(uint8_t) {
     const float cx = sinf(x + 0.5 * sinf(time * 0.2f));
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
-        const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) + y * cosf(time * (1.0f / 3.0f))) + time);
-        const float v3 = sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
+        const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) +
+                                            y * cosf(time * (1.0f / 3.0f))) +
+                              time);
+        const float v3 =
+          sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
         const float v = v1 + v2 + v3;
-        //const float v = v1 + v2;
+        // const float v = v1 + v2;
         const float red = redMultiplier * sinf(v * M_PI_F + redOffset);
         const float green = greenMultiplier * sinf(v * M_PI_F + greenOffset);
         const float blue = blueMultiplier * sinf(v * M_PI_F + blueOffset);
@@ -389,42 +397,41 @@ int PlasmaBidoulle::animate(uint8_t) {
   return 0;
 }
 
-
-PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator& colorGenerator_) :
-  colorGenerator(colorGenerator_),
-  time(0)
-{
-}
-
+PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator &colorGenerator_)
+  : colorGenerator(colorGenerator_), time(0) {}
 
 int PlasmaBidoulleFast::animate(uint8_t) {
-  // Partially adapted from https://www.bidouille.org/prog/plasma, using fast integer
-  // math. This fast implementation isn't perfect. I couldn't get v3 working right.
-  // But it still looks decent.
+  // Partially adapted from https://www.bidouille.org/prog/plasma, using fast
+  // integer math.
   const uint16_t multiplier = 0.15f * PI_16_1_0;
   const uint16_t timeIncrement = 0.1f * PI_16_1_0;
+  // I found that using precomputed tables for the circles makes the animation
+  // jittery, so blend two adjacent values so smooth it out
+  const int blend = 64;
+  const int xSin = sin16(time / 2);
+  const int xOffset = xSin / 4096;
+  const int xRemainder = (xSin % 4096) / blend;
+  const int ySin = sin16(time / 3);
+  const int yOffset = ySin / 8192;
+  // I haven't noticed the jitter in the y direction, so don't compute the
+  // blend for y
 
   time += timeIncrement;
-  /*
-  int32_t cys[LED_ROW_COUNT];
-  for (int y = 0; y < LED_ROW_COUNT; ++y) {
-    cys[y] = y * 32768 + cos16(time / 3) / 2;  // good
-  }
-  */
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     const int16_t v1 = sin16(multiplier * x + time); // good
     // const int16_t cx = sin16(multiplier * x + sin16(time / 5) / 2);  // bad
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 4) / 2 + y * cos16(time / 3)) + time) /
-            16384); // bad values, but looks good?
-        /*
-        const int16_t v3 = sin16(sqrtf((cx * cx + cys[y] * cys[y] + 1)) *
-        PI_16_1_0 + time);  // bad
-        */
-        // const int16_t v = v1 + v2 + v3;
-        const int8_t v = (v1 + v2) / 256 + 128;
+                             (multiplier * (x * sin16(time / 4) / 2 + y * cos16(time / 3)) +
+                              time) /
+                             16384); // bad values, but looks good?
+        const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+        const int adjustedY = y + yOffset + LED_ROW_COUNT / 2;
+        const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
+        const uint16_t blend2 = bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
+        const uint16_t v3 = (blend1 + blend2) / 2 * 256;
+        const uint16_t v = v1 + v2 + v3;
         setLed(x, y, colorGenerator.getColor(v));
       }
     }
@@ -432,13 +439,8 @@ int PlasmaBidoulleFast::animate(uint8_t) {
   return 20;
 }
 
-
-Plasma1::Plasma1(ColorGenerator& colorGenerator_) :
-  colorGenerator(colorGenerator_),
-  time(0)
-{
-}
-
+Plasma1::Plasma1(ColorGenerator &colorGenerator_)
+  : colorGenerator(colorGenerator_), time(0) {}
 
 int Plasma1::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -460,12 +462,8 @@ int Plasma1::animate(uint8_t) {
   return 10;
 }
 
-Plasma2::Plasma2(ColorGenerator& colorGenerator_) :
-  colorGenerator(colorGenerator_),
-  time(0)
-{
-}
-
+Plasma2::Plasma2(ColorGenerator &colorGenerator_)
+  : colorGenerator(colorGenerator_), time(0) {}
 
 int Plasma2::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -473,10 +471,9 @@ int Plasma2::animate(uint8_t) {
       const auto index = LED_STRIPS[x][y];
       if (index != UNUSED_LED) {
         const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
-        const uint8_t p2 =
-          128 +
-          sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) /
-          256;
+        const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 +
+                                             y * cos16(time / 3) / 256)) /
+                           256;
         const uint8_t p3 =
           128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
         // cx = x + 0.5 * sin(time / 5)
@@ -485,7 +482,8 @@ int Plasma2::animate(uint8_t) {
         const uint16_t cx = x + sin16(time / 8) / 1024;
         const uint16_t cy = y + sin16(time / 16) / 1024;
         const uint8_t p4 =
-          128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
+          128 +
+          sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
         const uint8_t v = (p1 + p2 + p3 + p4) / 4;
         setLed(x, y, colorGenerator.getColor(v));
       }
@@ -495,12 +493,8 @@ int Plasma2::animate(uint8_t) {
   return 10;
 }
 
-Plasma3::Plasma3(ColorGenerator& colorGenerator_) :
-  colorGenerator(colorGenerator_),
-  time(0)
-{
-}
-
+Plasma3::Plasma3(ColorGenerator &colorGenerator_)
+  : colorGenerator(colorGenerator_), time(0) {}
 
 int Plasma3::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -508,10 +502,9 @@ int Plasma3::animate(uint8_t) {
       const auto index = LED_STRIPS[x][y];
       if (index != UNUSED_LED) {
         const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
-        const uint8_t p2 =
-          128 +
-          sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) /
-          256;
+        const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 +
+                                             y * cos16(time / 3) / 256)) /
+                           256;
         const uint8_t p3 =
           128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
         // cx = x + 0.5 * sin(time / 5)
@@ -520,7 +513,8 @@ int Plasma3::animate(uint8_t) {
         const uint16_t cx = x + sin16(time / 8) / 1024;
         const uint16_t cy = y + sin16(time / 16) / 1024;
         const uint8_t p4 =
-          128 + sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
+          128 +
+          sin16(sqrt16(cx * cx + cy * cy) * (PI_16_1_0 / 2) + time) / 512;
         const uint8_t v = (p1 + p2 + p3 + p4) / 4;
         setLed(x, y, colorGenerator.getColor(v));
       }

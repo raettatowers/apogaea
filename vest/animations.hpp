@@ -9,7 +9,45 @@ class CRGB;
 
 class ColorGenerator {
   public:
-    virtual CHSV getColor(uint8_t v) = 0;
+    virtual CRGB getColor(uint8_t v) = 0;
+    virtual CRGB getColor(uint16_t v) = 0;
+};
+
+class HueGenerator : public ColorGenerator {
+  public:
+    HueGenerator() = default;
+    ~HueGenerator() = default;
+    HueGenerator(HueGenerator&) = delete;
+
+    CRGB getColor(uint8_t value);
+    CRGB getColor(uint16_t value);
+};
+
+class RedGreenGenerator : public ColorGenerator {
+  public:
+    RedGreenGenerator() = default;
+    ~RedGreenGenerator() = default;
+
+    CRGB getColor(uint8_t value);
+    CRGB getColor(uint16_t value);
+};
+
+class PastelGenerator : public ColorGenerator {
+  public:
+    PastelGenerator() = default;
+    ~PastelGenerator() = default;
+
+    CRGB getColor(uint8_t value);
+    CRGB getColor(uint16_t value);
+};
+
+class NeonGenerator : public ColorGenerator {
+  public:
+    NeonGenerator() = default;
+    ~NeonGenerator() = default;
+
+    CRGB getColor(uint8_t value);
+    CRGB getColor(uint16_t value);
 };
 
 class Animation {
@@ -181,17 +219,6 @@ class Plasma3 : public Animation {
   private:
     ColorGenerator& colorGenerator;
     int time;
-};
-
-class HueGenerator : public ColorGenerator {
-  public:
-    HueGenerator() = default;
-    ~HueGenerator() = default;
-    HueGenerator(const HueGenerator&) = delete;
-
-    CHSV getColor(uint8_t value) {
-      return CHSV(value, 255, 255);
-    }
 };
 
 #endif

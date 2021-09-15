@@ -39,6 +39,9 @@ int soundFunction() {
 static uint8_t hue = 0;
 
 static HueGenerator hueGenerator;
+static RedGreenGenerator redGreenGenerator;
+static PastelGenerator pastelGenerator;
+static NeonGenerator neonGenerator;
 
 static Snake snake(10, 2);
 static HorizontalSnake horizontalSnake;
@@ -46,15 +49,13 @@ static Count count;
 static CountXY countXY;
 static Shine shine;
 static Blobs blobs(4);
-static PlasmaBidoulle plasmaBidoulleHue(0.15f, 0.1f);
-static PlasmaBidoulle plasmaBidoullePastel(0.15f, 0.1f, 1.0f, 1.0f, 0.0f, 0.0f, 3.0f / 2.0f * M_PI, 0.0f);
-static PlasmaBidoulleFast plasmaBidoulleFastHue(hueGenerator);
-static Plasma1 plasma1Hue(hueGenerator);
-static Plasma2 plasma2Hue(hueGenerator);
-static Plasma2 plasma3Hue(hueGenerator);
+static PlasmaBidoulleFast plasma1(neonGenerator);
+static PlasmaBidoulleFast plasma2(redGreenGenerator);
+static PlasmaBidoulleFast plasma3(pastelGenerator);
+static Plasma3 plasma4(hueGenerator);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &plasmaBidoulleFastHue, &plasma1Hue, &snake, &plasma2Hue, &blobs, &plasma3Hue, &shine, &plasmaBidoullePastel, nullptr };
+static Animation* goodAnimations[] = { &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
 static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
 static Animation** const animationSets[] = { goodAnimations, testAnimations };
 static uint8_t animationSetIndex = 0;
