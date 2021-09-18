@@ -16,7 +16,7 @@ def print_offsets() -> None:
         if len(array) % 2 == 0:
             array[-1] = list(reversed(array[-1]))
         for y in range(led_counts[x], max(led_counts)):
-            array[-1].append("UNUSED_LED")
+            array[-1].append("UL")
 
     for x in range(len(led_counts) - 1, -1, -1):
         array.append([])
@@ -26,18 +26,20 @@ def print_offsets() -> None:
         if len(array) % 2 == 0:
             array[-1] = list(reversed(array[-1]))
         for y in range(led_counts[x], max(led_counts)):
-            array[-1].append("UNUSED_LED")
+            array[-1].append("UL")
 
     print("const int UNUSED_LED = -1;")
+    print("#define UL UNUSED_LED")
     print(f"const int LED_COUNT = {sum(led_counts) * 2};")
     print(f"const int LED_COLUMN_COUNT = 2 * {len(led_counts)};")
     print(f"const int LED_ROW_COUNT = {max(led_counts)};")
     print("// x first then y, starting at lower left corner")
-    print(f"const int16_t LED_STRIPS[2 * {len(led_counts)}][{max(led_counts)}] = {{")
+    print("const int16_t LED_STRIPS[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
     for x in range(len(array)):
-        items = [array[x][y] for y in range(len(array[x]))]
+        items = ["{0:>3}".format(array[x][y]) for y in range(len(array[x]))]
         print(f"    {{{', '.join(items)}}},")
     print("};")
+    print("#undef UL")
 
 
 def print_precomputed_bidoulle_v3() -> None:
