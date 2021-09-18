@@ -3,8 +3,10 @@
 #include <SDL2/SDL_timer.h>
 #include <cassert>
 #include <cstdint>
+#include <time.h>
 
 #include "../constants.hpp"
+#include "../rick_roll.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
@@ -16,6 +18,7 @@ uint8_t sin8(uint8_t theta);
 uint8_t sqrt16(uint16_t value);
 int16_t cos16(uint16_t theta);
 uint16_t rand16();
+void setLed(const int index, uint32_t color, SDL_Renderer *const renderer);
 void setLed(int x, int y, uint8_t hue, SDL_Renderer *renderer);
 void setLed(int x, int y, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
@@ -426,12 +429,15 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       if (LED_STRIPS[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) + time) /
+            (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
+             time) /
             16384); // bad values, but looks good?
         const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
         const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
-        const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
-        const uint16_t blend2 = bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
+        const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] *
+                                (blend - xRemainder) / blend;
+        const uint16_t blend2 =
+            bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
         const uint16_t v3 = (blend1 + blend2) / 2 * 256;
         const int16_t v = v1 + v2 + v3;
         const uint8_t red = (sin16(v) / 256) + 128;
@@ -444,6 +450,40 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *video(int, SDL_Renderer *const renderer) {
+  const int width = 12;
+  const int height = 11;
+  const int startColumn = 8;
+
+  static int frame = 0;
+
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+      setLed(x, y, 100, 0, 0, renderer);
+    }
+  }
+
+  int count = 0;
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const uint32_t value = RICK_ROLL[frame][count];
+      ++count;
+      const uint8_t red = (value & 0xFF0000) >> 16;
+      const uint8_t green = (value & 0xFF00) >> 8;
+      const uint8_t blue = value & 0xFF;
+      setLed(x + startColumn, height - y, red, green, blue, renderer);
+    }
+  }
+  frame = (frame + 1) % COUNT_OF(RICK_ROLL);
+
+  timespec delayTime;
+  delayTime.tv_sec = 0;
+  delayTime.tv_nsec = 100 * 1000 * 1000;
+  nanosleep(&delayTime, NULL);
+
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -451,34 +491,16 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      plasmaBidoulle,
-      plasmaBidoulleFast,
-      plasma1hue,
-      plasma2hue,
-      plasma3hue,
-      plasma4hue,
-      plasma1fire,
-      plasma2fire,
-      plasma3fire,
-      plasma4fire,
-      plasma1pastel,
-      plasma2pastel,
-      plasma3pastel,
-      plasma4pastel,
-      p1onlyHue,
-      p2onlyHue,
-      p3onlyHue,
-      p4onlyHue,
-      p1onlyPastel,
-      p2onlyPastel,
-      p3onlyPastel,
-      p4onlyPastel,
-      ringsOnlyHue,
-      ringsOnlyPastel,
-      fire,
-      testHue,
-      testPastel,
-      testFire,
+      video,           plasmaBidoulle, plasmaBidoulleFast,
+      plasma1hue,      plasma2hue,     plasma3hue,
+      plasma4hue,      plasma1fire,    plasma2fire,
+      plasma3fire,     plasma4fire,    plasma1pastel,
+      plasma2pastel,   plasma3pastel,  plasma4pastel,
+      p1onlyHue,       p2onlyHue,      p3onlyHue,
+      p4onlyHue,       p1onlyPastel,   p2onlyPastel,
+      p3onlyPastel,    p4onlyPastel,   ringsOnlyHue,
+      ringsOnlyPastel, fire,           testHue,
+      testPastel,      testFire,
   };
 
   initializeFire();
@@ -661,6 +683,28 @@ void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer) {
   const uint8_t red = v < 128 ? v * 2 : 255;
   const uint8_t green = v >= 128 ? (v - 128) * 2 : 0;
   setLed(x, y, red, green, 0, renderer);
+}
+
+void setLed(const int index, uint32_t color, SDL_Renderer *const renderer) {
+  SDL_Rect rectangle;
+  const int multiplier = 25;
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const int ind = LED_STRIPS[x][y];
+      if (ind == index) {
+        rectangle.x = x * multiplier;
+        rectangle.y = y * multiplier;
+        rectangle.w = multiplier;
+        rectangle.h = multiplier;
+        uint8_t red = 0;   // color >> 16;
+        uint8_t green = 0; //(color & 0x00FF00) >> 8;
+        uint8_t blue = color & 0x0000FF;
+        SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
+        SDL_RenderFillRect(renderer, &rectangle);
+        break;
+      }
+    }
+  }
 }
 
 void setLed(const int x, const int y, uint8_t red, uint8_t green, uint8_t blue,
