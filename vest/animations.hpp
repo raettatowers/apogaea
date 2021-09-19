@@ -221,4 +221,22 @@ class Plasma3 : public Animation {
     int time;
 };
 
+class Video : public Animation {
+  public:
+    // I don't think you can send a 2D array pointer in C++, so I'll
+    // send a function pointer that returns data from the correct array
+    Video(
+      uint32_t (*getColor)(int, int),
+      uint32_t frameCount,
+      uint16_t millisPerFrame
+    );
+    ~Video() = default;
+    int animate(uint8_t);
+  private:
+    uint32_t (*getColor)(int, int);
+    const uint32_t frameCount;
+    const uint16_t millisPerFrame;
+    int frame;
+};
+
 #endif

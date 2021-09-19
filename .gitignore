@@ -1,3 +1,6 @@
 .sconsign.dblite
 vest/demo/demo
 vest/offsets.hpp
+vest/video/*.mp4
+vest/video/*.webm
+vest/video/*.hpp

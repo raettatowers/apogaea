@@ -523,3 +523,37 @@ int Plasma3::animate(uint8_t) {
   time += 1000;
   return 10;
 }
+
+Video::Video(
+  uint32_t (*getColor_)(int, int),
+  uint32_t frameCount_,
+  uint16_t millisPerFrame_
+) : getColor(getColor_),
+  frameCount(frameCount_),
+  millisPerFrame(millisPerFrame_),
+  frame(0)
+{
+}
+
+int Video::animate(uint8_t) {
+  const int height = 11;
+  const int width = 12;
+  const int startColumn = 8;
+
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+      setLed(x, y, CRGB::Black);
+    }
+  }
+
+  int count = 0;
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const CRGB value = CRGB(getColor(frame, count));
+      ++count;
+      setLed(startColumn + width - x - 1, height - y, value);
+    }
+  }
+  frame = (frame + 1) % frameCount;
+  return millisPerFrame;
+}

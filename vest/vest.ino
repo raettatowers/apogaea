@@ -3,6 +3,7 @@
 
 #include "animations.hpp"
 #include "constants.hpp"
+#include "video/rick_roll.hpp"
 
 CRGB leds[LED_COUNT];
 CRGB dotStar[1];
@@ -32,17 +33,22 @@ void setup() {
   FastLED.show();
 }
 
-int soundFunction() {
+static uint8_t hue = 0;
+
+static int soundFunction() {
   return 0;
 }
-
-static uint8_t hue = 0;
 
 static HueGenerator hueGenerator;
 static RedGreenGenerator redGreenGenerator;
 static PastelGenerator pastelGenerator;
 static NeonGenerator neonGenerator;
 
+static Video rickRoll(
+  [](int a, int b) { return RICK_ROLL[a][b]; },
+  COUNT_OF(RICK_ROLL),
+  RICK_ROLL_MILLIS_PER_FRAME
+);
 static Snake snake(10, 2);
 static HorizontalSnake horizontalSnake;
 static Count count;
@@ -55,13 +61,13 @@ static PlasmaBidoulleFast plasma3(pastelGenerator);
 static Plasma3 plasma4(hueGenerator);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
+static Animation* goodAnimations[] = { &rickRoll, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
 static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
 static Animation** const animationSets[] = { goodAnimations, testAnimations };
 static uint8_t animationSetIndex = 0;
 static uint8_t animationIndex = 0;
-bool cycling = true;
-unsigned long animationStart_ms = millis();
+static bool cycling = true;
+static unsigned long animationStart_ms = millis();
 
 void loop() {
   const int hueDuration_ms = 50;

@@ -5,8 +5,10 @@
 #include <cstdint>
 #include <time.h>
 
+#define PROGMEM
+
 #include "../constants.hpp"
-#include "../rick_roll.hpp"
+#include "../video/rick_roll.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
@@ -478,7 +480,8 @@ const char *video(int, SDL_Renderer *const renderer) {
 
   timespec delayTime;
   delayTime.tv_sec = 0;
-  delayTime.tv_nsec = 100 * 1000 * 1000;
+  delayTime.tv_nsec =
+      RICK_ROLL_MILLIS_PER_FRAME * 1000 * 1000 - 1000 * 1000 / 60;
   nanosleep(&delayTime, NULL);
 
   return __func__;
