@@ -39,10 +39,11 @@ static int soundFunction() {
   return 0;
 }
 
-static HueGenerator hueGenerator;
+static ColorGenerator hueGenerator;
 static RedGreenGenerator redGreenGenerator;
 static PastelGenerator pastelGenerator;
 static NeonGenerator neonGenerator;
+static ChangingGenerator changingGenerator;
 
 static Video rickRoll(
   [](int a, int b) { return RICK_ROLL[a][b]; },
@@ -59,11 +60,16 @@ static PlasmaBidoulleFast plasma1(neonGenerator);
 static PlasmaBidoulleFast plasma2(redGreenGenerator);
 static PlasmaBidoulleFast plasma3(pastelGenerator);
 static Plasma3 plasma4(hueGenerator);
+static PlasmaBidoulleFast plasma5(changingGenerator);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static Animation* goodAnimations[] = { &rickRoll, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
-static Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
-static Animation** const animationSets[] = { goodAnimations, testAnimations };
+static constexpr Animation* goodAnimations[] = { &plasma5, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
+static_assert(goodAnimations[COUNT_OF(goodAnimations) - 1] == nullptr);
+static constexpr Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
+static_assert(testAnimations[COUNT_OF(testAnimations) - 1] == nullptr);
+static constexpr Animation* videoAnimations[] = { &rickRoll, nullptr };
+static_assert(videoAnimations[COUNT_OF(videoAnimations) - 1] == nullptr);
+static constexpr Animation*const* animationSets[] = { goodAnimations, videoAnimations, testAnimations };
 static uint8_t animationSetIndex = 0;
 static uint8_t animationIndex = 0;
 static bool cycling = true;
@@ -71,7 +77,7 @@ static unsigned long animationStart_ms = millis();
 
 void loop() {
   const int hueDuration_ms = 50;
-  const int animationDuration_ms = 10000;
+  const int animationDuration_ms = 30000;
 
   unsigned long hueStart_ms = millis();
   while (true) {

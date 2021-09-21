@@ -6,34 +6,20 @@
 
 extern CRGB leds[LED_COUNT];
 
-CRGB HueGenerator::getColor(const uint8_t v) {
+CRGB ColorGenerator::getColor(const uint8_t v) {
   return CHSV(v, 255, 255);
 }
 
-CRGB HueGenerator::getColor(const uint16_t v) {
+CRGB ColorGenerator::getColor(const uint16_t v) {
   CRGB crgb;
   hsv2rgb_raw(CHSV(v / 256, 255, 255), crgb);
   return crgb;
-}
-
-CRGB RedGreenGenerator::getColor(const uint8_t v) {
-  const uint8_t red = (sin16(v * 256) / 256) + 128;
-  const uint8_t green = (cos16(v * 256) / 256) + 128;
-  const uint8_t blue = 0;
-  return CRGB(red, green, blue);
 }
 
 CRGB RedGreenGenerator::getColor(const uint16_t v) {
   const uint8_t red = (sin16(v) / 256) + 128;
   const uint8_t green = (cos16(v) / 256) + 128;
   const uint8_t blue = 0;
-  return CRGB(red, green, blue);
-}
-
-CRGB PastelGenerator::getColor(const uint8_t v) {
-  const uint8_t red = 255;
-  const uint8_t green = (cos16(v * 256) / 256) + 128;
-  const uint8_t blue = (sin16(v * 256) / 256) + 128;
   return CRGB(red, green, blue);
 }
 
@@ -44,17 +30,21 @@ CRGB PastelGenerator::getColor(const uint16_t v) {
   return CRGB(red, green, blue);
 }
 
-CRGB NeonGenerator::getColor(const uint8_t v) {
-  const uint8_t red = (sin16(v * 256) / 256) + 128;
-  const uint8_t green = (sin16(v * 256 + 2 * 32768 / 3) / 256) + 128;
-  const uint8_t blue = (sin16(v * 256 + 4 * 32768 / 3) / 256) + 128;
-  return CRGB(red, green, blue);
-}
-
 CRGB NeonGenerator::getColor(const uint16_t v) {
   const uint8_t red = (sin16(v) / 256) + 128;
   const uint8_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
   const uint8_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+  return CRGB(red, green, blue);
+}
+
+CRGB ChangingGenerator::getColor(const uint16_t v) {
+  timer += 6;
+  const uint16_t redOffset = sin16(timer / 13) + 32768;
+  const uint16_t greenOffset = sin16(timer / 17) + 32768;
+  const uint16_t blueOffset = sin16(timer / 19) + 32768;
+  const uint8_t red = (sin16(v + redOffset) / 256) + 128;
+  const uint8_t green = (sin16(v + greenOffset) / 256) + 128;
+  const uint8_t blue = (sin16(v + blueOffset) / 256) + 128;
   return CRGB(red, green, blue);
 }
 
@@ -210,8 +200,8 @@ Shine::Shine() : increasing(), amount() {
 
 int Shine::animate(uint8_t hue) {
   const int millisPerIteration = 100;
-  const int maxAmount = 120;
-  const int changeAmount = 10;
+  const int maxAmount = 240;
+  const int changeAmount = 15;
   static_assert(maxAmount % changeAmount == 0);
 
   hue *= 4; // Make it cycle faster
@@ -541,7 +531,7 @@ int Video::animate(uint8_t) {
   const int startColumn = 8;
 
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
       setLed(x, y, CRGB::Black);
     }
   }

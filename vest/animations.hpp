@@ -7,28 +7,19 @@
 
 class CRGB;
 
+// Hue generator
 class ColorGenerator {
   public:
-    virtual CRGB getColor(uint8_t v) = 0;
-    virtual CRGB getColor(uint16_t v) = 0;
-};
-
-class HueGenerator : public ColorGenerator {
-  public:
-    HueGenerator() = default;
-    ~HueGenerator() = default;
-    HueGenerator(HueGenerator&) = delete;
-
-    CRGB getColor(uint8_t value);
-    CRGB getColor(uint16_t value);
+    ColorGenerator() = default;
+    ~ColorGenerator() = default;
+    virtual CRGB getColor(uint8_t v);
+    virtual CRGB getColor(uint16_t v);
 };
 
 class RedGreenGenerator : public ColorGenerator {
   public:
     RedGreenGenerator() = default;
     ~RedGreenGenerator() = default;
-
-    CRGB getColor(uint8_t value);
     CRGB getColor(uint16_t value);
 };
 
@@ -36,8 +27,6 @@ class PastelGenerator : public ColorGenerator {
   public:
     PastelGenerator() = default;
     ~PastelGenerator() = default;
-
-    CRGB getColor(uint8_t value);
     CRGB getColor(uint16_t value);
 };
 
@@ -45,9 +34,16 @@ class NeonGenerator : public ColorGenerator {
   public:
     NeonGenerator() = default;
     ~NeonGenerator() = default;
-
-    CRGB getColor(uint8_t value);
     CRGB getColor(uint16_t value);
+};
+
+class ChangingGenerator : public ColorGenerator {
+  public:
+    ChangingGenerator() = default;
+    ~ChangingGenerator() = default;
+    CRGB getColor(uint16_t value);
+  private:
+    uint32_t timer;
 };
 
 class Animation {
