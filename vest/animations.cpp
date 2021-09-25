@@ -547,3 +547,171 @@ int Video::animate(uint8_t) {
   frame = (frame + 1) % frameCount;
   return millisPerFrame;
 }
+
+SpectrumAnalyzer1::SpectrumAnalyzer1(int (*sf)(void)) : soundFunction(sf) {
+}
+
+int SpectrumAnalyzer1::animate(const uint8_t) {
+  return 0;
+}
+
+SnakeGame::SnakeGame()
+  : length(2),
+    hue(0),
+    fruitX(),
+    fruitY(),
+    fruitBrightness(128),
+    fruitBrightnessIncreasing(true),
+    state(GameState::running),
+    nextUpdate(millis() + MILLIS_PER_TICK),
+    body()
+{
+  reset();
+}
+
+void SnakeGame::reset() {
+  length = 2;
+  for (int i = length; i < WIDTH * HEIGHT; ++i) {
+    body[WIDTH * HEIGHT][0] = 0;
+    body[WIDTH * HEIGHT][1] = 0;
+  }
+  body[0][0] = WIDTH / 2;
+  body[0][1] = HEIGHT / 2;
+  body[1][0] = WIDTH / 2;
+  body[1][1] = HEIGHT / 2;
+  state = GameState::running;
+  nextUpdate = millis() + MILLIS_PER_TICK;
+}
+
+int SnakeGame::animate(uint8_t) {
+  tickGraphics();
+  draw();
+  if (millis() > nextUpdate) {
+    if (state == GameState::gameOver) {
+      state = GameState::running;
+      reset();
+    } else {
+      tick();
+    }
+    nextUpdate = millis() + MILLIS_PER_TICK;
+  }
+  return 10;
+}
+
+void SnakeGame::tickGraphics() {
+  ++hue;
+
+  if (fruitBrightnessIncreasing) {
+    fruitBrightness += 10;
+    if (fruitBrightness >= 240) {
+      fruitBrightnessIncreasing = false;
+    }
+  } else {
+    fruitBrightness -= 10;
+    if (fruitBrightness <= 128) {
+      fruitBrightnessIncreasing = true;
+    }
+  }
+}
+
+void SnakeGame::tick() {
+  int8_t newX = body[0][0];
+  int8_t newY = body[0][1];
+
+  int8_t xOffset = 0;
+  int8_t yOffset = 0;
+  // TODO: Read the controller
+  static uint8_t reversePreviousDirection = 255;
+  uint8_t dir = random8() % 4;
+  while (dir == reversePreviousDirection) {
+    dir = random8() % 4;
+  }
+  reversePreviousDirection = (dir + 2) % 4;
+  switch (dir) {
+    case 0:
+      xOffset = 1;
+      break;
+    case 1:
+      yOffset = 1;
+      break;
+    case 2:
+      xOffset = -1;
+      break;
+    case 3:
+      yOffset = -1;
+      break;
+  }
+  newX += xOffset;
+  newY += yOffset;
+
+  // If the snake has collided with itself, game over
+  for (int i = 0; i < length; ++i) {
+    if (body[i][0] == newX && body[i][1] == newY) {
+      state = GameState::gameOver;
+      nextUpdate = millis() + 5000;
+      return;
+    }
+  }
+
+  // If the snake has hit a wall, game over
+  if (newX == -1 || newX == WIDTH || newY == -1 || newY == HEIGHT) {
+    state = GameState::gameOver;
+    nextUpdate = millis() + 5000;
+    return;
+  }
+
+  // If the snake has hit the fruit
+  if (body[0][0] == fruitX && body[0][1] == fruitY) {
+    ++length;
+    spawnFruit();
+  } else if (random8() % 4 == 0) {
+    ++length;
+  }
+
+  // Slide all the body segments down
+  for (int i = length - 2; i >= 0; --i) {
+    body[i + 1][0] = body[i][0];
+    body[i + 1][1] = body[i][1];
+  }
+  body[0][0] = newX;
+  body[0][1] = newY;
+}
+
+void SnakeGame::spawnFruit() {
+  // A better way to do this would be to get a list of all available
+  // spaces, put them in an array, and then randomly pick one
+  for (int failSafe = 0; failSafe < 10000; ++failSafe) {
+    uint8_t newFruitX = random8() % WIDTH;
+    uint8_t newFruitY = random8() % HEIGHT;
+    bool collide = false;
+    for (int i = 0; i < length; ++i) {
+      if (body[i][0] == newFruitX && body[i][1] == newFruitY) {
+        collide = true;
+        break;
+      }
+    }
+    if (collide) {
+      continue;
+    }
+    fruitX = newFruitX;
+    fruitY = newFruitY;
+  }
+}
+
+void SnakeGame::draw() const {
+  resetLeds();
+
+  // Draw border
+  for (int y = 0; y < HEIGHT; ++y) {
+    setLed(START_COLUMN - 1, y, CRGB::Gray);
+    setLed(START_COLUMN + WIDTH, y, CRGB::Gray);
+  }
+
+  setLed(fruitX + START_COLUMN, fruitY, CRGB(fruitBrightness, fruitBrightness, fruitBrightness));
+
+  uint8_t hueIterable = hue;
+  for (int i = 0; i < length; ++i) {
+    setLed(body[i][0] + START_COLUMN, body[i][1], CHSV(hueIterable, 255, 255));
+    hueIterable += 10;
+  }
+}

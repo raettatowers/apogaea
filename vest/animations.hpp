@@ -1,9 +1,13 @@
 #ifndef ANIMATIONS_HPP
 #define ANIMATIONS_HPP
 #include <FastLED.h>
-#include <stdint.h>
+#include <cstdint>
 
 #include "constants.hpp"
+
+using std::uint16_t;
+using std::uint32_t;
+using std::uint8_t;
 
 class CRGB;
 
@@ -52,8 +56,7 @@ class Animation {
     // the next time it should be called
     virtual int animate(const uint8_t hue) = 0;
     virtual ~Animation() = default;
-    virtual void reset() {
-    }
+    virtual void reset() {}
 
     static void setLed(int x, int y, const CRGB& color);
     static void setLed(int index, const CRGB& color);
@@ -233,6 +236,35 @@ class Video : public Animation {
     const uint32_t frameCount;
     const uint16_t millisPerFrame;
     int frame;
+};
+
+class SnakeGame : public Animation {
+  public:
+    SnakeGame();
+    ~SnakeGame() = default;
+    int animate(uint8_t);
+  private:
+    static const int HEIGHT = 11;
+    static const int WIDTH = 10;
+    static const int START_COLUMN = 9;
+    static const typeof(millis()) MILLIS_PER_TICK = 200;
+    enum class GameState {running, gameOver};
+
+    uint8_t length;
+    uint8_t hue;
+    uint8_t fruitX, fruitY;
+    uint8_t fruitBrightness;
+    bool fruitBrightnessIncreasing;
+    GameState state;
+    typeof(millis()) nextUpdate;
+    int8_t body[WIDTH * HEIGHT][2];
+
+    void reset();
+    void update();
+    void draw() const;
+    void spawnFruit();
+    void tick();
+    void tickGraphics();
 };
 
 #endif
