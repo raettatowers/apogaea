@@ -1,6 +1,7 @@
 """Processes video and outputs header files."""
 
 from typing import List, Optional
+import argparse
 import cv2
 import re
 import sys
@@ -10,13 +11,18 @@ led_counts = [6, 7, 10, 11, 12, 12, 6, 6, 7, 11, 11, 11, 11, 11]
 led_counts = led_counts + list(reversed(led_counts))
 
 
-def process(video_file_name: str, frame_count: Optional[int], fps: float) -> None:
+def process(arguments: argparse.Namespace) -> None:
     """Save outputs."""
-    center_index = 8
-    target_width = (len(led_counts) // 2 - center_index) * 2
-    target_height = max((led_counts[i] for i in range(center_index, len(led_counts) // 2)))
+    if arguments.center:
+        center_index = 8
+        target_width = (len(led_counts) // 2 - center_index) * 2
+        target_height = max((led_counts[i] for i in range(center_index, len(led_counts) // 2)))
+    else:
+        target_width = len(led_counts)
+        target_height = max(led_counts)
 
-    capture = cv2.VideoCapture(video_file_name)
+    capture = cv2.VideoCapture(arguments.video_file)
+    fps = arguments.fps
     video_fps = capture.get(cv2.CAP_PROP_FPS)
     if fps > video_fps:
         fps = video_fps
@@ -29,7 +35,7 @@ def process(video_file_name: str, frame_count: Optional[int], fps: float) -> Non
         value = (sample[2] << 16) + (sample[1] << 8) + sample[0] 
         return value
 
-    name = re.sub(r"\.[a-zA-Z0-9]+$", "", video_file_name)
+    name = re.sub(r"\.[a-zA-Z0-9]+$", "", arguments.video_file)
     name = re.sub("[^a-zA-Z0-9-]", "", name)
     name = name.replace("-", "_").upper()
     while not re.match("^[a-zA-Z]", name) and len(name) > 0:
@@ -37,7 +43,34 @@ def process(video_file_name: str, frame_count: Optional[int], fps: float) -> Non
     if len(name) == 0:
         print("Invalid name")
         sys.exit(0)
+
+    print(f"const uint16_t {name}_MILLIS_PER_FRAME = {1000 / fps};")
     print(f"const PROGMEM uint32_t {name}[][{target_width * target_height}] = {{")
+
+    video_ratio = width / height
+    target_ratio = target_width / target_height
+
+    if video_ratio > target_ratio:
+        step = height / target_height
+    else:
+        step = height / target_height / target_ratio
+    h_indexes = [h * step for h in range(target_height)]
+    center = (height - h_indexes[-1]) / 2
+    h_indexes = [int(h + center) for h in h_indexes]
+
+    if video_ratio > target_ratio:
+        step = width / target_width / video_ratio
+    else:
+        step = width / target_width
+    w_indexes = [w * step for w in range(target_width)]
+    center = (width - w_indexes[-1]) / 2
+    w_indexes = [int(w + center) for w in w_indexes]
+
+    #print(f"video_ratio:{video_ratio} target_ratio:{target_ratio}")
+    #print(f"target_width:{target_width} target_height:{target_height}")
+    #print(f"width:{width} height:{height}")
+    #print(f"w_indexes:{w_indexes} h_indexes:{h_indexes}")
+    #return
 
     millis = 0
     count = 0
@@ -46,16 +79,14 @@ def process(video_file_name: str, frame_count: Optional[int], fps: float) -> Non
         if not success:
             break
         frame = []
-        for h in range(target_height):
-            h_index = int(height / target_height * (h + 0.5))
-            for w in range(target_width):
-                w_index = int(width / target_width * (w + 0.5))
+        for h_index in h_indexes:
+            for w_index in w_indexes:
                 frame.append(sample_to_int(image[h_index][w_index]))
 
         print(f"{{{', '.join((str(v) for v in frame))}}},")
         count += 1
         millis += 1000 / fps - 1000 / video_fps
-        if frame_count is not None and count >= frame_count:
+        if arguments.frame_count is not None and count >= arguments.frame_count:
             break
 
         while millis > 0:
@@ -64,22 +95,42 @@ def process(video_file_name: str, frame_count: Optional[int], fps: float) -> Non
 
     print("};")
 
-    print(f"const uint16_t {name}_MILLIS_PER_FRAME = {1000 / fps};")
+
+def make_parser() -> argparse.ArgumentParser:
+    """Returns an argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Video parser. Creates a C++ header file with information to draw the video on the vest."
+    )
+    parser.add_argument(
+        "--frame-count",
+        dest="frame_count",
+        type=int,
+        help="Number of frames to sample.",
+        default=100,
+    )
+    parser.add_argument(
+        "--fps",
+        dest="fps",
+        type=int,
+        help="Frames per second.",
+        default=10,
+    )
+    parser.add_argument(
+        "--center",
+        action="store_true",
+        help="Center and crop the video to the back of the vest.",
+        default=False,
+    )
+    parser.add_argument("video_file", help="The video to read data from.")
+    return parser
 
 
 def main() -> None:
     """Main."""
-    if not 2 <= len(sys.argv) <= 4:
-        print("Usage: python <movie-file> [frame count] [fps]")
-        print("It will sample a number of frames to get the correct FPS.")
-        print("For example, if you have a 60 FPS video and specify 15,")
-        print("It will only sample every 4 frames.")
-        sys.exit(1)
 
-    frame_count = None if len(sys.argv) < 3 else int(sys.argv[2])
-    fps = 4 if len(sys.argv) < 4 else float(sys.argv[3])
-
-    process(sys.argv[1], frame_count, fps)
+    parser = make_parser()
+    arguments = parser.parse_args()
+    process(arguments)
 
 
 if __name__ == "__main__":

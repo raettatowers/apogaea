@@ -8,7 +8,10 @@
 #define PROGMEM
 
 #include "../constants.hpp"
-#include "../video/rick_roll.hpp"
+#include "../video/rainbow_spiral_centered.hpp"
+#include "../video/rainbow_spiral_wide.hpp"
+#include "../video/rick_roll_centered.hpp"
+#include "../video/rick_roll_wide.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
@@ -247,6 +250,75 @@ void testPalette(setLed_t setLed, SDL_Renderer *const renderer) {
   ++start;
 }
 
+void wideVideo(
+  const uint32_t frames[][28 * 12],
+  const int frameCount,
+  const int millisPerFrame,
+  SDL_Renderer *const renderer
+) {
+  const int width = 28;
+  const int height = 12;
+  const int startColumn = 0;
+
+  static int frame = 0;
+
+  int count = 0;
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const uint32_t value = frames[frame][count];
+      ++count;
+      const uint8_t red = (value & 0xFF0000) >> 16;
+      const uint8_t green = (value & 0xFF00) >> 8;
+      const uint8_t blue = value & 0xFF;
+      setLed(x + startColumn, height - y, red, green, blue, renderer);
+    }
+  }
+  frame = (frame + 1) % frameCount;
+
+  timespec delayTime;
+  delayTime.tv_sec = 0;
+  delayTime.tv_nsec = millisPerFrame * 1000 * 1000 - 1000 * 1000 / 60;
+  nanosleep(&delayTime, NULL);
+}
+
+void centeredVideo(
+  const uint32_t frames[][12 * 11],
+  const int frameCount,
+  const int millisPerFrame,
+  SDL_Renderer *const renderer
+) {
+  const int width = 12;
+  const int height = 11;
+  const int startColumn = 8;
+
+  static int frame = 0;
+
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
+      setLed(x, y, 100, 0, 0, renderer);
+    }
+  }
+
+  int count = 0;
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const uint32_t value = frames[frame][count];
+      ++count;
+      const uint8_t red = (value & 0xFF0000) >> 16;
+      const uint8_t green = (value & 0xFF00) >> 8;
+      const uint8_t blue = value & 0xFF;
+      setLed(x + startColumn, height - y, red, green, blue, renderer);
+    }
+  }
+  frame = (frame + 1) % frameCount;
+
+  timespec delayTime;
+  delayTime.tv_sec = 0;
+  delayTime.tv_nsec = millisPerFrame * 1000 * 1000 - 1000 * 1000 / 60;
+  nanosleep(&delayTime, NULL);
+}
+
+
 const char *plasma1hue(int time, SDL_Renderer *const renderer) {
   plasma1(time, setLedHue, renderer);
   return __func__;
@@ -369,6 +441,46 @@ const char *testHue(int, SDL_Renderer *const renderer) {
 
 const char *testPastel(int, SDL_Renderer *const renderer) {
   testPalette(setLedPastel, renderer);
+  return __func__;
+}
+const char *rainbowSpiralWide(int, SDL_Renderer *const renderer) {
+  wideVideo(
+    RAINBOW_SPIRAL_WIDE,
+    COUNT_OF(RAINBOW_SPIRAL_WIDE),
+    RAINBOW_SPIRAL_WIDE_MILLIS_PER_FRAME,
+    renderer
+  );
+  return __func__;
+}
+
+const char *rainbowSpiralCentered(int, SDL_Renderer *const renderer) {
+  centeredVideo(
+    RAINBOW_SPIRAL_CENTERED,
+    COUNT_OF(RAINBOW_SPIRAL_CENTERED),
+    RAINBOW_SPIRAL_CENTERED_MILLIS_PER_FRAME,
+    renderer
+  );
+  return __func__;
+}
+
+
+const char *rickRollWide(int, SDL_Renderer *const renderer) {
+  wideVideo(
+    RICK_ROLL_WIDE,
+    COUNT_OF(RICK_ROLL_WIDE),
+    RICK_ROLL_WIDE_MILLIS_PER_FRAME,
+    renderer
+  );
+  return __func__;
+}
+
+const char *rickRollCentered(int, SDL_Renderer *const renderer) {
+  centeredVideo(
+    RICK_ROLL_CENTERED,
+    COUNT_OF(RICK_ROLL_CENTERED),
+    RICK_ROLL_CENTERED_MILLIS_PER_FRAME,
+    renderer
+  );
   return __func__;
 }
 
@@ -494,41 +606,6 @@ const char *plasmaBidoulleFastChangingColors(int time, SDL_Renderer *const rende
   return __func__;
 }
 
-const char *video(int, SDL_Renderer *const renderer) {
-  const int width = 12;
-  const int height = 11;
-  const int startColumn = 8;
-
-  static int frame = 0;
-
-  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    for (int y = LED_ROW_COUNT - 1; y > 0; --y) {
-      setLed(x, y, 100, 0, 0, renderer);
-    }
-  }
-
-  int count = 0;
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      const uint32_t value = RICK_ROLL[frame][count];
-      ++count;
-      const uint8_t red = (value & 0xFF0000) >> 16;
-      const uint8_t green = (value & 0xFF00) >> 8;
-      const uint8_t blue = value & 0xFF;
-      setLed(x + startColumn, height - y, red, green, blue, renderer);
-    }
-  }
-  frame = (frame + 1) % COUNT_OF(RICK_ROLL);
-
-  timespec delayTime;
-  delayTime.tv_sec = 0;
-  delayTime.tv_nsec =
-      RICK_ROLL_MILLIS_PER_FRAME * 1000 * 1000 - 1000 * 1000 / 60;
-  nanosleep(&delayTime, NULL);
-
-  return __func__;
-}
-
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -537,7 +614,10 @@ int main() {
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
  plasmaBidoulleFastChangingColors,
-      video,           plasmaBidoulle, plasmaBidoulleFast,
+ rainbowSpiralWide, rainbowSpiralCentered,
+      rickRollWide,           rickRollCentered,
+
+      plasmaBidoulle, plasmaBidoulleFast,
       plasma1hue,      plasma2hue,     plasma3hue,
       plasma4hue,      plasma1fire,    plasma2fire,
       plasma3fire,     plasma4fire,    plasma1pastel,
