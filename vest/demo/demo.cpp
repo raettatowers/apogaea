@@ -250,12 +250,8 @@ void testPalette(setLed_t setLed, SDL_Renderer *const renderer) {
   ++start;
 }
 
-void wideVideo(
-  const uint32_t frames[][28 * 12],
-  const int frameCount,
-  const int millisPerFrame,
-  SDL_Renderer *const renderer
-) {
+void wideVideo(const uint32_t frames[][28 * 12], const int frameCount,
+               const int millisPerFrame, SDL_Renderer *const renderer) {
   const int width = 28;
   const int height = 12;
   const int startColumn = 0;
@@ -281,12 +277,8 @@ void wideVideo(
   nanosleep(&delayTime, NULL);
 }
 
-void centeredVideo(
-  const uint32_t frames[][12 * 11],
-  const int frameCount,
-  const int millisPerFrame,
-  SDL_Renderer *const renderer
-) {
+void centeredVideo(const uint32_t frames[][12 * 11], const int frameCount,
+                   const int millisPerFrame, SDL_Renderer *const renderer) {
   const int width = 12;
   const int height = 11;
   const int startColumn = 8;
@@ -317,7 +309,6 @@ void centeredVideo(
   delayTime.tv_nsec = millisPerFrame * 1000 * 1000 - 1000 * 1000 / 60;
   nanosleep(&delayTime, NULL);
 }
-
 
 const char *plasma1hue(int time, SDL_Renderer *const renderer) {
   plasma1(time, setLedHue, renderer);
@@ -444,43 +435,26 @@ const char *testPastel(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 const char *rainbowSpiralWide(int, SDL_Renderer *const renderer) {
-  wideVideo(
-    RAINBOW_SPIRAL_WIDE,
-    COUNT_OF(RAINBOW_SPIRAL_WIDE),
-    RAINBOW_SPIRAL_WIDE_MILLIS_PER_FRAME,
-    renderer
-  );
+  wideVideo(RAINBOW_SPIRAL_WIDE, COUNT_OF(RAINBOW_SPIRAL_WIDE),
+            RAINBOW_SPIRAL_WIDE_MILLIS_PER_FRAME, renderer);
   return __func__;
 }
 
 const char *rainbowSpiralCentered(int, SDL_Renderer *const renderer) {
-  centeredVideo(
-    RAINBOW_SPIRAL_CENTERED,
-    COUNT_OF(RAINBOW_SPIRAL_CENTERED),
-    RAINBOW_SPIRAL_CENTERED_MILLIS_PER_FRAME,
-    renderer
-  );
+  centeredVideo(RAINBOW_SPIRAL_CENTERED, COUNT_OF(RAINBOW_SPIRAL_CENTERED),
+                RAINBOW_SPIRAL_CENTERED_MILLIS_PER_FRAME, renderer);
   return __func__;
 }
 
-
 const char *rickRollWide(int, SDL_Renderer *const renderer) {
-  wideVideo(
-    RICK_ROLL_WIDE,
-    COUNT_OF(RICK_ROLL_WIDE),
-    RICK_ROLL_WIDE_MILLIS_PER_FRAME,
-    renderer
-  );
+  wideVideo(RICK_ROLL_WIDE, COUNT_OF(RICK_ROLL_WIDE),
+            RICK_ROLL_WIDE_MILLIS_PER_FRAME, renderer);
   return __func__;
 }
 
 const char *rickRollCentered(int, SDL_Renderer *const renderer) {
-  centeredVideo(
-    RICK_ROLL_CENTERED,
-    COUNT_OF(RICK_ROLL_CENTERED),
-    RICK_ROLL_CENTERED_MILLIS_PER_FRAME,
-    renderer
-  );
+  centeredVideo(RICK_ROLL_CENTERED, COUNT_OF(RICK_ROLL_CENTERED),
+                RICK_ROLL_CENTERED_MILLIS_PER_FRAME, renderer);
   return __func__;
 }
 
@@ -564,7 +538,8 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *plasmaBidoulleFastChangingColors(int time, SDL_Renderer *const renderer) {
+const char *plasmaBidoulleFastChangingColors(int time,
+                                             SDL_Renderer *const renderer) {
   const uint16_t multiplier = 0.15f * PI_16_1_0;
   // I found that using precomputed tables for the circles makes the animation
   // jittery, so blend two adjacent values so smooth it out
@@ -593,9 +568,11 @@ const char *plasmaBidoulleFastChangingColors(int time, SDL_Renderer *const rende
             bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
         const uint16_t v3 = (blend1 + blend2) / 2 * 256;
         const int16_t v = v1 + v2 + v3;
-        const uint16_t redOffset = sin16(static_cast<int>(time + x * 8000) / 13) + 32768;
+        const uint16_t redOffset =
+            sin16(static_cast<int>(time + x * 8000) / 13) + 32768;
         const uint8_t red = (sin16(v + redOffset) / 256) + 128;
-        const uint16_t greenOffset = sin16(static_cast<int>(time + x * 8000) / 7) + 32768;
+        const uint16_t greenOffset =
+            sin16(static_cast<int>(time + x * 8000) / 7) + 32768;
         const int16_t green = (sin16(v + greenOffset) / 256) + 128;
         const uint16_t blueOffset = sin16(static_cast<int>(time) / 11) + 32768;
         const int16_t blue = (sin16(v + blueOffset) / 256) + 128;
@@ -613,20 +590,40 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
- plasmaBidoulleFastChangingColors,
- rainbowSpiralWide, rainbowSpiralCentered,
-      rickRollWide,           rickRollCentered,
+      plasmaBidoulleFastChangingColors,
+      rainbowSpiralWide,
+      rainbowSpiralCentered,
+      rickRollWide,
+      rickRollCentered,
 
-      plasmaBidoulle, plasmaBidoulleFast,
-      plasma1hue,      plasma2hue,     plasma3hue,
-      plasma4hue,      plasma1fire,    plasma2fire,
-      plasma3fire,     plasma4fire,    plasma1pastel,
-      plasma2pastel,   plasma3pastel,  plasma4pastel,
-      p1onlyHue,       p2onlyHue,      p3onlyHue,
-      p4onlyHue,       p1onlyPastel,   p2onlyPastel,
-      p3onlyPastel,    p4onlyPastel,   ringsOnlyHue,
-      ringsOnlyPastel, fire,           testHue,
-      testPastel,      testFire,
+      plasmaBidoulle,
+      plasmaBidoulleFast,
+      plasma1hue,
+      plasma2hue,
+      plasma3hue,
+      plasma4hue,
+      plasma1fire,
+      plasma2fire,
+      plasma3fire,
+      plasma4fire,
+      plasma1pastel,
+      plasma2pastel,
+      plasma3pastel,
+      plasma4pastel,
+      p1onlyHue,
+      p2onlyHue,
+      p3onlyHue,
+      p4onlyHue,
+      p1onlyPastel,
+      p2onlyPastel,
+      p3onlyPastel,
+      p4onlyPastel,
+      ringsOnlyHue,
+      ringsOnlyPastel,
+      fire,
+      testHue,
+      testPastel,
+      testFire,
   };
 
   initializeFire();
