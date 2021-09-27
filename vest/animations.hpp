@@ -220,16 +220,16 @@ class Plasma3 : public Animation {
     int time;
 };
 
-class Video : public Animation {
+class CenteredVideo : public Animation {
   public:
     // I don't think you can send a 2D array pointer in C++, so I'll
     // send a function pointer that returns data from the correct array
-    Video(
+    CenteredVideo(
       uint32_t (*getColor)(int, int),
       uint32_t frameCount,
       uint16_t millisPerFrame
     );
-    ~Video() = default;
+    ~CenteredVideo() = default;
     int animate(uint8_t);
   private:
     uint32_t (*getColor)(int, int);
@@ -265,6 +265,16 @@ class SnakeGame : public Animation {
     void spawnFruit();
     void tick();
     void tickGraphics();
+};
+
+class BasicSpiral : public Animation {
+  public:
+    BasicSpiral(ColorGenerator &colorGenerator);
+    ~BasicSpiral() = default;
+    int animate(uint8_t);
+  private:
+    ColorGenerator& colorGenerator;
+    int time;
 };
 
 #endif

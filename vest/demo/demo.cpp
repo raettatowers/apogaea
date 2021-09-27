@@ -29,6 +29,7 @@ void setLed(int x, int y, uint8_t hue, SDL_Renderer *renderer);
 void setLed(int x, int y, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int x, int y, uint8_t v, SDL_Renderer *renderer);
+void setLedGrayscale(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedPastel(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
@@ -233,35 +234,65 @@ void fireEffect(setLed_t setLed, SDL_Renderer *const renderer) {
 
 void floatSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
   float timeOffset = static_cast<float>(time) * 0.0001f;
+  const float distanceMultiplier = 0.25f;
   for (float distance = 0.0f; distance < 15.0f; distance += 0.5f) {
     for (float theta = 0.0f; theta < 2 * M_PI_F; theta += M_PI_F * 0.01f) {
       const float x = sinf(theta + timeOffset) * distance + LED_COLUMN_COUNT / 2;
       const float y = cosf(theta + timeOffset) * distance + LED_ROW_COUNT / 2;
-      const uint8_t hue = (theta + distance * 0.25f) / (2.0f * M_PI_F) * 255;
+      const uint8_t hue = (theta + distance * distanceMultiplier) / (2.0f * M_PI_F) * 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
     }
   }
 }
 
 void basicSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
-  const uint16_t thetaStep = 100;
-  for (uint16_t distance = 0; distance < 17; ++distance) {
-    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += 100) {
-      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / 32768 + LED_COLUMN_COUNT / 2;
-      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / 32768 + LED_ROW_COUNT / 2;
-      const uint8_t hue = (theta + distance * 5000) / 255;
-      setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
+  // From guess and check, 250 is about as large as this can get before I start
+  // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then
+  // the previous ones would carry over. They would be slightly off, but it
+  // probably wouldn't be noticeable.
+  const uint16_t thetaStep = 250;
+
+  // From guess and check, 17 is needed so that all the LEDs are set
+  const int maxDistance = 17;
+
+  // From manual testing, this is what we want. Lower values leave holes,
+  // larger ones need longer maxDistance.
+  const int divisor = 32768;
+
+  const int distanceMultiplier = 3000;
+
+  for (int distance = 0; distance < maxDistance; ++distance) {
+    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
+      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
+      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+      const uint8_t hue = (theta + distance * distanceMultiplier) / 255;
+      setLed(x, y, hue, renderer);
     }
   }
 }
 
 void throbbingSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
-  const uint16_t thetaStep = 100;
-  for (uint16_t distance = 0; distance < 17; ++distance) {
-    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += 100) {
-      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / 32768 + LED_COLUMN_COUNT / 2;
-      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / 32768 + LED_ROW_COUNT / 2;
-      const uint8_t hue = (theta + distance * sin16(time) / 16) / 255;
+  // From guess and check, 250 is about as large as this can get before I start
+  // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then
+  // the previous ones would carry over. They would be slightly off, but it
+  // probably wouldn't be noticeable.
+  const uint16_t thetaStep = 250;
+
+  // From guess and check, 17 is needed so that all the LEDs are set
+  const int maxDistance = 17;
+
+  // From manual testing, this is what we want. Lower values leave holes,
+  // larger ones need longer maxDistance.
+  const int divisor = 32768;
+
+  const int throbDivisor = 32;
+
+  // From guess and check, 17 is needed so that all the LEDs are set
+  for (uint16_t distance = 0; distance < maxDistance; ++distance) {
+    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
+      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
+      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+      const uint8_t hue = (theta + distance * sin16(time) / throbDivisor) / 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
     }
   }
@@ -511,6 +542,11 @@ const char *basicSpiralHue(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *basicSpiralGrayscale(int time, SDL_Renderer *const renderer) {
+  basicSpiral(time, setLedGrayscale, renderer);
+  return __func__;
+}
+
 const char *throbbingSpiralHue(int time, SDL_Renderer *const renderer) {
   throbbingSpiral(time, setLedHue, renderer);
   return __func__;
@@ -642,8 +678,8 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      basicSpiralHue,
       throbbingSpiralHue,
+      basicSpiralHue,
       spiralHueFloat,
       plasmaBidoulleFastChangingColors,
       rainbowSpiralWide,
@@ -846,6 +882,12 @@ void setLedHue(const int x, const int y, const uint8_t v,
   uint8_t red, green, blue;
   hsvToRgb(v, 255, 255, &red, &green, &blue);
   setLed(x, y, red, green, blue, renderer);
+}
+
+void setLedGrayscale(const int x, const int y, const uint8_t v,
+               SDL_Renderer *const renderer) {
+  const uint8_t value = sin8(v);
+  setLed(x, y, value, value, value, renderer);
 }
 
 void setLedPastel(const int x, const int y, const uint8_t v,

@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include <limits>
 #include <stdint.h>
 
 #include "animations.hpp"
@@ -514,7 +515,7 @@ int Plasma3::animate(uint8_t) {
   return 10;
 }
 
-Video::Video(
+CenteredVideo::CenteredVideo(
   uint32_t (*getColor_)(int, int),
   uint32_t frameCount_,
   uint16_t millisPerFrame_
@@ -525,7 +526,7 @@ Video::Video(
 {
 }
 
-int Video::animate(uint8_t) {
+int CenteredVideo::animate(uint8_t) {
   const int height = 11;
   const int width = 12;
   const int startColumn = 8;
@@ -714,4 +715,34 @@ void SnakeGame::draw() const {
     setLed(body[i][0] + START_COLUMN, body[i][1], CHSV(hueIterable, 255, 255));
     hueIterable += 10;
   }
+}
+
+BasicSpiral::BasicSpiral(ColorGenerator& colorGenerator_) : colorGenerator(colorGenerator_), time(0) {}
+
+int BasicSpiral::animate(uint8_t) {
+  time += 2000;
+  // From guess and check, 250 is about as large as this can get before I start
+  // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then
+  // the previous ones would carry over. They would be slightly off, but it
+  // probably wouldn't be noticeable.
+  const uint16_t thetaStep = 250;
+
+  // From guess and check, 17 is needed so that all the LEDs are set
+  const int maxDistance = 17;
+
+  // From manual testing, this is what we want. Lower values leave holes,
+  // larger ones need longer maxDistance.
+  const int divisor = 32768;
+
+  const int distanceMultiplier = 3000;
+
+  for (int distance = 0; distance < maxDistance; ++distance) {
+    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
+      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
+      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+      const uint8_t v = (theta + distance * distanceMultiplier) / 255;
+      setLed(x, y, colorGenerator.getColor(v));
+    }
+  }
+  return 40;
 }
