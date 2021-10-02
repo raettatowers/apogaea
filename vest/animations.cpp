@@ -734,7 +734,7 @@ int BasicSpiral::animate(uint8_t) {
   // larger ones need longer maxDistance.
   const int divisor = 32768;
 
-  const int distanceMultiplier = 3000;
+  const int distanceMultiplier = 6000;
 
   for (int distance = 0; distance < maxDistance; ++distance) {
     for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {

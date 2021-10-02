@@ -259,7 +259,7 @@ void basicSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
   // larger ones need longer maxDistance.
   const int divisor = 32768;
 
-  const int distanceMultiplier = 3000;
+  const int distanceMultiplier = 6000;
 
   for (int distance = 0; distance < maxDistance; ++distance) {
     for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
@@ -542,11 +542,6 @@ const char *basicSpiralHue(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *basicSpiralGrayscale(int time, SDL_Renderer *const renderer) {
-  basicSpiral(time, setLedGrayscale, renderer);
-  return __func__;
-}
-
 const char *throbbingSpiralHue(int time, SDL_Renderer *const renderer) {
   throbbingSpiral(time, setLedHue, renderer);
   return __func__;
@@ -678,8 +673,8 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      throbbingSpiralHue,
       basicSpiralHue,
+      throbbingSpiralHue,
       spiralHueFloat,
       plasmaBidoulleFastChangingColors,
       rainbowSpiralWide,

@@ -3,7 +3,7 @@
 
 #include "animations.hpp"
 #include "constants.hpp"
-#include "video/rick_roll.hpp"
+#include "video/rick_roll_centered.hpp"
 
 CRGB leds[LED_COUNT];
 CRGB dotStar[1];
@@ -45,10 +45,10 @@ static PastelGenerator pastelGenerator;
 static NeonGenerator neonGenerator;
 static ChangingGenerator changingGenerator;
 
-static Video rickRoll(
-  [](int a, int b) { return RICK_ROLL[a][b]; },
-  COUNT_OF(RICK_ROLL),
-  RICK_ROLL_MILLIS_PER_FRAME
+static CenteredVideo rickRoll(
+  [](int a, int b) { return RICK_ROLL_CENTERED[a][b]; },
+  COUNT_OF(RICK_ROLL_CENTERED),
+  RICK_ROLL_CENTERED_MILLIS_PER_FRAME
 );
 static Snake snake(10, 2);
 static HorizontalSnake horizontalSnake;
@@ -61,9 +61,10 @@ static PlasmaBidoulleFast plasma2(redGreenGenerator);
 static PlasmaBidoulleFast plasma3(pastelGenerator);
 static Plasma3 plasma4(hueGenerator);
 static PlasmaBidoulleFast plasma5(changingGenerator);
+static BasicSpiral spiral(hueGenerator);
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static constexpr Animation* goodAnimations[] = { &plasma5, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
+static constexpr Animation* goodAnimations[] = { &spiral, &plasma5, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
 static_assert(goodAnimations[COUNT_OF(goodAnimations) - 1] == nullptr);
 static constexpr Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
 static_assert(testAnimations[COUNT_OF(testAnimations) - 1] == nullptr);
