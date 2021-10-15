@@ -26,6 +26,17 @@ def process(arguments: argparse.Namespace) -> None:
     video_fps = capture.get(cv2.CAP_PROP_FPS)
     if fps > video_fps:
         fps = video_fps
+    video_frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    sys.stderr.write(
+        f"Grabbing {arguments.frame_count} frames from {video_frame_count} frame video\n"
+    )
+    sys.stderr.write(f"Grabbing {fps} FPS from {round(video_fps, 3)} FPS video\n")
+    capture_seconds = int(arguments.frame_count / fps)
+    sys.stderr.write(
+        f"Capture time: {capture_seconds // 60}:{capture_seconds % 60:02d} of "
+    )
+    video_seconds = int(video_frame_count / video_fps)
+    sys.stderr.write(f"{video_seconds // 60}:{video_seconds % 60:02d}\n")
     success, image = capture.read()
     height = len(image)
     width = len(image[0])
@@ -41,7 +52,7 @@ def process(arguments: argparse.Namespace) -> None:
     while not re.match("^[a-zA-Z]", name) and len(name) > 0:
         name = name[1:]
     if len(name) == 0:
-        print("Invalid name")
+        sys.stderr.write("Invalid name")
         sys.exit(0)
 
     print(f"const uint16_t {name}_MILLIS_PER_FRAME = {1000 / fps};")
@@ -66,11 +77,12 @@ def process(arguments: argparse.Namespace) -> None:
     center = (width - w_indexes[-1]) / 2
     w_indexes = [int(w + center) for w in w_indexes]
 
-    #print(f"video_ratio:{video_ratio} target_ratio:{target_ratio}")
-    #print(f"target_width:{target_width} target_height:{target_height}")
-    #print(f"width:{width} height:{height}")
-    #print(f"w_indexes:{w_indexes} h_indexes:{h_indexes}")
-    #return
+    sys.stderr.write(
+        f"video_ratio:{round(video_ratio, 3)} target_ratio:{round(target_ratio, 3)}\n"
+    )
+    sys.stderr.write(f"target_width:{target_width} target_height:{target_height}\n")
+    sys.stderr.write(f"width:{width} height:{height}\n")
+    sys.stderr.write(f"w_indexes:{w_indexes} h_indexes:{h_indexes}\n")
 
     millis = 0
     count = 0
@@ -85,7 +97,7 @@ def process(arguments: argparse.Namespace) -> None:
 
         print(f"{{{', '.join((str(v) for v in frame))}}},")
         count += 1
-        millis += 1000 / fps - 1000 / video_fps
+        millis += 1000 / fps
         if arguments.frame_count is not None and count >= arguments.frame_count:
             break
 
@@ -94,6 +106,7 @@ def process(arguments: argparse.Namespace) -> None:
             millis -= 1000 / video_fps
 
     print("};")
+    sys.stderr.write(f"Wrote {count} frames\n")
 
 
 def make_parser() -> argparse.ArgumentParser:

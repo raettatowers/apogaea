@@ -13,6 +13,7 @@
 #include "../video/rainbow_spiral_wide.hpp"
 #include "../video/rick_roll_centered.hpp"
 #include "../video/rick_roll_wide.hpp"
+#include "../video/big_lebowski_trimmed.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
@@ -527,6 +528,12 @@ const char *rickRollCentered(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *bigLebowski(int, SDL_Renderer *const renderer) {
+  centeredVideo(BIG_LEBOWSKI_TRIMMED, COUNT_OF(BIG_LEBOWSKI_TRIMMED),
+                BIG_LEBOWSKI_TRIMMED_MILLIS_PER_FRAME, renderer);
+  return __func__;
+}
+
 const char *testFire(int, SDL_Renderer *const renderer) {
   testPalette(setLedFire, renderer);
   return __func__;
@@ -681,6 +688,7 @@ int main() {
       rainbowSpiralCentered,
       rickRollWide,
       rickRollCentered,
+      bigLebowski,
       plasmaBidoulle,
       plasmaBidoulleFast,
       plasma1hue,
