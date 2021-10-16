@@ -3,22 +3,23 @@
 #include <SDL2/SDL_timer.h>
 #include <cassert>
 #include <cstdint>
-#include <time.h>
 #include <limits>
+#include <time.h>
 
 #define PROGMEM
 
 #include "../constants.hpp"
+#include "../video/big_lebowski_trimmed.hpp"
 #include "../video/rainbow_spiral_centered.hpp"
 #include "../video/rainbow_spiral_wide.hpp"
 #include "../video/rick_roll_centered.hpp"
 #include "../video/rick_roll_wide.hpp"
-#include "../video/big_lebowski_trimmed.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
 
 SDL_Renderer *renderer = nullptr;
+bool fullVest = false;
 
 int16_t sin16(uint16_t theta);
 uint8_t sin8(uint8_t theta);
@@ -31,6 +32,7 @@ void setLed(int x, int y, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedGrayscale(int x, int y, uint8_t v, SDL_Renderer *renderer);
+void setLedDoubleGrayscale(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedPastel(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
@@ -233,20 +235,22 @@ void fireEffect(setLed_t setLed, SDL_Renderer *const renderer) {
   }
 }
 
-void floatSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
+void floatSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   float timeOffset = static_cast<float>(time) * 0.0001f;
   const float distanceMultiplier = 0.25f;
   for (float distance = 0.0f; distance < 15.0f; distance += 0.5f) {
     for (float theta = 0.0f; theta < 2 * M_PI_F; theta += M_PI_F * 0.01f) {
-      const float x = sinf(theta + timeOffset) * distance + LED_COLUMN_COUNT / 2;
+      const float x =
+          sinf(theta + timeOffset) * distance + LED_COLUMN_COUNT / 2;
       const float y = cosf(theta + timeOffset) * distance + LED_ROW_COUNT / 2;
-      const uint8_t hue = (theta + distance * distanceMultiplier) / (2.0f * M_PI_F) * 255;
+      const uint8_t hue =
+          (theta + distance * distanceMultiplier) / (2.0f * M_PI_F) * 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
     }
   }
 }
 
-void basicSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
+void basicSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   // From guess and check, 250 is about as large as this can get before I start
   // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then
   // the previous ones would carry over. They would be slightly off, but it
@@ -263,16 +267,27 @@ void basicSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
   const int distanceMultiplier = 6000;
 
   for (int distance = 0; distance < maxDistance; ++distance) {
-    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
-      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
-      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+    for (uint16_t theta = 0;
+         theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep;
+         theta += thetaStep) {
+      const int16_t x =
+          static_cast<int>(sin16(theta + time)) * distance / divisor +
+          LED_COLUMN_COUNT / 2;
+      const int16_t y =
+          static_cast<int>(cos16(theta + time)) * distance / divisor +
+          LED_ROW_COUNT / 2;
       const uint8_t hue = (theta + distance * distanceMultiplier) / 255;
       setLed(x, y, hue, renderer);
     }
   }
 }
 
-void throbbingSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
+void basicSpiralReversed(int time, setLed_t setLed,
+                         SDL_Renderer *const renderer) {
+  basicSpiral(-time, setLed, renderer);
+}
+
+void throbbingSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   // From guess and check, 250 is about as large as this can get before I start
   // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then
   // the previous ones would carry over. They would be slightly off, but it
@@ -290,9 +305,15 @@ void throbbingSpiral(int time, setLed_t setLed, SDL_Renderer* const renderer) {
 
   // From guess and check, 17 is needed so that all the LEDs are set
   for (uint16_t distance = 0; distance < maxDistance; ++distance) {
-    for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
-      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
-      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+    for (uint16_t theta = 0;
+         theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep;
+         theta += thetaStep) {
+      const int16_t x =
+          static_cast<int>(sin16(theta + time)) * distance / divisor +
+          LED_COLUMN_COUNT / 2;
+      const int16_t y =
+          static_cast<int>(cos16(theta + time)) * distance / divisor +
+          LED_ROW_COUNT / 2;
       const uint8_t hue = (theta + distance * sin16(time) / throbDivisor) / 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
     }
@@ -309,11 +330,8 @@ void testPalette(setLed_t setLed, SDL_Renderer *const renderer) {
         setLed(x, y, v + 128, renderer);
         ++count;
       } else {
-        const int index = LED_STRIPS[x][y];
-        if (index != UNUSED_LED) {
-          setLed(x, y, v, renderer);
-          ++v;
-        }
+        setLed(x, y, v, renderer);
+        ++v;
       }
     }
   }
@@ -549,6 +567,33 @@ const char *basicSpiralHue(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *basicSpiralReversedHue(int time, SDL_Renderer *const renderer) {
+  basicSpiralReversed(time, setLedHue, renderer);
+  return __func__;
+}
+
+const char *basicSpiralGrayscale(int time, SDL_Renderer *const renderer) {
+  basicSpiral(time, setLedGrayscale, renderer);
+  return __func__;
+}
+
+const char *basicSpiralReversedGrayscale(int time,
+                                         SDL_Renderer *const renderer) {
+  basicSpiralReversed(time, setLedGrayscale, renderer);
+  return __func__;
+}
+
+const char *basicSpiralDoubleGrayscale(int time, SDL_Renderer *const renderer) {
+  basicSpiral(time, setLedDoubleGrayscale, renderer);
+  return __func__;
+}
+
+const char *basicSpiralReversedDoubleGrayscale(int time,
+                                               SDL_Renderer *const renderer) {
+  basicSpiralReversed(time, setLedDoubleGrayscale, renderer);
+  return __func__;
+}
+
 const char *throbbingSpiralHue(int time, SDL_Renderer *const renderer) {
   throbbingSpiral(time, setLedHue, renderer);
   return __func__;
@@ -569,21 +614,19 @@ const char *plasmaBidoulle(int, SDL_Renderer *const renderer) {
     const float v1 = sinf(multiplier * x + time);
     const float cx = sinf(x + 0.5 * sinf(time * 0.2f));
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] != UNUSED_LED) {
-        const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) +
-                                            y * cosf(time * (1.0f / 3.0f))) +
-                              time);
-        const float v3 =
-            sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
-        const float v = v1 + v2 + v3;
-        const float red = sinf(v * M_PI_F);
-        const float green = sinf(v * M_PI_F + 2.0 * M_PI_F / 3.0);
-        const float blue = sinf(v * M_PI_F + 4.0 * M_PI_F / 3.0);
-        const uint8_t r = 128 + red * 127;
-        const uint8_t g = 128 + green * 127;
-        const uint8_t b = 128 + blue * 127;
-        setLed(x, y, r, g, b, renderer);
-      }
+      const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) +
+                                          y * cosf(time * (1.0f / 3.0f))) +
+                            time);
+      const float v3 =
+          sinf(multiplier * sqrtf((cx * cx + cys[y] * cys[y] + 1.0f)) + time);
+      const float v = v1 + v2 + v3;
+      const float red = sinf(v * M_PI_F);
+      const float green = sinf(v * M_PI_F + 2.0 * M_PI_F / 3.0);
+      const float blue = sinf(v * M_PI_F + 4.0 * M_PI_F / 3.0);
+      const uint8_t r = 128 + red * 127;
+      const uint8_t g = 128 + green * 127;
+      const uint8_t b = 128 + blue * 127;
+      setLed(x, y, r, g, b, renderer);
     }
   }
   return __func__;
@@ -605,24 +648,22 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     const int16_t v1 = sin16(multiplier * x + time); // good
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] != UNUSED_LED) {
-        const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
-             time) /
-            16384); // bad values, but looks good?
-        const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-        const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
-        const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] *
-                                (blend - xRemainder) / blend;
-        const uint16_t blend2 =
-            bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
-        const uint16_t v3 = (blend1 + blend2) / 2 * 256;
-        const int16_t v = v1 + v2 + v3;
-        const uint8_t red = (sin16(v) / 256) + 128;
-        const int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
-        const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
-        setLed(x, y, red, green, blue, renderer);
-      }
+      const int16_t v2 =
+          sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
+                 time) /
+                16384); // bad values, but looks good?
+      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const uint16_t blend1 =
+          bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
+      const uint16_t blend2 =
+          bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
+      const uint16_t v3 = (blend1 + blend2) / 2 * 256;
+      const int16_t v = v1 + v2 + v3;
+      const uint8_t red = (sin16(v) / 256) + 128;
+      const int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
+      const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+      setLed(x, y, red, green, blue, renderer);
     }
   }
   return __func__;
@@ -645,29 +686,27 @@ const char *plasmaBidoulleFastChangingColors(int time,
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     const int16_t v1 = sin16(multiplier * x + time); // good
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] != UNUSED_LED) {
-        const int16_t v2 = sin16(
-            (multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
-             time) /
-            16384); // bad values, but looks good?
-        const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-        const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
-        const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] *
-                                (blend - xRemainder) / blend;
-        const uint16_t blend2 =
-            bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
-        const uint16_t v3 = (blend1 + blend2) / 2 * 256;
-        const int16_t v = v1 + v2 + v3;
-        const uint16_t redOffset =
-            sin16(static_cast<int>(time + x * 8000) / 13) + 32768;
-        const uint8_t red = (sin16(v + redOffset) / 256) + 128;
-        const uint16_t greenOffset =
-            sin16(static_cast<int>(time + x * 8000) / 7) + 32768;
-        const int16_t green = (sin16(v + greenOffset) / 256) + 128;
-        const uint16_t blueOffset = sin16(static_cast<int>(time) / 11) + 32768;
-        const int16_t blue = (sin16(v + blueOffset) / 256) + 128;
-        setLed(x, y, red, green, blue, renderer);
-      }
+      const int16_t v2 =
+          sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
+                 time) /
+                16384); // bad values, but looks good?
+      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const uint16_t blend1 =
+          bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
+      const uint16_t blend2 =
+          bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
+      const uint16_t v3 = (blend1 + blend2) / 2 * 256;
+      const int16_t v = v1 + v2 + v3;
+      const uint16_t redOffset =
+          sin16(static_cast<int>(time + x * 8000) / 13) + 32768;
+      const uint8_t red = (sin16(v + redOffset) / 256) + 128;
+      const uint16_t greenOffset =
+          sin16(static_cast<int>(time + x * 8000) / 7) + 32768;
+      const int16_t green = (sin16(v + greenOffset) / 256) + 128;
+      const uint16_t blueOffset = sin16(static_cast<int>(time) / 11) + 32768;
+      const int16_t blue = (sin16(v + blueOffset) / 256) + 128;
+      setLed(x, y, red, green, blue, renderer);
     }
   }
   return __func__;
@@ -681,6 +720,11 @@ int main() {
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
       basicSpiralHue,
+      basicSpiralReversedHue,
+      basicSpiralGrayscale,
+      basicSpiralReversedGrayscale,
+      basicSpiralDoubleGrayscale,
+      basicSpiralReversedDoubleGrayscale,
       throbbingSpiralHue,
       spiralHueFloat,
       plasmaBidoulleFastChangingColors,
@@ -762,6 +806,9 @@ int main() {
             goto nextAnimation;
           } else if (event.key.keysym.sym == SDLK_LEFT) {
             goto previousAnimation;
+          } else if (event.key.keysym.sym == SDLK_SPACE ||
+                     event.key.keysym.sym == SDLK_f) {
+            fullVest = !fullVest;
           }
           break;
 
@@ -888,8 +935,14 @@ void setLedHue(const int x, const int y, const uint8_t v,
 }
 
 void setLedGrayscale(const int x, const int y, const uint8_t v,
-               SDL_Renderer *const renderer) {
+                     SDL_Renderer *const renderer) {
   const uint8_t value = sin8(v);
+  setLed(x, y, value, value, value, renderer);
+}
+
+void setLedDoubleGrayscale(const int x, const int y, const uint8_t v,
+                           SDL_Renderer *const renderer) {
+  const uint8_t value = sin8(v * 2);
   setLed(x, y, value, value, value, renderer);
 }
 
@@ -936,7 +989,7 @@ void setLed(const int x, const int y, uint8_t red, uint8_t green, uint8_t blue,
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {
       const int index = LED_STRIPS[x][y];
-      if (index != UNUSED_LED) {
+      if (fullVest || index != UNUSED_LED) {
         // The ys are inverted
         rectangle.x = x * multiplier;
         rectangle.y = LED_ROW_COUNT * multiplier - y * multiplier;
