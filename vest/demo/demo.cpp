@@ -43,15 +43,31 @@ typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
 const float M_PI_F = 3.14159265358979;
 
 // https://lodev.org/cgtutor/plasma.html
+uint8_t lodevP1(const int time, const int x, int) {
+  return 128 + (sin16(x * (PI_16_1_0 / 4) + time / 4)) / 256;
+}
+
+uint8_t lodevP2(const int time, int, const int y) {
+  return 128 + (sin16(y * (PI_16_1_0 / 8) + time / 8)) / 256;
+}
+
+uint8_t lodevP3(const int time, const int x, const int y) {
+  return 128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 2)) / 256;
+}
+
+uint8_t lodevP4(const int time, const int x, const int y) {
+  const int x2 = x - LED_COLUMN_COUNT / 2;
+  const int y2 = y - LED_ROW_COUNT / 2;
+  return 128 + (sin16(sqrt16(x2 * x2 + y2 * y2) * 1000 + time)) / 256;
+}
+
 void plasma1(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 4) + time / 4)) / 256;
-      const uint8_t p2 = 128 + (sin16(y * (PI_16_1_0 / 4) + time / 4)) / 256;
-      const uint8_t p3 =
-          128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
-      const uint8_t p4 =
-          128 + (sin16(sqrt16(x * x + y * y) * 1000 + time)) / 256;
+      const uint8_t p1 = lodevP1(time, x, y);
+      const uint8_t p2 = lodevP2(time, x, y);
+      const uint8_t p3 = lodevP3(time, x, y);
+      const uint8_t p4 = lodevP4(time, x, y);
       const uint8_t v = (p1 + p2 + p3 + p4) / 4;
       setLed(x, y, v, renderer);
     }
@@ -122,11 +138,7 @@ void plasma4(int time, setLed_t setLed, SDL_Renderer *const renderer) {
 void p1only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
-      const uint8_t p2 = 0;
-      const uint8_t p3 = 0;
-      const uint8_t p4 = 0;
-      const uint8_t hue = (p1 + p2 + p3 + p4);
+      const uint8_t hue = lodevP1(time, x, y);
       setLed(x, y, hue, renderer);
     }
   }
@@ -135,15 +147,7 @@ void p1only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
 void p2only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 0;
-      // sin(10 * (x * sin(time / 2) + y * cos(time / 3)) + time)
-      const uint8_t p2 =
-          128 +
-          sin16(10 * (x * sin16(time / 2) / 256 + y * cos16(time / 3) / 256)) /
-              256;
-      const uint8_t p3 = 0;
-      const uint8_t p4 = 0;
-      const uint8_t hue = (p1 + p2 + p3 + p4);
+      const uint8_t hue = lodevP2(time, x, y);
       setLed(x, y, hue, renderer);
     }
   }
@@ -152,27 +156,17 @@ void p2only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
 void p3only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const uint8_t p1 = 0;
-      const uint8_t p2 = 0;
-      const uint8_t p3 =
-          128 + (sin16((x + y) * (PI_16_1_0 / 8) + time / 8)) / 256;
-      const uint8_t p4 = 0;
-      const uint8_t hue = (p1 + p2 + p3 + p4);
+      const uint8_t hue = lodevP3(time, x, y);
       setLed(x, y, hue, renderer);
     }
   }
 }
 
 void p4only(int time, setLed_t setLed, SDL_Renderer *const renderer) {
-  // Oops, I think this is doing v3 of Bidoulle
-  const uint8_t offset = time / 1000;
-  const int xOffset = sin16(time / 2) / 4096;
-  const int yOffset = sin16(time / 3) / 8192;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2;
-      setLed(x, y, bidoulleV3rings[adjustedX][adjustedY] + offset, renderer);
+      const uint8_t hue = lodevP4(time, x, y);
+      setLed(x, y, hue, renderer);
     }
   }
 }
@@ -186,7 +180,6 @@ void p4onlyFloat(int time_, setLed_t setLed, SDL_Renderer *const renderer) {
       float cy = 0.5 * (y - LED_ROW_COUNT / 2) + 0.5 * cosf(time / 3);
       float v = sinf(sqrtf(1 * (cx * cx + cy * cy) + 1) + time);
       const uint8_t hue = (v + 1) * 127;
-      printf("%d %d %f\n", x, y, v);
       setLed(x, y, hue, renderer);
     }
   }
@@ -727,7 +720,6 @@ int main() {
       basicSpiralReversedDoubleGrayscale,
       throbbingSpiralHue,
       spiralHueFloat,
-      plasmaBidoulleFastChangingColors,
       rainbowSpiralWide,
       rainbowSpiralCentered,
       rickRollWide,
@@ -735,6 +727,11 @@ int main() {
       bigLebowski,
       plasmaBidoulle,
       plasmaBidoulleFast,
+      plasmaBidoulleFastChangingColors,
+      p1onlyHue,
+      p2onlyHue,
+      p3onlyHue,
+      p4onlyHue,
       plasma1hue,
       plasma2hue,
       plasma3hue,
@@ -747,14 +744,6 @@ int main() {
       plasma2pastel,
       plasma3pastel,
       plasma4pastel,
-      p1onlyHue,
-      p2onlyHue,
-      p3onlyHue,
-      p4onlyHue,
-      p1onlyPastel,
-      p2onlyPastel,
-      p3onlyPastel,
-      p4onlyPastel,
       ringsOnlyHue,
       ringsOnlyPastel,
       fire,
@@ -982,8 +971,8 @@ void setLed(const int index, uint32_t color, SDL_Renderer *const renderer) {
   }
 }
 
-void setLed(const int x, const int y, uint8_t red, uint8_t green, uint8_t blue,
-            SDL_Renderer *const renderer) {
+void setLed(const int x, const int y, const uint8_t red, const uint8_t green,
+            const uint8_t blue, SDL_Renderer *const renderer) {
   SDL_Rect rectangle;
   const int multiplier = 25;
   if (x >= 0 && x < LED_COLUMN_COUNT) {
