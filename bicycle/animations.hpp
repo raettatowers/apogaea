@@ -1,60 +1,60 @@
-#include <FastLED.h>
+#ifndef ANIMATIONS_HPP
+#define ANIMATIONS_HPP
+
+#include <Adafruit_DotStar.h>
 
 class ColorFunctor {
   public:
-    virtual CRGB getColor() = 0;
+    virtual uint32_t getColor(Adafruit_DotStar& leds) = 0;
     // Notifies the functor that the animation frame has completed, and it can prepare for the next frame
     virtual void reset() = 0;
 };
-
 
 class Animation {
   public:
     virtual void animate(ColorFunctor&) = 0;
 };
 
-#ifndef ANIMATIONS_HPP
-#define ANIMATIONS_HPP
-
 class SingleColor : public ColorFunctor {
   public:
     SingleColor();
-    CRGB color;
-    CRGB getColor();
+    SingleColor(uint32_t color);
+    uint32_t color;
+    uint32_t getColor(Adafruit_DotStar& leds);
     void reset();
 };
 
 
 class UsaColors : public ColorFunctor {
-  private:
-    uint8_t count;
   public:
     UsaColors();
-    CRGB getColor();
+    uint32_t getColor(Adafruit_DotStar& leds);
     void reset();
+  private:
+    uint8_t count;
 };
 
 class RainbowColors : public ColorFunctor {
-  private:
-    uint8_t hue;
-    const uint8_t skipPerLed;
-    const uint8_t skipPerIteration;
-    uint8_t offset;
   public:
-    RainbowColors(uint8_t skipPerLed_, uint8_t skipPerIteration_);
-    CRGB getColor();
+    RainbowColors(uint16_t skipPerLed_, uint16_t skipPerIteration_);
+    uint32_t getColor(Adafruit_DotStar& leds);
     void reset();
+  private:
+    uint16_t hue;
+    const uint16_t skipPerLed;
+    const uint16_t skipPerIteration;
+    uint16_t offset;
 };
 
 class InchWormAnimation : public Animation {
   public:
-    InchWormAnimation(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start);
-    void animate(ColorFunctor & colorFunctor);
+    InchWormAnimation(Adafruit_DotStar& strip, uint8_t numLeds, uint8_t length, uint8_t start);
+    void animate(ColorFunctor& colorFunctor);
 
   private:
-    enum class inchWormState_t { BEGIN, MIDDLE, END };
+    enum class inchWormState_t {BEGIN, MIDDLE, END};
     inchWormState_t state = inchWormState_t::BEGIN;
-    CRGB * leds;
+    Adafruit_DotStar& leds;
     const uint8_t numLeds;
     const uint8_t length;
     uint8_t index = 0;
@@ -62,11 +62,11 @@ class InchWormAnimation : public Animation {
 
 class SpectrumAnalyzer : public Animation {
   public:
-    SpectrumAnalyzer(CRGB * leds_, uint8_t numLeds_);
-    void animate(ColorFunctor & colorFunctor);
+    SpectrumAnalyzer(Adafruit_DotStar& leds, uint8_t numLeds);
+    void animate(ColorFunctor& colorFunctor);
   private:
-    CRGB const * leds;
-    const uint8_t numLeds;
+    Adafruit_DotStar& leds;
+    const int numLeds;
 };
 
 #endif

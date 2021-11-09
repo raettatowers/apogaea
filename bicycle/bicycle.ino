@@ -1,47 +1,50 @@
-#include <FastLED.h>
-#include <Adafruit_CircuitPlayground.h>
+// FastLED doesn't work with nrf52 and APA102 LED strips yet
+#include <Adafruit_DotStar.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
-// Define the array of leds
-CRGB leds[NUM_LEDS];
 
-RainbowColors iteratingColors(20, 20);
-SpectrumAnalyzer analyzer(leds, NUM_LEDS);
+Adafruit_DotStar leds(LED_COUNT, DATA_PIN, CLOCK_PIN, DOTSTAR_BRG);
+
+SingleColor singleColor(0x00FF00);
+RainbowColors rainbowColors(3000, 300);
+
+InchWormAnimation inchWorm(leds, LED_COUNT, 6, 0);
+SpectrumAnalyzer analyzer(leds, LED_COUNT);
 
 void setup() {
-  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
-  FastLED.setBrightness(64);
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(DATA_PIN, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(CPLAY_REDLED, OUTPUT);
+  //pinMode(NEOPIXEL_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLDOWN);
+  const int speakerShutDownPin = 11;
+  pinMode(speakerShutDownPin, OUTPUT);
+  digitalWrite(speakerShutDownPin, LOW);  // Save power
+
+  leds.begin();
+
   Serial.begin(9600);
-  CircuitPlayground.begin();
 }
-
-
-const int maxSleepTime_ms = 150;
-const int minSleepTime_ms = 30;
-const int sleepTimeIncrement_ms = 3;
-int sleepTime_ms = minSleepTime_ms;
-int sleepTimeStep_ms = -sleepTimeIncrement_ms;
-uint8_t colorFunctorIndex = 0;
 
 void loop() {
   // Do animations here
-
-  FastLED.show();
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-  analyzer.animate(iteratingColors);
+  leds.clear();
+  inchWorm.animate(rainbowColors);
+  //analyzer.animate(rainbowColors);
+  rainbowColors.reset();
+  leds.show();
+  delay(100);
 }
 
-
-void checkAndHandleButton() {
-  static int debounceTime_ms = 0;
-  static bool pressed = false;
+bool buttonPressed() {
+  static int previousButtonState;
 
   int buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState == HIGH && buttonState != previousButtonState) {
+    previousButtonState = buttonState;
+    delay(10); // Lazy debounce
+    return true;
+  }
+  previousButtonState = buttonState;
+  return false;
 }

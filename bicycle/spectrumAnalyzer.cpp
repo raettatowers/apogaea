@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <arduinoFFT.h>
 #include <stdint.h>
-#include <FastLED.h>
+#include <Adafruit_DotStar.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
@@ -13,21 +13,16 @@
 // version, I get 66.
 typedef double FftType;
 
-
 // Sample count must be a power of 2. I chose 128 because only half of the values
 // from the FFT correspond to frequencies, and the first 2 are sample averages, so
 // I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
 static const int SAMPLE_COUNT = 128;
 
-extern CRGB pixels[NUM_LEDS];
-
-
-SpectrumAnalyzer::SpectrumAnalyzer(CRGB * leds_, uint8_t numLeds_) :
+SpectrumAnalyzer::SpectrumAnalyzer(Adafruit_DotStar &leds_, uint8_t numLeds_) :
   leds(leds_),
   numLeds(numLeds_)
-{  
+{
 }
-
 
 void SpectrumAnalyzer::animate(ColorFunctor&) {
   // Most songs have notes in the lower end, so from experimental
@@ -35,13 +30,13 @@ void SpectrumAnalyzer::animate(ColorFunctor&) {
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
   const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
   static arduinoFFT FFT = arduinoFFT();
-  static uint8_t previousValues[NUM_LEDS] = {0};
+  static uint8_t previousValues[LED_COUNT] = {0};
   // Change the base hue of low intensity sounds so we can get more colors
   static uint32_t baseHue = 0;
 
   FftType vReal[SAMPLE_COUNT];
   FftType vImaginary[SAMPLE_COUNT];
-  FftType sampleAverages[NUM_LEDS];
+  FftType sampleAverages[LED_COUNT];
   const int usableValues = COUNT_OF(vReal) / 2;
   const int stepSize = usableValues / COUNT_OF(sampleAverages);
 
@@ -112,8 +107,6 @@ void SpectrumAnalyzer::animate(ColorFunctor&) {
     if (brightness < CUTOFF) {
       brightness = 0;
     }
-    pixels[i] = CHSV(hue, 0xFF, brightness);
+    leds.setPixelColor(i, leds.ColorHSV(hue * 255, 0xFF, brightness));
   }
-
-  FastLED.show();
 }
