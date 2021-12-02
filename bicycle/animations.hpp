@@ -1,13 +1,19 @@
 #ifndef ANIMATIONS_HPP
 #define ANIMATIONS_HPP
 
+#include <cstdint>
+#include <arduinoFFT.h>
 #include <Adafruit_DotStar.h>
+
+#include "constants.hpp"
+
+using std::uint8_t;
 
 class ColorFunctor {
   public:
     virtual uint32_t getColor(Adafruit_DotStar& leds) = 0;
     // Notifies the functor that the animation frame has completed, and it can prepare for the next frame
-    virtual void reset() = 0;
+    virtual void nextFrame() = 0;
 };
 
 class Animation {
@@ -21,7 +27,7 @@ class SingleColor : public ColorFunctor {
     SingleColor(uint32_t color);
     uint32_t color;
     uint32_t getColor(Adafruit_DotStar& leds);
-    void reset();
+    void nextFrame();
 };
 
 
@@ -29,7 +35,7 @@ class UsaColors : public ColorFunctor {
   public:
     UsaColors();
     uint32_t getColor(Adafruit_DotStar& leds);
-    void reset();
+    void nextFrame();
   private:
     uint8_t count;
 };
@@ -38,7 +44,7 @@ class RainbowColors : public ColorFunctor {
   public:
     RainbowColors(uint16_t skipPerLed_, uint16_t skipPerIteration_);
     uint32_t getColor(Adafruit_DotStar& leds);
-    void reset();
+    void nextFrame();
   private:
     uint16_t hue;
     const uint16_t skipPerLed;
@@ -67,6 +73,8 @@ class SpectrumAnalyzer : public Animation {
   private:
     Adafruit_DotStar& leds;
     const int numLeds;
+    arduinoFFT fft;
+    uint8_t previousValues[LED_COUNT];
 };
 
 #endif

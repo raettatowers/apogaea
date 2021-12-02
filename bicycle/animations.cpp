@@ -1,5 +1,10 @@
 #include <Adafruit_DotStar.h>
+#include <cstdint>
+
 #include "animations.hpp"
+
+using std::uint8_t;
+using std::uint32_t;
 
 SingleColor::SingleColor() : color(0xFF0000) {
 }
@@ -11,7 +16,7 @@ uint32_t SingleColor::getColor(Adafruit_DotStar&) {
   return color;
 }
 
-void SingleColor::reset() {
+void SingleColor::nextFrame() {
 }
 
 UsaColors::UsaColors() : count(0) {
@@ -31,7 +36,7 @@ uint32_t UsaColors::getColor(Adafruit_DotStar&) {
   return 0x0000FF;
 }
 
-void UsaColors::reset() {
+void UsaColors::nextFrame() {
   count = 0;
 }
 
@@ -48,7 +53,7 @@ uint32_t RainbowColors::getColor(Adafruit_DotStar& leds) {
   return leds.ColorHSV(offset, 255, 255);
 }
 
-void RainbowColors::reset() {
+void RainbowColors::nextFrame() {
   hue += skipPerIteration;
   offset = hue;
 }

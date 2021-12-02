@@ -1,12 +1,14 @@
 #include <Arduino.h>
 #include <arduinoFFT.h>
-#include <stdint.h>
+#include <cstdint>
 #include <Adafruit_DotStar.h>
 
 #include "animations.hpp"
 #include "constants.hpp"
 
-// Note: I manually edited the arduinoFFT files so that it uses floats instead
+using std::uint8_t;
+
+// Note: I manually edited the arduinofft files so that it uses floats instead
 // of doubles, so that it's faster. You'll need to do that too. Alternatively,
 // you can change this back to double if you don't want to edit library files.
 // With the double version, I get about 13 updates per second; with the float
@@ -14,14 +16,19 @@
 typedef double FftType;
 
 // Sample count must be a power of 2. I chose 128 because only half of the values
-// from the FFT correspond to frequencies, and the first 2 are sample averages, so
+// from the fft correspond to frequencies, and the first 2 are sample averages, so
 // I needed more than 2 * PIXEL_RING_COUNT * 2 + 2, which gives me 128.
 static const int SAMPLE_COUNT = 128;
 
 SpectrumAnalyzer::SpectrumAnalyzer(Adafruit_DotStar &leds_, uint8_t numLeds_) :
   leds(leds_),
-  numLeds(numLeds_)
+  numLeds(numLeds_),
+  fft(),
+  previousValues()
 {
+  for (int i = 0; i < COUNT_OF(previousValues); ++i) {
+    previousValues[i] = 0;
+  }
 }
 
 void SpectrumAnalyzer::animate(ColorFunctor&) {
@@ -29,8 +36,6 @@ void SpectrumAnalyzer::animate(ColorFunctor&) {
   // observation, this seems like a good choice
   const uint32_t SAMPLING_FREQUENCY_HZ = 5000;
   const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
-  static arduinoFFT FFT = arduinoFFT();
-  static uint8_t previousValues[LED_COUNT] = {0};
   // Change the base hue of low intensity sounds so we can get more colors
   static uint32_t baseHue = 0;
 
@@ -54,9 +59,9 @@ void SpectrumAnalyzer::animate(ColorFunctor&) {
     delayMicroseconds(before + samplingPeriod_us - now);
   }
 
-  FFT.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  FFT.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
-  FFT.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
+  fft.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  fft.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
+  fft.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
 
   // The first 2 samples? are the average power of the signal, so skip them.
   // Samples < 20Hz are so low that humans can't hear them, so skip those too.
@@ -64,7 +69,7 @@ void SpectrumAnalyzer::animate(ColorFunctor&) {
   uint8_t counter = SKIP;
   for (uint16_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
     sampleAverages[i] = 0;
-    // The FFT gives us equally spaced buckets (e.g. bucket 1 is 0-100 Hz, bucket 2 is 100-200 Hz)
+    // The fft gives us equally spaced buckets (e.g. bucket 1 is 0-100 Hz, bucket 2 is 100-200 Hz)
     // but notes increase in frequency quadratically. In fact, each increase in octave is double
     // the frequency. As a kludge, just skip every other sample for the first half of the samples.
     const int increment = i < COUNT_OF(sampleAverages) / 2 ? 2 : 1;

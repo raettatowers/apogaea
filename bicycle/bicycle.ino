@@ -27,11 +27,12 @@ void setup() {
 }
 
 void loop() {
-  // Do animations here
   leds.clear();
-  inchWorm.animate(rainbowColors);
-  //analyzer.animate(rainbowColors);
-  rainbowColors.reset();
+
+  //inchWorm.animate(rainbowColors);
+  analyzer.animate(rainbowColors);
+
+  rainbowColors.nextFrame();
   leds.show();
   delay(100);
 }
