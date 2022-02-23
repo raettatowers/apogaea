@@ -49,6 +49,22 @@ CRGB ChangingGenerator::getColor(const uint16_t v) {
   return CRGB(red, green, blue);
 }
 
+CRGB ChristmasGenerator::getColor(const uint16_t v) {
+  uint8_t red = (sin16(v) / 256) + 128;
+  if (red < 128) {
+    red = 0;
+  }
+  uint8_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
+  if (green < 128 || red >= 128) {
+    green = 0;
+  }
+  uint8_t blue = 0;
+  if (red == 0 && green == 0 && blue == 0) {
+    red = green = blue = 255;
+  }
+  return CRGB(red, green, blue);
+}
+
 void Animation::setLed(int x, int y, const CRGB &color) {
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {

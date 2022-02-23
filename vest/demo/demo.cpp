@@ -625,6 +625,7 @@ const char *plasmaBidoulle(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+
 const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   const uint16_t multiplier = 0.15f * PI_16_1_0;
   // I found that using precomputed tables for the circles makes the animation
@@ -656,6 +657,54 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
       const uint8_t red = (sin16(v) / 256) + 128;
       const int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
       const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+      setLed(x, y, red, green, blue, renderer);
+    }
+  }
+  return __func__;
+}
+
+
+const char *plasmaBidoulleFastChristmas(int time, SDL_Renderer *const renderer) {
+  const uint16_t multiplier = 0.15f * PI_16_1_0;
+  // I found that using precomputed tables for the circles makes the animation
+  // jittery, so blend two adjacent values so smooth it out
+  const int blend = 64;
+  const int xSin = sin16(time / 2);
+  const int xOffset = xSin / 4096;
+  const int xRemainder = (xSin % 4096) / blend;
+  const int ySin = sin16(time / 3);
+  const int yOffset = ySin / 8192;
+  // I haven't noticed the jitter in the y direction, so don't compute the
+  // blend for y
+
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    const int16_t v1 = sin16(multiplier * x + time); // good
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      const int16_t v2 =
+          sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
+                 time) /
+                16384); // bad values, but looks good?
+      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
+      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const uint16_t blend1 =
+          bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
+      const uint16_t blend2 =
+          bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
+      const uint16_t v3 = (blend1 + blend2) / 2 * 256;
+      const int16_t v = v1 + v2 + v3;
+      uint8_t red = (sin16(v) / 256) + 128;
+      if (red < 128) {
+          red = 0;
+      }
+      int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
+      if (green < 128 || red >= 128) {
+          green = 0;
+      }
+      //const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+      int16_t blue = 0;
+      if (red == 0 && green == 0 && blue == 0) {
+          red = green = blue = 255;
+      }
       setLed(x, y, red, green, blue, renderer);
     }
   }
@@ -712,6 +761,7 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
+      plasmaBidoulleFastChristmas,
       basicSpiralHue,
       basicSpiralReversedHue,
       basicSpiralGrayscale,

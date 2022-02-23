@@ -50,6 +50,15 @@ class ChangingGenerator : public ColorGenerator {
     uint32_t timer;
 };
 
+class ChristmasGenerator : public ColorGenerator {
+  public:
+    ChristmasGenerator() = default;
+    ~ChristmasGenerator() = default;
+    CRGB getColor(uint16_t value);
+  private:
+    uint32_t timer;
+};
+
 class Animation {
   public:
     // Runs a tick of the animation, and returns the number of milliseconds until
