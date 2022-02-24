@@ -1,12 +1,10 @@
 #include <FastLED.h>
-#include <Adafruit_DotStar.h>
 
 #include "constants.hpp"
 
 // On Uno, if you're using Serial, this needs to be > 1. On Trinket it should be 0.
-const int NEOPIXELS_PIN = 0;
-const int BUTTON_PIN = 3;
-const int ONBOARD_LED_PIN = 13;
+const int LED_PIN = 0;
+const int BUTTON_PIN = 4;
 const int MODE_TIME_MS = 8000;
 const int INITIAL_BRIGHTNESS = 20;
 
@@ -23,39 +21,31 @@ static decltype(millis()) buttonDownTime = 0;
 static ButtonState_t buttonState = ButtonState_t::UP;
 static bool buttonDown = false;
 
-static Adafruit_DotStar internalPixel = Adafruit_DotStar(1, INTERNAL_DS_DATA, INTERNAL_DS_CLK, DOTSTAR_BGR);
-// Start the hue red. The Adafruit library expected a 16-bit hue, but FastLED
-// expects an 8-bit hue. To keep a smooth transition, I'll track it using
-// 16-but but convert to 8 it when I need to.
-static uint16_t hue = 0;
+static uint8_t hue = 0;
 
 bool reset;  // Indicates that an animation should clear its state
 CRGB pixels[PIXEL_RING_COUNT * 2];
-
+CRGB dotStar;
 
 void setup() {
-  FastLED.addLeds<NEOPIXEL, NEOPIXELS_PIN>(pixels, PIXEL_RING_COUNT * 2);
+  FastLED.addLeds<NEOPIXEL, LED_PIN>(pixels, PIXEL_RING_COUNT * 2);
+  FastLED.addLeds<APA102, 7, 8, BGR>(&dotStar, 1);
   FastLED.setBrightness(INITIAL_BRIGHTNESS);
-  clearLeds(pixels);
+  FastLED.clear();
   FastLED.show();
-
-  internalPixel.begin();
-  // Just shut it off
-  internalPixel.setPixelColor(0, 0);
-  internalPixel.show();
 
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(NEOPIXELS_PIN, OUTPUT);
-  pinMode(ONBOARD_LED_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), setButtonDownState, CHANGE);
 }
 
 
 void setButtonDownState() {
-  buttonDown = (digitalRead(BUTTON_PIN) == HIGH);
+  buttonDown = (digitalRead(BUTTON_PIN) == LOW);
 }
 
 
@@ -94,11 +84,6 @@ void updateButtonState() {
       }
       break;
   }
-}
-
-
-static void clearLeds(CRGB pixels[]) {
-  fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
 }
 
 
@@ -199,7 +184,7 @@ void loop() {
     if (configurationsIndex == COUNT_OF(CONFIGURATION_FUNCTIONS)) {
       configurationsIndex = 0;
     }
-    clearLeds(pixels);
+    FastLED.clear();
   }
 
   if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
@@ -224,7 +209,7 @@ void loop() {
       if (animations[mode] == nullptr) {
         mode = 0;
       }
-      clearLeds(pixels);
+      FastLED.clear();
       reset = true;
       modeStartTime_ms = now_ms;
     } else {

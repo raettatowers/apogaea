@@ -10,7 +10,7 @@
 // you can change this back to double if you don't want to edit library files.
 // With the double version, I get about 13 updates per second; with the float
 // version, I get 66.
-typedef float FftType;
+typedef double FftType;
 
 
 // Sample count must be a power of 2. I chose 128 because only half of the values
