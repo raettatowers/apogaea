@@ -5,10 +5,11 @@
 #include <FastLED.h>
 
 #include "constants.hpp"
+#include "functions.hpp"
 
 extern CRGB pixels[2 * PIXEL_RING_COUNT];
 
-static void showNumber(uint32_t number, const CHSV& color);
+static void showNumber(uint32_t number, const CRGB& color);
 static void copyLens(uint8_t rotate = 0);
 static void mirrorLens(uint8_t rotate = 0);
 
@@ -18,13 +19,13 @@ void binaryClock(uint8_t hue) {
   // Show 1/4 seconds instead of full seconds because it's more interesting. It
   // updates a lot faster and the other lens lights up faster.
   auto now = millis() >> 8;
-  const CHSV color(hue, 0xFF, 0xFF);
+  const auto color = gbChsv(hue, 0xFF, 0xFF);
   showNumber(now, color);
   delay(100);
 }
 
 
-static void showNumber(uint32_t number, const CHSV& color) {
+static void showNumber(uint32_t number, const CRGB& color) {
   uint8_t counter = 0;
   while (number > 0) {
     if (number & 1) {
@@ -64,7 +65,7 @@ void lookAround(const uint8_t hue) {
     blinkOffset = 0;
     blinkCount = 0;
     fill_solid(&pixels[0], PIXEL_RING_COUNT * 2, CRGB::Black);
-    pixels[current] = CHSV(hue, 0xFF, 0xFF);
+    pixels[current] = gbChsv(hue, 0xFF, 0xFF);
     copyLens();
     FastLED.show();
     reset = false;
@@ -83,7 +84,7 @@ void lookAround(const uint8_t hue) {
       pixels[current] = CRGB::Black;
       // TODO: Go in the closer direction, or a random direction
       current = (current + 1) % PIXEL_RING_COUNT;
-      pixels[current] = CHSV(hue, 0xFF, 0xFF);
+      pixels[current] = gbChsv(hue, 0xFF, 0xFF);
       copyLens();
       FastLED.show();
     } else {
@@ -98,15 +99,15 @@ void lookAround(const uint8_t hue) {
       pixels[current] = CRGB::Black;
       // TODO: Go in the closer direction, or a random direction
       current = (current - 1 + PIXEL_RING_COUNT) % PIXEL_RING_COUNT;
-      pixels[current] = CHSV(hue, 0xFF, 0xFF);
+      pixels[current] = gbChsv(hue, 0xFF, 0xFF);
       copyLens();
       FastLED.show();
     }
     delay(50);
   } else {
     fill_solid(&pixels[0], PIXEL_RING_COUNT, CRGB::Black);
-    pixels[target] = CHSV(hue, 0xFF, 0xFF);
-    const auto blinkColor = CHSV(hue + 0x7FFF, 0xFF, 0xFF / 4);
+    pixels[target] = gbChsv(hue, 0xFF, 0xFF);
+    const auto blinkColor = gbChsv(hue + 0x7FFF, 0xFF, 0xFF / 4);
     switch (blinkState) { 
       case BlinkState::DOWN:
         for (int i = 0; i < blinkOffset; ++i) {
@@ -189,11 +190,11 @@ void fadingSparks(uint8_t) {
       } else {
         increasing[i] = false;
       }
-      pixels[i] = CHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
+      pixels[i] = gbChsv(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
     } else {
       if (brightnessIndexes[i] > 0) {
         --brightnessIndexes[i];
-        pixels[i] = CHSV(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
+        pixels[i] = gbChsv(hues[i], 0xFF, rippleBrightnesses[brightnessIndexes[i]]);
       }
     }
   }
@@ -206,8 +207,8 @@ void newtonsCradle(const uint8_t hue) {
   static int8_t swingPosition = 0;
   static int8_t velocity = 7;
 
-  const auto color = CHSV(hue, 0xFF, 0xFF);
-  const auto cradleColor = CHSV(hue + 0x7FFF, 0xFF, 0xFF);
+  const auto color = gbChsv(hue, 0xFF, 0xFF);
+  const auto cradleColor = gbChsv(hue + 0x7FFF, 0xFF, 0xFF);
   const uint8_t center = 4;
   const uint8_t left = center - 1;
   const uint8_t right = center + 1;
@@ -254,12 +255,12 @@ void rainbowSwirls(uint8_t) {
     const int8_t difference1 = head - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
       const uint16_t adjustedHue = hue + difference1 * 4096;
-      pixels[i] = CHSV(adjustedHue, 0xFF, brightness[difference1]);
+      pixels[i] = gbChsv(adjustedHue, 0xFF, brightness[difference1]);
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
         const uint16_t adjustedHue = hue + difference2 * 64;
-        pixels[i] = CHSV(adjustedHue, 0xFF, brightness[difference2]);
+        pixels[i] = gbChsv(adjustedHue, 0xFF, brightness[difference2]);
       }
     }
   }
@@ -280,7 +281,7 @@ void randomSparks(uint8_t hue) {
   const int LEDS_PER_LENS = 2;
 
   int used[2 * LEDS_PER_LENS] = {0};
-  const auto color = CHSV(hue, 0xFF, 0xFF);
+  const auto color = gbChsv(hue, 0xFF, 0xFF);
   for (int i = 0; i < LEDS_PER_LENS; ++i) {
     const uint8_t led1 = random(PIXEL_RING_COUNT);
     pixels[led1] = color;
@@ -330,7 +331,7 @@ void shimmer(uint8_t hue) {
   }
 
   for (int i = 0; i < PIXEL_RING_COUNT * 2; ++i) {
-    pixels[i] = CHSV(hue, 0xFF, brightness[values[i]]);
+    pixels[i] = gbChsv(hue, 0xFF, brightness[values[i]]);
   }
   FastLED.show();
   delay(50);
@@ -341,7 +342,7 @@ void spinnyWheels(uint8_t) {
   static uint16_t hue = 0;  // We use our own hue to make the colors rotate faster
   static uint8_t offset = 0;  // Position of spinny eyes
 
-  const auto color = CHSV(hue, 0xFF, 0xFF);
+  const auto color = gbChsv(hue, 0xFF, 0xFF);
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     CRGB c = CRGB::Black;
     if (((offset + i) & 0b111) < 2) {
@@ -365,11 +366,11 @@ void swirls(uint8_t hue) {
   for (uint8_t i = 0; i < PIXEL_RING_COUNT; ++i) {
     const int8_t difference1 = head1 - i;
     if (0 <= difference1 && difference1 < static_cast<int>(COUNT_OF(brightness))) {
-      pixels[i] = CHSV(hue, 0xFF, brightness[difference1]);
+      pixels[i] = gbChsv(hue, 0xFF, brightness[difference1]);
     } else {
       const int8_t difference2 = PIXEL_RING_COUNT + difference1;
       if (0 <= difference2 && difference2 < static_cast<int>(COUNT_OF(brightness))) {
-        pixels[i] = CHSV(hue, 0xFF, brightness[difference2]);
+        pixels[i] = gbChsv(hue, 0xFF, brightness[difference2]);
       }
     }
   }
@@ -395,7 +396,7 @@ void circularWipe(const uint8_t hue) {
   } else {
     head = 0;
     previousColor = currentColor;
-    currentColor = CHSV(hue, 0xFF, 0xFF);
+    currentColor = gbChsv(hue, 0xFF, 0xFF);
   }
   mirrorLens();
   FastLED.show();
@@ -454,8 +455,8 @@ void pacMan(uint8_t) {
           ghostColor = ghostColors[i];
           break;
       }
-      const uint8_t ghostPosition = ghostPosition - (i * 2);
-      pixels[ghostPosition] = ghostColor;
+      const uint8_t updatedGhostPosition = ghostPosition - (i * 2);
+      pixels[updatedGhostPosition] = ghostColor;
     }
   }
   // Draw Pac-Man last, in case he's on top of something

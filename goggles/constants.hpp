@@ -2,6 +2,7 @@
 #define CONSTANTS_HPP
 
 #include <cstdint>
+#include <FastLED.h>
 
 const int PIXEL_RING_COUNT = 20;
 const int MICROPHONE_ANALOG_PIN = A1;

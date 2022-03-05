@@ -21,7 +21,9 @@ static decltype(millis()) buttonDownTime = 0;
 static ButtonState_t buttonState = ButtonState_t::UP;
 static bool buttonDown = false;
 
-static uint8_t hue = 0;
+// Start the hue red. The Adafruit library expected a 16-bit hue, but FastLED
+// 16-but but convert to 8 it when I need to.
+static uint16_t hue = 0;
 
 bool reset;  // Indicates that an animation should clear its state
 CRGB pixels[PIXEL_RING_COUNT * 2];
@@ -31,6 +33,8 @@ void setup() {
   FastLED.addLeds<NEOPIXEL, LED_PIN>(pixels, PIXEL_RING_COUNT * 2);
   FastLED.addLeds<APA102, 7, 8, BGR>(&dotStar, 1);
   FastLED.setBrightness(INITIAL_BRIGHTNESS);
+  // Disable the red channel completely
+  FastLED.setCorrection(CRGB(0, 255, 255));
   FastLED.clear();
   FastLED.show();
 
@@ -102,8 +106,10 @@ void configureBrightness(const bool buttonPressed) {
 
   FastLED.setBrightness(BRIGHTNESSES[brightnessIndex]);
   // Turn on an LED for each brightness
-  fill_solid(&pixels[0], brightnessIndex + 1, CRGB(0x700000));
+  const auto color = CRGB(0x007000);
+  fill_solid(&pixels[0], brightnessIndex + 1, color);
   fill_solid(&pixels[brightnessIndex + 1], PIXEL_RING_COUNT * 2 - brightnessIndex, CRGB::Black);
+  pixels[COUNT_OF(BRIGHTNESSES)] = color;
   FastLED.show();
 }
 
@@ -133,16 +139,16 @@ ANIM(rotateGearsToBeat);
 // Each animationFunction_t[] should end in nullptr
 constexpr animationFunction_t ANIMATIONS[] = {
   spinnyWheels,
-  binaryClock,
-  newtonsCradle,
+  //binaryClock,
+  //newtonsCradle,
   rainbowSwirls,
   fadingSparks,
-  lookAround,
+  //lookAround,
   ripples,
   circularWipe,
   shimmer,
   swirls,
-  pacMan,
+  //pacMan,
   nullptr
 };
 static_assert(ANIMATIONS[COUNT_OF(ANIMATIONS) - 1] == nullptr, "");
