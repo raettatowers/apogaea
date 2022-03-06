@@ -80,16 +80,12 @@ void Animation::setLed(int index, const CRGB &color) {
   leds[index] = color;
 }
 
-void resetLeds() {
-  fill_solid(leds, LED_COUNT, CRGB::Black);
-}
-
 Count::Count() : index(0) {}
 
 int Count::animate(const uint8_t hue) {
   const int millisPerIteration = 500;
 
-  resetLeds();
+  FastLED.clear();
   leds[index] = CHSV(hue, 255, 255);
   ++index;
   if (index == LED_COUNT) {
@@ -102,7 +98,7 @@ CountXY::CountXY() : index(0) {}
 
 int CountXY::animate(uint8_t) {
   const int millisPerIteration = 500;
-  resetLeds();
+  FastLED.clear();
 
   // Highlight the top and bottom of each column
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
@@ -133,7 +129,7 @@ int CountXY::animate(uint8_t) {
 HorizontalSnake::HorizontalSnake() : x(0), y(0), xIncreasing(true) {}
 
 int HorizontalSnake::animate(const uint8_t hue) {
-  resetLeds();
+  FastLED.clear();
   if (xIncreasing) {
     ++x;
     if (x >= LED_COLUMN_COUNT) {
@@ -173,7 +169,7 @@ Snake::Snake(int length_, int count_)
 int Snake::animate(const uint8_t originalHue) {
   const unsigned millisPerIteration = 20;
 
-  resetLeds();
+  FastLED.clear();
 
   for (int i = 0; i < count; ++i) {
     // Make the hues cycle faster
@@ -222,7 +218,7 @@ int Shine::animate(uint8_t hue) {
   static_assert(maxAmount % changeAmount == 0);
 
   hue *= 4; // Make it cycle faster
-  resetLeds();
+  FastLED.clear();
 
   // Randomly start increasing an LED
   int chosen = rand() % LED_COUNT;
@@ -271,7 +267,7 @@ int Blobs::animate(const uint8_t hue) {
   const float radius2 = radius * radius;
   const float reachedDistance2 = 2.0f;
 
-  resetLeds();
+  FastLED.clear();
 
   for (int i = 0; i < count; ++i) {
     const float distance2 = (targetX[i] - x[i]) * (targetX[i] - x[i]) +
@@ -373,7 +369,7 @@ int PlasmaBidoulle::animate(uint8_t) {
   // Adapted from https://www.bidouille.org/prog/plasma
   const float M_PI_F = static_cast<float>(M_PI);
 
-  resetLeds();
+  FastLED.clear();
   time += timeIncrement;
   float cys[LED_ROW_COUNT];
   for (int y = 0; y < LED_ROW_COUNT; ++y) {
@@ -716,7 +712,7 @@ void SnakeGame::spawnFruit() {
 }
 
 void SnakeGame::draw() const {
-  resetLeds();
+  FastLED.clear();
 
   // Draw border
   for (int y = 0; y < HEIGHT; ++y) {

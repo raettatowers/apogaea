@@ -187,6 +187,7 @@ bool gameOver() {
   if (count > 3) {
     return true;
   }
+  return false;
 }
 
 bool Tetris::droppable() const {
