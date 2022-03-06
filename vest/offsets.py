@@ -31,6 +31,12 @@ def print_offsets() -> None:
     print("const int UNUSED_LED = -1;")
     print("#define UL UNUSED_LED")
     print(f"const int LED_COUNT = {sum(led_counts) * 2};")
+    print("""
+#ifdef NRF52840_XXAA
+#include "FastLED/src/platforms/arm/nrf52/clockless_arm_nrf52.h"
+static_assert(FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING >= LED_COUNT, "You need to edit clockless_arm_nrf52.h and increase FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING");
+#endif
+""")
     print(f"const int LED_COLUMN_COUNT = 2 * {len(led_counts)};")
     print(f"const int LED_ROW_COUNT = {max(led_counts)};")
     print("// x first then y, starting at lower left corner")
@@ -51,12 +57,13 @@ def print_precomputed_bidoulle_v3() -> None:
 
     for x in range(-LED_COLUMN_COUNT // 2, 3 * LED_COLUMN_COUNT // 2):
         sys.stdout.write("  {")
+        values = []
         for y in range(-LED_ROW_COUNT // 2, 3 * LED_ROW_COUNT // 2):
             xSqr = (x - LED_COLUMN_COUNT // 2) ** 2
             ySqr = (y - LED_ROW_COUNT // 2) ** 2
             value = round((math.sin(math.sqrt(0.1 * (xSqr + ySqr) + 1.0)) + 1.0) * 127)
-            sys.stdout.write(f"{value}, ")
-        print("},")
+            values.append(value)
+        print(f"{', '.join((str(v) for v in values))}}},")
     print("};");
 
 
