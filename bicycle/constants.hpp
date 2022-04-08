@@ -4,7 +4,7 @@
 #include <Adafruit_CircuitPlayground.h>
 
 // How many leds in your strip?
-const int LED_COUNT = 57;
+const int LED_COUNT = 59;
 
 // A1 = D6, A2 = D9, A3 = D10, A4 = D3
 const int CLOCK_PIN = 10;

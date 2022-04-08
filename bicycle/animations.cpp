@@ -1,64 +1,65 @@
-#include <Adafruit_DotStar.h>
-#include <cstdint>
-
+#include <FastLED.h>
 #include "animations.hpp"
 
-using std::uint8_t;
-using std::uint32_t;
-
-SingleColor::SingleColor() : color(0xFF0000) {
+SingleColor::SingleColor() : color(CRGB::Red) {
 }
 
-SingleColor::SingleColor(uint32_t color_) : color(color_) {
-}
 
-uint32_t SingleColor::getColor(Adafruit_DotStar&) {
+CRGB SingleColor::getColor() {
   return color;
 }
 
-void SingleColor::nextFrame() {
+
+void SingleColor::reset() {
 }
+
 
 UsaColors::UsaColors() : count(0) {
 }
 
-uint32_t UsaColors::getColor(Adafruit_DotStar&) {
+
+CRGB UsaColors::getColor() {
   ++count;
   if (count <= 3) {
-    // Red
-    return 0xFF0000;
+    return CRGB::Red;
   }
   if (count <= 6) {
-    // White
-    return 0xFFFFFF;
+    return CRGB::White;
   }
-  // Blue
-  return 0x0000FF;
+  return CRGB::Blue;
 }
 
-void UsaColors::nextFrame() {
+
+void UsaColors::reset() {
   count = 0;
 }
 
-RainbowColors::RainbowColors(uint16_t skipPerLed_, uint16_t skipPerIteration_) :
+
+RainbowColors::RainbowColors(uint8_t skipPerLed_, uint8_t skipPerIteration_) :
   hue(0),
   skipPerLed(skipPerLed_),
   skipPerIteration(skipPerIteration_),
-  offset(hue)
+  offset(hue),
+  value(50)
 {
 }
 
-uint32_t RainbowColors::getColor(Adafruit_DotStar& leds) {
+
+CRGB RainbowColors::getColor() {
   offset += skipPerLed;
-  return leds.ColorHSV(offset, 255, 255);
+  value += 20;
+  return CHSV(offset, 255, value);
 }
 
-void RainbowColors::nextFrame() {
+
+void RainbowColors::reset() {
   hue += skipPerIteration;
   offset = hue;
+  value = 0;
 }
 
-InchWormAnimation::InchWormAnimation(Adafruit_DotStar& leds_, uint8_t numLeds_, uint8_t length_, uint8_t start) :
+
+InchWormAnimation::InchWormAnimation(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start) :
   state(),
   leds(leds_),
   numLeds(numLeds_),
@@ -74,11 +75,12 @@ InchWormAnimation::InchWormAnimation(Adafruit_DotStar& leds_, uint8_t numLeds_, 
   }
 }
 
-void InchWormAnimation::animate(ColorFunctor& colorFunctor) {
+
+void InchWormAnimation::animate(ColorFunctor & colorFunctor) {
   switch (state) {
     case inchWormState_t::BEGIN:
       for (int i = 0; i < index; ++i) {
-        leds.setPixelColor(i, colorFunctor.getColor(leds));
+        leds[i] = colorFunctor.getColor();
       }
       ++index;
       // I don't ever expect index > length, but just to be defensive, do >=
@@ -89,7 +91,7 @@ void InchWormAnimation::animate(ColorFunctor& colorFunctor) {
       break;
     case inchWormState_t::MIDDLE:
       for (int i = 0; i < length; ++i) {
-        leds.setPixelColor(index + i, colorFunctor.getColor(leds));
+        leds[index + i] = colorFunctor.getColor();
       }
       ++index;
       // I don't ever expect index + length > INCH_WORM_LENGTH, but just to be defensive, do >=
@@ -100,7 +102,7 @@ void InchWormAnimation::animate(ColorFunctor& colorFunctor) {
       break;
     case inchWormState_t::END:
       for (int i = 0; i < length - index; ++i) {
-        leds.setPixelColor(numLeds - length + index + i, colorFunctor.getColor(leds));
+        leds[numLeds - length + index + i] = colorFunctor.getColor();
       }
       ++index;
       // I don't ever expect index > length, but just to be defensive, do >=
