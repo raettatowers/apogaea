@@ -1,52 +1,80 @@
 #include <FastLED.h>
 #include <math.h>
-// Needed to get Serial to work
-#include "Adafruit_TinyUSB.h"
+// RemoteXY select connection mode and include library
+#define REMOTEXY_MODE__ESP32CORE_BLE
+#include <BLEDevice.h>
+#include <RemoteXY.h>
+
+#define REMOTEXY_BLUETOOTH_NAME "naivest"
 
 #include "animations.hpp"
 #include "constants.hpp"
 
-CRGB leds[LED_COUNT];
-//CRGB dotStar[1];
-// 15 = A1 / D6
-const int LED_PIN = 15;
-//const int BUILT_IN_LED_PIN = 13;
+// RemoteXY configurate
+#pragma pack(push, 1)
+uint8_t RemoteXY_CONF[] =   // 404 bytes
+{ 255, 7, 0, 11, 0, 141, 1, 16, 24, 5, 2, 0, 4, 13, 22, 11, 1, 2, 26, 31,
+  31, 99, 121, 99, 108, 101, 0, 115, 116, 97, 116, 105, 99, 0, 3, 10, 29, 13, 4, 40,
+  1, 2, 26, 131, 1, 1, 1, 30, 7, 1, 2, 31, 77, 97, 105, 110, 0, 131, 0, 32,
+  1, 30, 7, 2, 2, 31, 83, 68, 0, 129, 0, 35, 14, 12, 3, 1, 17, 80, 108, 97,
+  115, 109, 97, 51, 0, 129, 0, 35, 22, 20, 3, 1, 17, 66, 105, 100, 111, 117, 108, 108,
+  101, 32, 78, 101, 111, 110, 0, 129, 0, 35, 30, 24, 3, 1, 17, 72, 111, 114, 105, 122,
+  111, 110, 116, 97, 108, 32, 83, 110, 97, 107, 101, 0, 129, 0, 35, 34, 20, 3, 1, 17,
+  86, 101, 114, 116, 105, 99, 97, 108, 32, 83, 110, 97, 107, 101, 0, 129, 0, 35, 38, 20,
+  3, 1, 17, 83, 112, 105, 114, 97, 108, 0, 129, 0, 35, 42, 20, 3, 1, 17, 83, 104,
+  105, 110, 101, 0, 129, 0, 35, 46, 20, 3, 1, 17, 83, 112, 111, 116, 108, 105, 103, 104,
+  116, 115, 0, 129, 0, 35, 50, 14, 3, 1, 17, 83, 112, 101, 99, 116, 114, 117, 109, 0,
+  67, 5, 3, 21, 57, 5, 2, 2, 26, 11, 1, 0, 27, 29, 9, 9, 2, 164, 31, 0,
+  1, 0, 16, 29, 9, 9, 2, 164, 31, 0, 1, 0, 38, 29, 9, 9, 2, 164, 31, 0,
+  129, 0, 17, 40, 6, 3, 2, 17, 80, 114, 101, 118, 0, 129, 0, 39, 40, 6, 3, 2,
+  17, 78, 101, 120, 116, 0, 129, 0, 28, 40, 6, 3, 2, 17, 80, 108, 97, 121, 0, 4,
+  128, 3, 89, 18, 5, 0, 2, 26, 129, 0, 4, 84, 15, 3, 1, 17, 77, 97, 120, 32,
+  112, 111, 119, 101, 114, 0, 129, 0, 35, 18, 21, 3, 1, 17, 66, 105, 100, 111, 117, 108,
+  108, 101, 32, 80, 97, 115, 116, 101, 108, 0, 129, 0, 35, 26, 26, 3, 1, 17, 66, 105,
+  100, 111, 117, 108, 108, 101, 32, 67, 104, 97, 110, 103, 105, 110, 103, 0, 4, 128, 24, 89,
+  18, 5, 0, 2, 26, 129, 0, 24, 84, 15, 3, 1, 17, 66, 114, 105, 103, 104, 116, 110,
+  101, 115, 115, 0
+};
 
-void blinkTimes(const int count) {
-  if (count == 0) {
-    for (int i = 0; i < 3; ++i) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(75);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(75);
-    }
-  } else {
-    for (int i = 0; i < count; ++i) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(250);
-      digitalWrite(LED_BUILTIN, LOW);
-      delay(250);
-    }
-  }
-  delay(1000);
-}
+// this structure defines all the variables and events of your control interface
+struct {
+
+  // input variables
+  uint8_t switch_cycle; // =1 if switch ON and =0 if OFF
+  uint8_t animation; // =0 if select position A, =1 if position B, =2 if position C, ...
+  uint8_t button_play; // =1 if button pressed, else =0
+  uint8_t button_previous; // =1 if button pressed, else =0
+  uint8_t button_next; // =1 if button pressed, else =0
+  int8_t slider_max_power; // =0..100 slider position
+  int8_t slider_brightness; // =0..100 slider position
+
+  // output variables
+  char text_sd[11];  // string UTF8 end zero
+
+  // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0
+
+} RemoteXY;
+#pragma pack(pop)
+
+CRGB leds[LED_COUNT];
+const int LED_PIN = 0;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  //pinMode(BUILT_IN_LED_PIN, OUTPUT);
-  Serial.begin(9600);
+  digitalWrite(LED_BUILTIN, LOW);
+
+  Serial.begin(115200);
+
+  RemoteXY_Init();
+  RemoteXY.slider_max_power = 50;
+  RemoteXY.slider_brightness = 25;
 
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(&leds[0], COUNT_OF(leds)).setCorrection(TypicalLEDStrip);
-  //set_max_power_in_volts_and_milliamps(5, 300);
-  FastLED.setBrightness(64);
-  FastLED.clear();
-  leds[1] = CRGB::Red;
-  leds[2] = CRGB::Blue;
-  leds[3] = CRGB::Green;
+  // Brightness and max power will be set below
   FastLED.clear();
   FastLED.show();
-  blinkTimes(3);
 }
 
 static uint8_t hue = 0;
@@ -68,106 +96,65 @@ static Count count;
 static CountXY countXY;
 static Shine shine;
 static Blobs blobs(4);
-static PlasmaBidoulleFast plasmaChristmas(christmasGenerator);
-static PlasmaBidoulleFast plasma1(neonGenerator);
-static PlasmaBidoulleFast plasma2(redGreenGenerator);
-static PlasmaBidoulleFast plasma3(pastelGenerator);
-static Plasma3 plasma4(hueGenerator);
-static PlasmaBidoulleFast plasma5(changingGenerator);
+static PlasmaBidoulleFast bidoulleChristmas(christmasGenerator);
+static PlasmaBidoulleFast bidoulleNeon(neonGenerator);
+static PlasmaBidoulleFast bidoulleRedGreen(redGreenGenerator);
+static PlasmaBidoulleFast bidoullePastel(pastelGenerator);
+static PlasmaBidoulleFast bidoulleChanging(changingGenerator);
+static Plasma3 plasma3(hueGenerator);
 static BasicSpiral spiral(hueGenerator);
+
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static constexpr Animation* goodAnimations[] = { &plasmaChristmas, &spiral, &plasma5, &plasma1, &snake, &plasma2, &blobs, &plasma3, &shine, &plasma4, nullptr };
-static_assert(goodAnimations[COUNT_OF(goodAnimations) - 1] == nullptr);
-static constexpr Animation* testAnimations[] = { &count, &countXY, &horizontalSnake, nullptr };
-static_assert(testAnimations[COUNT_OF(testAnimations) - 1] == nullptr);
-static constexpr Animation* snakeOnly[] = { &snake, nullptr };
-static_assert(snakeOnly[COUNT_OF(snakeOnly) - 1] == nullptr);
-static constexpr Animation* videoAnimations[] = { nullptr };
-static_assert(videoAnimations[COUNT_OF(videoAnimations) - 1] == nullptr);
-//static constexpr Animation* const* animationSets[] = { goodAnimations, testAnimations };
-static constexpr Animation* const* animationSets[] = { snakeOnly };
-static uint8_t animationSetIndex = 0;
-static uint8_t animationIndex = 0;
-static bool cycling = false;
-static unsigned long animationStart_ms = millis();
+static constexpr Animation* animations[] = { &plasma3, &bidoullePastel, &bidoulleNeon, &bidoulleChanging, &horizontalSnake, &snake, &spiral, &shine, &blobs, &spectrumAnalyzer1 };
+//static constexpr Animation* const* animations[] = { &snake };
 
 void loop() {
   const int hueDuration_ms = 50;
-  const int animationDuration_ms = 30000;
 
   unsigned long hueStart_ms = millis();
+  long animationStart_ms = millis();
   while (true) {
     if (millis() > hueStart_ms + hueDuration_ms) {
       hueStart_ms = millis();
       ++hue;
     }
 
-    Serial.print(static_cast<int>(animationSetIndex));
-    Serial.print(" ");
-    Serial.println(static_cast<int>(animationIndex));
-    blinkTimes(animationSetIndex);
-    blinkTimes(animationIndex);
-    const int delay_ms = animationSets[animationSetIndex][animationIndex]->animate(hue);
-    blinkTimes(1);
+    const int delay_ms = animations[RemoteXY.animation]->animate(hue);
     FastLED.show();
-    delayAndCheckForButton(delay_ms);
-
-    if (cycling && millis() > animationStart_ms + animationDuration_ms) {
-      animationStart_ms = millis();
-      ++animationIndex;
-      if (animationSets[animationSetIndex][animationIndex] == nullptr) {
-        // Some sets only have 1 animation; don't reset those
-        if (animationIndex != 1) {
-          animationSets[animationSetIndex][0]->reset();
-        }
-        animationIndex = 0;
-      }
-    }
+    delayAndHandleRemoteXy(delay_ms);
   }
 }
 
+static void delayAndHandleRemoteXy(const int delay_ms) {
+  static uint8_t previousSwitchCycle = RemoteXY.switch_cycle;
 
-static bool buttonPressed() {
-  return false;
-  // return digitalRead(BUTTON_PIN) == LOW;
-  // return CircuitPlayground.leftButton() || CircuitPlayground.rightButton();
-}
+  // TODO: Make this a slider too?
+  const int animationDuration_ms = 10000;
+  const decltype(millis()) start = millis();
 
+  static decltype(millis()) animationStart_ms = millis();
 
-static void delayAndCheckForButton(const int delay_ms) {
-  const unsigned long start = millis();
-  const bool buttonState = buttonPressed();
   do {
-    // Button pressed
-    if (buttonState) {
-      if (cycling) {
-        animationIndex = 0;
-        ++animationSetIndex;
-        if (animationSetIndex == COUNT_OF(animationSets)) {
-          animationSetIndex = 0;
-          animationSets[0][0]->reset();
-          cycling = !cycling;
-        }
-      } else {
-        ++animationIndex;
-        if (animationSets[animationSetIndex][animationIndex] == nullptr) {
-          animationIndex = 0;
-          ++animationSetIndex;
-          if (animationSetIndex == COUNT_OF(animationSets)) {
-            animationSetIndex = 0;
-            animationSets[0][0]->reset();
-            cycling = !cycling;
-          }
-        }
-      }
-
-      // Wait for the button to stop being pressed
-      delay(20); // Hacky debounce
-      while (buttonPressed()) {}
-      animationStart_ms = millis();
-      return;
-    }
-
+    RemoteXY_Handler();
   } while (millis() < start + delay_ms);
+
+  if (previousSwitchCycle != RemoteXY.switch_cycle) {
+    animationStart_ms = millis();
+  }
+  previousSwitchCycle = RemoteXY.switch_cycle;
+
+  if (RemoteXY.switch_cycle && millis() > animationStart_ms + animationDuration_ms) {
+    animationStart_ms = millis();
+    ++RemoteXY.animation;
+    if (RemoteXY.animation > COUNT_OF(animations)) {
+      RemoteXY.animation = 0;
+    }
+  }
+
+  // Set max milliamps between 1000 and 2000
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, RemoteXY.slider_max_power * 10 + 1000);
+
+  const int brightness = max(RemoteXY.slider_brightness * 255 / 100, 5);
+  FastLED.setBrightness(brightness);
 }

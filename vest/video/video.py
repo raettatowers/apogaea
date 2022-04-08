@@ -3,6 +3,7 @@
 from typing import List, Optional
 import argparse
 import cv2
+import path
 import re
 import sys
 
@@ -22,21 +23,13 @@ def process(arguments: argparse.Namespace) -> None:
         target_height = max(led_counts)
 
     capture = cv2.VideoCapture(arguments.video_file)
-    fps = arguments.fps
     video_fps = capture.get(cv2.CAP_PROP_FPS)
-    if fps > video_fps:
-        fps = video_fps
     video_frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-    sys.stderr.write(
+    print(
         f"Grabbing {arguments.frame_count} frames from {video_frame_count} frame video\n"
     )
-    sys.stderr.write(f"Grabbing {fps} FPS from {round(video_fps, 3)} FPS video\n")
-    capture_seconds = int(arguments.frame_count / fps)
-    sys.stderr.write(
-        f"Capture time: {capture_seconds // 60}:{capture_seconds % 60:02d} of "
-    )
     video_seconds = int(video_frame_count / video_fps)
-    sys.stderr.write(f"{video_seconds // 60}:{video_seconds % 60:02d}\n")
+    print(f"{video_seconds // 60}:{video_seconds % 60:02d}\n")
     success, image = capture.read()
     height = len(image)
     width = len(image[0])
@@ -46,17 +39,10 @@ def process(arguments: argparse.Namespace) -> None:
         value = (sample[2] << 16) + (sample[1] << 8) + sample[0] 
         return value
 
-    name = re.sub(r"\.[a-zA-Z0-9]+$", "", arguments.video_file)
-    name = re.sub("[^a-zA-Z0-9-]", "", name)
-    name = name.replace("-", "_").upper()
-    while not re.match("^[a-zA-Z]", name) and len(name) > 0:
-        name = name[1:]
-    if len(name) == 0:
-        sys.stderr.write("Invalid name")
-        sys.exit(0)
-
-    print(f"const uint16_t {name}_MILLIS_PER_FRAME = {1000 / fps};")
-    print(f"const PROGMEM uint32_t {name}[][{target_width * target_height}] = {{")
+    output_name = path.Path(re.sub("\.[^.]+$", ".anim", arguments.video_file))
+    if output_name.exists():
+        print(f"{output_name} already exists")
+        return
 
     video_ratio = width / height
     target_ratio = target_width / target_height
@@ -77,56 +63,40 @@ def process(arguments: argparse.Namespace) -> None:
     center = (width - w_indexes[-1]) / 2
     w_indexes = [int(w + center) for w in w_indexes]
 
-    sys.stderr.write(
+    print(
         f"video_ratio:{round(video_ratio, 3)} target_ratio:{round(target_ratio, 3)}\n"
     )
-    sys.stderr.write(f"target_width:{target_width} target_height:{target_height}\n")
-    sys.stderr.write(f"width:{width} height:{height}\n")
-    sys.stderr.write(f"w_indexes:{w_indexes} h_indexes:{h_indexes}\n")
+    print(f"target_width:{target_width} target_height:{target_height}\n")
+    print(f"width:{width} height:{height}\n")
+    print(f"w_indexes:{w_indexes} h_indexes:{h_indexes}\n")
 
-    millis = 0
     count = 0
-    while success:
-        success, image = capture.read()
-        if not success:
-            break
-        frame = []
-        for h_index in h_indexes:
-            for w_index in w_indexes:
-                frame.append(sample_to_int(image[h_index][w_index]))
+    with open(output_name, "wb") as file:
+        # First, write info
+        file.write(width.to_bytes(1, "little"))
+        file.write(height.to_bytes(1, "little"))
+        # Then milliseonds per frame. This probably won't ever exceed 255, but
+        # use 2 bytes just in case.
+        file.write(int(1000 / video_fps).to_bytes(2, "little"))
 
-        print(f"{{{', '.join((str(v) for v in frame))}}},")
-        count += 1
-        millis += 1000 / fps
-        if arguments.frame_count is not None and count >= arguments.frame_count:
-            break
+        while success:
+            success, image = capture.read()
+            if not success:
+                break
+            for h_index in h_indexes:
+                for w_index in w_indexes:
+                    # Write 4-byte samples? I don't know if it's worth trying to do 3
+                    file.write(sample_to_int(image[h_index][w_index].to_bytes(4, "little")))
 
-        while millis > 0:
-            success, _ = capture.read()
-            millis -= 1000 / video_fps
+            count += 1
 
-    print("};")
-    sys.stderr.write(f"Wrote {count} frames\n")
+    print(f"Wrote {count} frames\n")
 
 
 def make_parser() -> argparse.ArgumentParser:
     """Returns an argument parser."""
     parser = argparse.ArgumentParser(
-        description="Video parser. Creates a C++ header file with information to draw the video on the vest."
-    )
-    parser.add_argument(
-        "--frame-count",
-        dest="frame_count",
-        type=int,
-        help="Number of frames to sample.",
-        default=100,
-    )
-    parser.add_argument(
-        "--fps",
-        dest="fps",
-        type=int,
-        help="Frames per second.",
-        default=10,
+        description="Video parser. Outputs animation files for display on the vest."
     )
     parser.add_argument(
         "--center",

@@ -75,7 +75,7 @@ class Count : public Animation {
   public:
     Count();
     ~Count() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     int index;
 };
@@ -84,7 +84,7 @@ class CountXY : public Animation {
   public:
     CountXY();
     ~CountXY() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     int index;
 };
@@ -93,7 +93,7 @@ class Snake : public Animation {
   public:
     Snake(int length, int count);
     ~Snake();
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     const int length;
     const int count;
@@ -105,7 +105,7 @@ class HorizontalSnake : public Animation {
   public:
     HorizontalSnake();
     ~HorizontalSnake() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     int x;
     int y;
@@ -116,7 +116,7 @@ class Fire : public Animation {
   public:
     Fire();
     ~Fire() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     uint32_t colors[LED_COUNT];
     uint8_t heights[10];
@@ -126,7 +126,7 @@ class Shine : public Animation {
   public:
     Shine();
     ~Shine() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     bool increasing[LED_COUNT];
     int amount[LED_COUNT];
@@ -137,7 +137,7 @@ class SpectrumAnalyzer1 : public Animation {
   public:
     SpectrumAnalyzer1(int (*soundFunction)(void));
     ~SpectrumAnalyzer1() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     int (*soundFunction)(void);
 };
@@ -146,7 +146,7 @@ class Blobs : public Animation {
   public:
     Blobs(int count_);
     ~Blobs();
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     const int count;
     float* targetX;
@@ -172,7 +172,7 @@ class PlasmaBidoulle : public Animation {
       float blueOffset
     );
     ~PlasmaBidoulle() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     float time;
     const float multiplier;
@@ -193,7 +193,7 @@ class PlasmaBidoulleFast : public Animation {
   public:
     PlasmaBidoulleFast(ColorGenerator& colorGenerator);
     ~PlasmaBidoulleFast() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     ColorGenerator& colorGenerator;
     uint32_t time;
@@ -203,7 +203,7 @@ class Plasma1 : public Animation {
   public:
     Plasma1(ColorGenerator& colorGenerator);
     ~Plasma1() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -213,7 +213,7 @@ class Plasma2 : public Animation {
   public:
     Plasma2(ColorGenerator& colorGenerator);
     ~Plasma2() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -223,7 +223,7 @@ class Plasma3 : public Animation {
   public:
     Plasma3(ColorGenerator& colorGenerator);
     ~Plasma3() = default;
-    int animate(uint8_t hue);
+    int animate(uint8_t hue) override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -239,7 +239,7 @@ class CenteredVideo : public Animation {
       uint16_t millisPerFrame
     );
     ~CenteredVideo() = default;
-    int animate(uint8_t);
+    int animate(uint8_t) override;
   private:
     uint32_t (*getColor)(int, int);
     const uint32_t frameCount;
@@ -251,7 +251,7 @@ class SnakeGame : public Animation {
   public:
     SnakeGame();
     ~SnakeGame() = default;
-    int animate(uint8_t);
+    int animate(uint8_t) override;
   private:
     static const int HEIGHT = 11;
     static const int WIDTH = 10;
@@ -280,7 +280,7 @@ class BasicSpiral : public Animation {
   public:
     BasicSpiral(ColorGenerator &colorGenerator);
     ~BasicSpiral() = default;
-    int animate(uint8_t);
+    int animate(uint8_t) override;
   private:
     ColorGenerator& colorGenerator;
     int time;
