@@ -48,9 +48,11 @@ firmware, but luckily, mine hadn't been updated yet.
   12 cm circumference, 58 cm length
 - Seat tube
   9.5 cm circumference, 39 cm length
-- Seat stay
+- Seat stay tube (not doing this)
   5 cm circumference, 39 cm length
-- Chain stay
+- Chain stay tube
   6 cm circumference, 36 cm length
 - Chain guard
-  52 cm length total, 37 cm top to curve, 33 cm bottom to curve, 12 cm radius, 
+  52 cm length total, 37 cm top to curve, 33 cm bottom to curve, 12 cm radius
+- Rear rack
+  11 cm width, 31.5 cm length
