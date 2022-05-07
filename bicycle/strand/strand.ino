@@ -1,6 +1,8 @@
 #include <FastLED.h>
 #include "animations.hpp"
 
+// Just a single strand running up the top tube
+
 // How many leds in your strip?
 #define NUM_LEDS 57
 
