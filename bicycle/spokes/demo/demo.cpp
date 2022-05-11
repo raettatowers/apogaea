@@ -23,7 +23,6 @@ SDL_Renderer *renderer = nullptr;
 uint8_t sin8(uint8_t theta);
 void setLed(int index, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
-void setLed(int ring, int spoke, uint8_t hue, SDL_Renderer *renderer);
 void setLed(int ring, int spoke, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int ring, int spoke, uint8_t hue, SDL_Renderer *renderer);
@@ -55,10 +54,7 @@ const char *spinSingle(int, SDL_Renderer *const renderer) {
     setLedHue(ring, spoke, hue, renderer);
   }
   ++hue;
-  ++spoke;
-  if (spoke >= SPOKE_COUNT) {
-    spoke = 0;
-  }
+  spoke = (spoke + 1) % SPOKE_COUNT;
   return __func__;
 }
 
@@ -110,10 +106,116 @@ const char *spiral(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      setLedHue(ring, spoke, hue + ring * 20 + spoke * 10, renderer);
+      setLedHue(RING_COUNT - 1 - ring, spoke, hue + ring * 20 + spoke * 25, renderer);
     }
   }
   hue += 3;
+  return __func__;
+}
+
+const char *outwardRipple(int, SDL_Renderer *const renderer) {
+  static uint8_t hue = 0;
+  static uint8_t ripple = 0;
+  uint8_t r, g, b;
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      hsvToRgb(hue + ring * 15, 255, sin8(ripple - ring * 30), &r, &g, &b);
+      setLed(ring, spoke, r, g, b, renderer);
+    }
+  }
+  ++hue;
+  ripple += 3;
+  return __func__;
+}
+
+const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
+  static uint8_t hue = 0;
+  static uint8_t ripple = 0;
+  uint8_t r, g, b;
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      hsvToRgb(hue + ring * 15 + spoke * (255 / SPOKE_COUNT), 255, sin8(ripple - ring * 30), &r, &g, &b);
+      setLed(ring, spoke, r, g, b, renderer);
+    }
+  }
+  hue += 2;
+  ripple += 3;
+  return __func__;
+}
+
+const char *singleSpiral(int, SDL_Renderer *const renderer) {
+  static int spoke = 0;
+  static uint8_t slow = 0;
+  static uint8_t hue = 0;
+
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    setLedHue(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, hue, renderer);
+  }
+
+  slow = (slow + 1) % 2;
+  if (slow == 0) {
+    spoke = (spoke + 1) % SPOKE_COUNT;
+    ++hue;
+  }
+
+  return __func__;
+}
+
+const char *blurredSpiral(int, SDL_Renderer *const renderer) {
+  static int spoke = 0;
+  static int slow = 0;
+  static uint8_t hue = 0;
+
+  uint8_t r, g, b;
+
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    hsvToRgb(hue, 255, 255, &r, &g, &b);
+    setLed(RING_COUNT - 1 - ring, (spoke + ring - 1 + SPOKE_COUNT) % SPOKE_COUNT, r / 2, g / 2, b / 2, renderer);
+    setLed(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, r, g, b, renderer);
+    setLed(RING_COUNT - 1 - ring, (spoke + ring + 1) % SPOKE_COUNT, r / 2, g / 2, b / 2, renderer);
+  }
+
+  slow = (slow + 1) % 3;
+  if (slow == 0) {
+    spoke = (spoke + 1) % SPOKE_COUNT;
+    ++hue;
+  }
+
+  return __func__;
+}
+
+const char *comets(int, SDL_Renderer *const renderer) {
+  static uint8_t spokeHue[SPOKE_COUNT] = {0};
+  static uint8_t spokeStart = 0;
+  static uint8_t hue = 0;
+  static int slow = 0;
+
+  uint8_t r, g, b;
+
+  for (int offset = 0; offset < RING_COUNT + 2; ++offset) {
+    const int spoke = (spokeStart + offset) % SPOKE_COUNT;
+    hsvToRgb(spokeHue[spoke], 255, 255, &r, &g, &b);
+    setLed(RING_COUNT - offset - 1, spoke, r / 4, g / 4, b / 4, renderer);
+    setLed(RING_COUNT - offset, spoke, r / 2, g / 2, b / 2, renderer);
+    setLed(RING_COUNT - offset + 1, spoke, r, g, b, renderer);
+  }
+
+  slow = (slow + 1) % 3;
+  if (slow == 0) {
+    spokeHue[spokeStart] = hue;
+    hue += 20;
+    spokeStart = (spokeStart + 1) % SPOKE_COUNT;;
+  }
+
+  return __func__;
+}
+
+const char *snake(int, SDL_Renderer *const renderer) {
+  static uint8_t hue = 0;
+  static int index = 0;
+  setLedHue(index, hue, renderer);
+  ++hue;
+  index = (index + 1) % (RING_COUNT * SPOKE_COUNT);
   return __func__;
 }
 
@@ -124,7 +226,7 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      lightAll, spinSingle, fastOutwardHue, fastInwardHue, spiral,
+      comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
   };
 
   // Returns zero on success else non-zero
