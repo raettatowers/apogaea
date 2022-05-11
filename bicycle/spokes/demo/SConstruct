@@ -1,0 +1,16 @@
+# vi: ft=python
+
+env = Environment()
+
+sources = ["demo.cpp"]
+libs = ["SDL2", "SDL2_gfx"]
+
+python3_builder = Builder(action="python3 $SOURCE > $TARGET")
+env.Append(BUILDERS={"Python3": python3_builder})
+env.Python3("../offsets.hpp", "../offsets.py")
+
+demo = env.Program(target="demo", source=sources)
+env.Append(LIBS=libs)
+env.Append(CCFLAGS="-DDEMO -std=c++11 -g -Wall -Wextra -Weffc++")
+
+Default(demo)

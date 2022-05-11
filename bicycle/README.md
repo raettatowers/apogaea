@@ -56,3 +56,11 @@ firmware, but luckily, mine hadn't been updated yet.
   52 cm length total, 37 cm top to curve, 33 cm bottom to curve, 12 cm radius
 - Rear rack
   11 cm width, 31.5 cm length
+
+Spoke lights
+------------
+
+I bought a 5m 50 LED strand. I think my tire is 26" diameter = 660mm. If I
+don't go all the way to the inner, plus some for wrapping and let's call that
+500mm per run. So I can do 10 back and forths. That's only 5 LEDs per spoke
+run? Actually maybe that's fine?
