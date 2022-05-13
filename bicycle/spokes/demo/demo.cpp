@@ -36,7 +36,7 @@ typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-const char *lightAll(int, SDL_Renderer *const renderer) {
+static const char *lightAll(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int i = 0; i < 50; ++i) {
     setLedHue(i, hue, renderer);
@@ -45,7 +45,7 @@ const char *lightAll(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *spinSingle(int, SDL_Renderer *const renderer) {
+static const char *spinSingle(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static int spoke = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
@@ -56,18 +56,7 @@ const char *spinSingle(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *outwardHue(int, SDL_Renderer *const renderer) {
-  static uint8_t hue = 0;
-  for (int ring = 0; ring < RING_COUNT; ++ring) {
-    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      setLedHue(ring, spoke, hue - ring * 20, renderer);
-    }
-  }
-  ++hue;
-  return __func__;
-}
-
-const char *fastOutwardHue(int, SDL_Renderer *const renderer) {
+static const char *fastOutwardHue(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -78,18 +67,7 @@ const char *fastOutwardHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *inwardHue(int, SDL_Renderer *const renderer) {
-  static uint8_t hue = 0;
-  for (int ring = 0; ring < RING_COUNT; ++ring) {
-    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      setLedHue(ring, spoke, hue + ring * 20, renderer);
-    }
-  }
-  ++hue;
-  return __func__;
-}
-
-const char *fastInwardHue(int, SDL_Renderer *const renderer) {
+static const char *fastInwardHue(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -100,7 +78,7 @@ const char *fastInwardHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *spiral(int, SDL_Renderer *const renderer) {
+static const char *spiral(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -111,7 +89,7 @@ const char *spiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *outwardRipple(int, SDL_Renderer *const renderer) {
+static const char *outwardRipple(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static uint8_t ripple = 0;
   uint8_t r, g, b;
@@ -126,7 +104,7 @@ const char *outwardRipple(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
+static const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static uint8_t ripple = 0;
   uint8_t r, g, b;
@@ -141,7 +119,7 @@ const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *singleSpiral(int, SDL_Renderer *const renderer) {
+static const char *singleSpiral(int, SDL_Renderer *const renderer) {
   static int spoke = 0;
   static uint8_t slow = 0;
   static uint8_t hue = 0;
@@ -159,7 +137,7 @@ const char *singleSpiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *blurredSpiral(int, SDL_Renderer *const renderer) {
+static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
   static int spoke = 0;
   static int slow = 0;
   static uint8_t hue = 0;
@@ -182,7 +160,7 @@ const char *blurredSpiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *comets(int, SDL_Renderer *const renderer) {
+static const char *comets(int, SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
   static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
@@ -213,7 +191,7 @@ const char *comets(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *cometsShort(int, SDL_Renderer *const renderer) {
+static const char *cometsShort(int, SDL_Renderer *const renderer) {
   // These are going to be overridden soon anyway, so the exact values don't
   // matter, but let's make them not all start as red
   static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
@@ -241,7 +219,7 @@ const char *cometsShort(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *snake(int, SDL_Renderer *const renderer) {
+static const char *snake(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static int index = 0;
   setLedHue(index, hue, renderer);
@@ -250,7 +228,7 @@ const char *snake(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
+static const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
   //// red orange yellow green aqua blue purple
   //const uint8_t rainbowHues[] = {0, 22, 41, 80, 126, 165, 206};
   // red yellow green aqua-blue purple
