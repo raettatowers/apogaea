@@ -33,7 +33,7 @@ void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
               uint8_t *green, uint8_t *blue);
 typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
 
-static const char *lightAll(int, SDL_Renderer *const renderer) {
+static const char *lightAll(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int i = 0; i < 50; ++i) {
     setLedHue(i, hue, renderer);
@@ -42,7 +42,7 @@ static const char *lightAll(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *spinSingle(int, SDL_Renderer *const renderer) {
+static const char *spinSingle(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static int spoke = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
@@ -53,7 +53,7 @@ static const char *spinSingle(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *fastOutwardHue(int, SDL_Renderer *const renderer) {
+static const char *fastOutwardHue(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -64,7 +64,7 @@ static const char *fastOutwardHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *fastInwardHue(int, SDL_Renderer *const renderer) {
+static const char *fastInwardHue(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -75,7 +75,7 @@ static const char *fastInwardHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *spiral(int, SDL_Renderer *const renderer) {
+static const char *spiral(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
@@ -87,7 +87,7 @@ static const char *spiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *outwardRipple(int, SDL_Renderer *const renderer) {
+static const char *outwardRipple(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static uint8_t ripple = 0;
   uint8_t r, g, b;
@@ -102,7 +102,7 @@ static const char *outwardRipple(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
+static const char *outwardRippleHue(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static uint8_t ripple = 0;
   uint8_t r, g, b;
@@ -118,7 +118,7 @@ static const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *singleSpiral(int, SDL_Renderer *const renderer) {
+static const char *singleSpiral(SDL_Renderer *const renderer) {
   static int spoke = 0;
   static uint8_t slow = 0;
   static uint8_t hue = 0;
@@ -137,7 +137,7 @@ static const char *singleSpiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
+static const char *blurredSpiral(SDL_Renderer *const renderer) {
   const int length = 5;
   const int divisors[] = {1, 2, 4, 8, 16};
   static_assert(length % 2 == 1);
@@ -173,7 +173,7 @@ static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *comets(int, SDL_Renderer *const renderer) {
+static const char *comets(SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
   static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
@@ -207,7 +207,7 @@ static const char *comets(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *cometsShort(int, SDL_Renderer *const renderer) {
+static const char *cometsShort(SDL_Renderer *const renderer) {
   // These are going to be overridden soon anyway, so the exact values don't
   // matter, but let's make them not all start as red
   static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
@@ -237,7 +237,7 @@ static const char *cometsShort(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *snake(int, SDL_Renderer *const renderer) {
+static const char *snake(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   static int index = 0;
   setLedHue(index, hue, renderer);
@@ -246,7 +246,7 @@ static const char *snake(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-static const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
+static const char *fadingRainbowRings(SDL_Renderer *const renderer) {
   //// red orange yellow green aqua blue purple
   // const uint8_t rainbowHues[] = {0, 22, 41, 80, 126, 165, 206};
   // red yellow green aqua-blue purple
@@ -332,9 +332,8 @@ int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
   int animation_ms = 0;
-  int time = 0;
   int animationIndex = 0;
-  const char *(*animations[])(int, SDL_Renderer *) = {
+  const char *(*animations[])(SDL_Renderer *) = {
       blurredSpiral,    fadingRainbowRings, cometsShort,   comets, snake,
       outwardRippleHue, singleSpiral,       outwardRipple, spiral, lightAll,
       spinSingle,       fastOutwardHue,     fastInwardHue};
@@ -347,7 +346,7 @@ int main() {
       "vest", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0);
 
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-  SDL_SetWindowTitle(window, animations[0](time, renderer));
+  SDL_SetWindowTitle(window, animations[0](renderer));
 
   // Animation loop
   while (!shouldClose) {
@@ -359,9 +358,8 @@ int main() {
                      HEIGHT / 2 + LED_WIDTH / 2, radius, 255, 255, 255, 255);
     filledCircleRGBA(renderer, WIDTH / 2 + LED_WIDTH / 2,
                      HEIGHT / 2 + LED_WIDTH / 2, radius - 2, 0, 0, 0, 255);
-    animations[animationIndex](time, renderer);
+    animations[animationIndex](renderer);
     int delay_ms = 100;
-    time += 1000;
     ++hue;
     SDL_RenderPresent(renderer);
 
@@ -402,7 +400,7 @@ int main() {
 
         nextAnimation:
           animationIndex = (animationIndex + 1) % COUNT_OF(animations);
-          name = animations[animationIndex](time, renderer);
+          name = animations[animationIndex](renderer);
           goto setTitle;
 
         previousAnimation:
@@ -410,7 +408,7 @@ int main() {
           if (animationIndex < 0) {
             animationIndex = COUNT_OF(animations) - 1;
           }
-          name = animations[animationIndex](time, renderer);
+          name = animations[animationIndex](renderer);
           goto setTitle;
 
         setTitle:
