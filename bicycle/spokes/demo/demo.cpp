@@ -104,7 +104,7 @@ const char *spiral(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      setLedHue(RING_COUNT - 1 - ring, spoke, hue + ring * 20 + spoke * 25, renderer);
+      setLedHue(RING_COUNT - 1 - ring, SPOKE_COUNT - 1 - spoke, hue + ring * 20 + spoke * 25, renderer);
     }
   }
   hue += 3;
@@ -185,6 +185,37 @@ const char *blurredSpiral(int, SDL_Renderer *const renderer) {
 const char *comets(int, SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
+  static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
+  static uint8_t spokeStart = 0;
+  static uint8_t hue = 0;
+  static int slow = 0;
+
+  uint8_t r, g, b;
+
+  for (int offset = 0; offset < RING_COUNT + 5; ++offset) {
+    const int spoke = (spokeStart + offset) % SPOKE_COUNT;
+    hsvToRgb(spokeHue[spoke], 255, 255, &r, &g, &b);
+    setLed(RING_COUNT - offset - 1, spoke, r / 4, g / 4, b / 4, renderer);
+    setLed(RING_COUNT - offset, spoke, r / 4, g / 4, b / 4, renderer);
+    setLed(RING_COUNT - offset + 1, spoke, r / 3, g / 3, b / 3, renderer);
+    setLed(RING_COUNT - offset + 2, spoke, r / 2, g / 2, b / 2, renderer);
+    setLed(RING_COUNT - offset + 3, spoke, r / 3 * 2, g / 3 * 2, b / 3 * 2, renderer);
+    setLed(RING_COUNT - offset + 4, spoke, r, g, b, renderer);
+  }
+
+  slow = (slow + 1) % 3;
+  if (slow == 0) {
+    spokeHue[spokeStart] = hue;
+    hue += 20;
+    spokeStart = (spokeStart + 1) % SPOKE_COUNT;;
+  }
+
+  return __func__;
+}
+
+const char *cometsShort(int, SDL_Renderer *const renderer) {
+  // These are going to be overridden soon anyway, so the exact values don't
+  // matter, but let's make them not all start as red
   static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
@@ -304,7 +335,7 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      fadingRainbowRings, comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
+      fadingRainbowRings, cometsShort, comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
   };
 
   // Returns zero on success else non-zero

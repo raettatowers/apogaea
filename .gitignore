@@ -1,5 +1,5 @@
 .sconsign.dblite
-bicycle/spoke/demo/demo.cpp
+bicycle/spokes/demo/demo
 vest/demo/demo
 vest/offsets.hpp
 vest/video/*.mp4
