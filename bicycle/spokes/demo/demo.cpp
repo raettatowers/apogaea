@@ -3,7 +3,6 @@
 #include <SDL2/SDL_timer.h>
 #include <cassert>
 #include <cstdint>
-#include <cstdio>
 #include <math.h>
 #include <time.h>
 
@@ -33,8 +32,6 @@ void setLedFire(int ring, int spoke, uint8_t v, SDL_Renderer *renderer);
 void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
               uint8_t *green, uint8_t *blue);
 typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 static const char *lightAll(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
@@ -82,7 +79,8 @@ static const char *spiral(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      setLedHue(RING_COUNT - 1 - ring, SPOKE_COUNT - 1 - spoke, hue + ring * 20 + spoke * 25, renderer);
+      setLedHue(RING_COUNT - 1 - ring, SPOKE_COUNT - 1 - spoke,
+                hue + ring * 20 + spoke * 25, renderer);
     }
   }
   hue += 3;
@@ -110,7 +108,8 @@ static const char *outwardRippleHue(int, SDL_Renderer *const renderer) {
   uint8_t r, g, b;
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
-      hsvToRgb(hue + ring * 15 + spoke * (255 / SPOKE_COUNT), 255, sin8(ripple - ring * 30), &r, &g, &b);
+      hsvToRgb(hue + ring * 15 + spoke * (255 / SPOKE_COUNT), 255,
+               sin8(ripple - ring * 30), &r, &g, &b);
       setLed(ring, spoke, r, g, b, renderer);
     }
   }
@@ -125,7 +124,8 @@ static const char *singleSpiral(int, SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
 
   for (int ring = 0; ring < RING_COUNT; ++ring) {
-    setLedHue(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, hue, renderer);
+    setLedHue(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, hue,
+              renderer);
   }
 
   slow = (slow + 1) % 2;
@@ -138,6 +138,11 @@ static const char *singleSpiral(int, SDL_Renderer *const renderer) {
 }
 
 static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
+  const int length = 5;
+  const int divisors[] = {1, 2, 4, 8, 16};
+  static_assert(length % 2 == 1);
+  static_assert(length <= RING_COUNT);
+
   static int spoke = 0;
   static int slow = 0;
   static uint8_t hue = 0;
@@ -146,9 +151,17 @@ static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
 
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     hsvToRgb(hue, 255, 255, &r, &g, &b);
-    setLed(RING_COUNT - 1 - ring, (spoke + ring - 1 + SPOKE_COUNT) % SPOKE_COUNT, r / 2, g / 2, b / 2, renderer);
-    setLed(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, r, g, b, renderer);
-    setLed(RING_COUNT - 1 - ring, (spoke + ring + 1) % SPOKE_COUNT, r / 2, g / 2, b / 2, renderer);
+    for (int i = 0; i <= length / 2; ++i) {
+      const int d = divisors[i];
+      setLed(RING_COUNT - 1 - ring,
+             (spoke + ring - i + SPOKE_COUNT) % SPOKE_COUNT, r / d, g / d,
+             b / d, renderer);
+    }
+    for (int i = 1; i < length / 2; ++i) {
+      const int d = divisors[i];
+      setLed(RING_COUNT - 1 - ring, (spoke + ring + i) % SPOKE_COUNT, r / d,
+             g / d, b / d, renderer);
+    }
   }
 
   slow = (slow + 1) % 3;
@@ -163,7 +176,8 @@ static const char *blurredSpiral(int, SDL_Renderer *const renderer) {
 static const char *comets(int, SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
+                                          100, 120, 140, 160, 180};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
   static int slow = 0;
@@ -177,7 +191,8 @@ static const char *comets(int, SDL_Renderer *const renderer) {
     setLed(RING_COUNT - offset, spoke, r / 4, g / 4, b / 4, renderer);
     setLed(RING_COUNT - offset + 1, spoke, r / 3, g / 3, b / 3, renderer);
     setLed(RING_COUNT - offset + 2, spoke, r / 2, g / 2, b / 2, renderer);
-    setLed(RING_COUNT - offset + 3, spoke, r / 3 * 2, g / 3 * 2, b / 3 * 2, renderer);
+    setLed(RING_COUNT - offset + 3, spoke, r / 3 * 2, g / 3 * 2, b / 3 * 2,
+           renderer);
     setLed(RING_COUNT - offset + 4, spoke, r, g, b, renderer);
   }
 
@@ -185,7 +200,8 @@ static const char *comets(int, SDL_Renderer *const renderer) {
   if (slow == 0) {
     spokeHue[spokeStart] = hue;
     hue += 20;
-    spokeStart = (spokeStart + 1) % SPOKE_COUNT;;
+    spokeStart = (spokeStart + 1) % SPOKE_COUNT;
+    ;
   }
 
   return __func__;
@@ -194,7 +210,8 @@ static const char *comets(int, SDL_Renderer *const renderer) {
 static const char *cometsShort(int, SDL_Renderer *const renderer) {
   // These are going to be overridden soon anyway, so the exact values don't
   // matter, but let's make them not all start as red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
+                                          100, 120, 140, 160, 180};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
   static int slow = 0;
@@ -213,7 +230,8 @@ static const char *cometsShort(int, SDL_Renderer *const renderer) {
   if (slow == 0) {
     spokeHue[spokeStart] = hue;
     hue += 20;
-    spokeStart = (spokeStart + 1) % SPOKE_COUNT;;
+    spokeStart = (spokeStart + 1) % SPOKE_COUNT;
+    ;
   }
 
   return __func__;
@@ -230,7 +248,7 @@ static const char *snake(int, SDL_Renderer *const renderer) {
 
 static const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
   //// red orange yellow green aqua blue purple
-  //const uint8_t rainbowHues[] = {0, 22, 41, 80, 126, 165, 206};
+  // const uint8_t rainbowHues[] = {0, 22, 41, 80, 126, 165, 206};
   // red yellow green aqua-blue purple
   const uint8_t rainbowHues[] = {0, 41, 80, 145, 216};
   enum class Status {
@@ -249,14 +267,16 @@ static const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
   if (status == Status::fadingIn) {
     // Previous rings
     for (int ring = 0; ring < currentRing; ++ring) {
-      const int hue = rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+      const int hue =
+          rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
       hsvToRgb(hue, 255, 255, &r, &g, &b);
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(ring, spoke, r, g, b, renderer);
       }
     }
     // Current ring
-    const int hue = rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+    const int hue =
+        rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
     hsvToRgb(hue, 255, value, &r, &g, &b);
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b, renderer);
@@ -275,14 +295,16 @@ static const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
     }
   } else {
     // Current ring
-    const int hue = rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+    const int hue =
+        rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
     hsvToRgb(hue, 255, value, &r, &g, &b);
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b, renderer);
     }
     // Previous rings
     for (int ring = RING_COUNT - 1; ring > currentRing; --ring) {
-      const int hue = rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+      const int hue =
+          rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
       hsvToRgb(hue, 255, 255, &r, &g, &b);
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(ring, spoke, r, g, b, renderer);
@@ -313,8 +335,9 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      fadingRainbowRings, cometsShort, comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
-  };
+      blurredSpiral,    fadingRainbowRings, cometsShort,   comets, snake,
+      outwardRippleHue, singleSpiral,       outwardRipple, spiral, lightAll,
+      spinSingle,       fastOutwardHue,     fastInwardHue};
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
