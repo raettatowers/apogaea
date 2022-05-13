@@ -3,11 +3,9 @@
 #include <SDL2/SDL_timer.h>
 #include <cassert>
 #include <cstdint>
-#include <limits>
+#include <cstdio>
 #include <math.h>
 #include <time.h>
-
-#define PROGMEM
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])))
 
@@ -185,7 +183,9 @@ const char *blurredSpiral(int, SDL_Renderer *const renderer) {
 }
 
 const char *comets(int, SDL_Renderer *const renderer) {
-  static uint8_t spokeHue[SPOKE_COUNT] = {0};
+  // These values don't matter, they'll be overwritten soon anyway, but I
+  // wanted it to start at something other than all red
+  static uint8_t spokeHue[SPOKE_COUNT] = {0, 20, 40, 60, 80, 100, 120, 140, 160, 180};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
   static int slow = 0;
@@ -219,6 +219,84 @@ const char *snake(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char *fadingRainbowRings(int, SDL_Renderer *const renderer) {
+  //// red orange yellow green aqua blue purple
+  //const uint8_t rainbowHues[] = {0, 22, 41, 80, 126, 165, 206};
+  // red yellow green aqua-blue purple
+  const uint8_t rainbowHues[] = {0, 41, 80, 145, 216};
+  enum class Status {
+    fadingIn,
+    fadingOut,
+  };
+  const int change = 20;
+
+  static int startHueIndex = 0;
+  static int currentRing = 0;
+  static uint8_t value = 40;
+  static Status status = Status::fadingIn;
+
+  uint8_t r, g, b;
+
+  if (status == Status::fadingIn) {
+    // Previous rings
+    for (int ring = 0; ring < currentRing; ++ring) {
+      const int hue = rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+      hsvToRgb(hue, 255, 255, &r, &g, &b);
+      for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+        setLed(ring, spoke, r, g, b, renderer);
+      }
+    }
+    // Current ring
+    const int hue = rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+    hsvToRgb(hue, 255, value, &r, &g, &b);
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      setLed(currentRing, spoke, r, g, b, renderer);
+    }
+
+    if (value < 255 - change) {
+      value += change;
+    } else {
+      value = 0;
+      ++currentRing;
+      if (currentRing >= RING_COUNT) {
+        currentRing = 0;
+        status = Status::fadingOut;
+        value = 250;
+      }
+    }
+  } else {
+    // Current ring
+    const int hue = rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+    hsvToRgb(hue, 255, value, &r, &g, &b);
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      setLed(currentRing, spoke, r, g, b, renderer);
+    }
+    // Previous rings
+    for (int ring = RING_COUNT - 1; ring > currentRing; --ring) {
+      const int hue = rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+      hsvToRgb(hue, 255, 255, &r, &g, &b);
+      for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+        setLed(ring, spoke, r, g, b, renderer);
+      }
+    }
+
+    if (value > change) {
+      value -= change;
+    } else {
+      value = 255;
+      ++currentRing;
+      if (currentRing >= RING_COUNT) {
+        currentRing = 0;
+        status = Status::fadingIn;
+        value = 0;
+        startHueIndex = (startHueIndex + 1) % COUNT_OF(rainbowHues);
+      }
+    }
+  }
+
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -226,7 +304,7 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-      comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
+      fadingRainbowRings, comets, snake, blurredSpiral, outwardRippleHue, singleSpiral, outwardRipple, spiral, lightAll, spinSingle, fastOutwardHue, fastInwardHue
   };
 
   // Returns zero on success else non-zero
