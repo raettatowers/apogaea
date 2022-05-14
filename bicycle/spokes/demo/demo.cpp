@@ -139,36 +139,54 @@ static const char *singleSpiral(SDL_Renderer *const renderer) {
 
 static const char *blurredSpiral(SDL_Renderer *const renderer) {
   const int length = 5;
-  const int divisors[] = {1, 2, 4, 8, 16};
-  static_assert(length % 2 == 1);
-  static_assert(length <= RING_COUNT);
+  const int brightnesses[length] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
 
-  static int spoke = 0;
-  static int slow = 0;
-  static uint8_t hue = 0;
+  static int currentSpoke = 0;
+  static uint8_t currentHue = 0;
+  static int8_t starts[SPOKE_COUNT] = {0};
 
   uint8_t r, g, b;
 
-  for (int ring = 0; ring < RING_COUNT; ++ring) {
-    hsvToRgb(hue, 255, 255, &r, &g, &b);
-    for (int i = 0; i <= length / 2; ++i) {
-      const int d = divisors[i];
-      setLed(RING_COUNT - 1 - ring,
-             (spoke + ring - i + SPOKE_COUNT) % SPOKE_COUNT, r / d, g / d,
-             b / d, renderer);
+  for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+    for (int offset = 0; offset < length; ++offset) {
+      hsvToRgb(currentHue, 255, brightnesses[offset], &r, &g, &b);
+      // Rely on the checks in setLed to not step out of bounds
+      setLed(starts[spoke] + offset, spoke, r, g, b, renderer);
     }
-    for (int i = 1; i < length / 2; ++i) {
-      const int d = divisors[i];
-      setLed(RING_COUNT - 1 - ring, (spoke + ring + i) % SPOKE_COUNT, r / d,
-             g / d, b / d, renderer);
-    }
+    ++starts[spoke];
   }
 
-  slow = (slow + 1) % 3;
-  if (slow == 0) {
-    spoke = (spoke + 1) % SPOKE_COUNT;
-    ++hue;
+  starts[currentSpoke] = -length + 1;
+  currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
+  ++currentHue;
+
+  return __func__;
+}
+
+static const char *blurredSpiralHues(SDL_Renderer *const renderer) {
+  const int length = 5;
+  const int brightnesses[length] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
+
+  static int currentSpoke = 0;
+  static uint8_t currentHue = 0;
+  static uint8_t hues[SPOKE_COUNT];
+  static int8_t starts[SPOKE_COUNT] = {0};
+
+  uint8_t r, g, b;
+
+  for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+    for (int offset = 0; offset < length; ++offset) {
+      hsvToRgb(hues[spoke], 255, brightnesses[offset], &r, &g, &b);
+      // Rely on the checks in setLed to not step out of bounds
+      setLed(starts[spoke] + offset, spoke, r, g, b, renderer);
+    }
+    ++starts[spoke];
   }
+
+  starts[currentSpoke] = -length + 1;
+  hues[currentSpoke] = currentHue;
+  currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
+  currentHue += 10;
 
   return __func__;
 }
@@ -231,7 +249,6 @@ static const char *cometsShort(SDL_Renderer *const renderer) {
     spokeHue[spokeStart] = hue;
     hue += 20;
     spokeStart = (spokeStart + 1) % SPOKE_COUNT;
-    ;
   }
 
   return __func__;
@@ -333,10 +350,20 @@ int main() {
   uint8_t hue = 0;
   int animation_ms = 0;
   int animationIndex = 0;
-  const char *(*animations[])(SDL_Renderer *) = {
-      blurredSpiral,    fadingRainbowRings, cometsShort,   comets, snake,
-      outwardRippleHue, singleSpiral,       outwardRipple, spiral, lightAll,
-      spinSingle,       fastOutwardHue,     fastInwardHue};
+  const char *(*animations[])(SDL_Renderer *) = {blurredSpiral,
+                                                 blurredSpiralHues,
+                                                 fadingRainbowRings,
+                                                 cometsShort,
+                                                 comets,
+                                                 snake,
+                                                 outwardRippleHue,
+                                                 singleSpiral,
+                                                 outwardRipple,
+                                                 spiral,
+                                                 lightAll,
+                                                 spinSingle,
+                                                 fastOutwardHue,
+                                                 fastInwardHue};
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
