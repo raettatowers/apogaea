@@ -193,6 +193,133 @@ static AnimationResult blurredSpiralHues(SDL_Renderer *const renderer) {
   return AnimationResult(__func__, 400);
 }
 
+static AnimationResult orbit(SDL_Renderer *const renderer) {
+  const int startSpeed = 13;
+  const int divisor = 16;
+  const int fade = 5;
+
+  static int currentSpoke = 0;
+  static int position = -startSpeed;
+  static int speed = startSpeed;
+  static uint8_t hue = 0;
+  static uint8_t brightness[RING_COUNT][SPOKE_COUNT] = {0};
+
+  uint8_t r, g, b;
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      if (brightness[ring][spoke] == 255) {
+        brightness[ring][spoke] = 128;
+      } else if (brightness[ring][spoke] > fade) {
+        brightness[ring][spoke] -= fade;
+      } else {
+        brightness[ring][spoke] = 0;
+      }
+      hsvToRgb(hue, 255, brightness[ring][spoke], &r, &g, &b);
+      setLed(ring, spoke, r, g, b, renderer);
+    }
+  }
+
+  // The ball should always be maximum brightness
+  setLedHue(position / divisor, currentSpoke, hue, renderer);
+  brightness[position / divisor][currentSpoke] = 255;
+  position += speed;
+
+  if (position < 0) {
+    position = 0;
+    speed = startSpeed;
+    currentSpoke = (currentSpoke + (SPOKE_COUNT / 2) + 1) % SPOKE_COUNT;
+  }
+  --speed;
+  ++hue;
+
+  return AnimationResult(__func__, 150);
+}
+
+static AnimationResult starfishOrbits(SDL_Renderer *const renderer) {
+  const int startSpeed = 13;
+  const int divisor = 16;
+  const int fade = 10;
+
+  static int position = -startSpeed;
+  static int speed = startSpeed;
+  static int currentSpoke = 0;
+  static uint8_t hue = 0;
+  static uint8_t brightness[RING_COUNT][SPOKE_COUNT] = {0};
+
+  uint8_t r, g, b;
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      if (brightness[ring][spoke] == 255) {
+        brightness[ring][spoke] = 128;
+      } else if (brightness[ring][spoke] > fade) {
+        brightness[ring][spoke] -= fade;
+      } else {
+        brightness[ring][spoke] = 0;
+      }
+      hsvToRgb(hue, 255, brightness[ring][spoke], &r, &g, &b);
+      setLed(ring, spoke, r, g, b, renderer);
+    }
+  }
+
+  // The ball should always be maximum brightness
+  for (int spoke = currentSpoke; spoke < SPOKE_COUNT; spoke += 2) {
+    setLedHue(position / divisor, spoke, hue, renderer);
+    brightness[position / divisor][spoke] = 255;
+  }
+  position += speed;
+
+  if (position < 0) {
+    position = 0;
+    speed = startSpeed;
+    currentSpoke = currentSpoke >= 1 ? 0 : 1;
+  }
+  --speed;
+  ++hue;
+
+  return AnimationResult(__func__, 150);
+}
+
+static AnimationResult pendulum(SDL_Renderer *const renderer) {
+  const int divisor = 16;
+  const int fade = 10;
+
+  static int position = divisor + divisor / 2;
+  static int speed = 0;
+  static uint8_t hue = 0;
+  static uint8_t brightness[RING_COUNT][SPOKE_COUNT] = {0};
+
+  uint8_t r, g, b;
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      if (brightness[ring][spoke] == 255) {
+        brightness[ring][spoke] = 128;
+      } else if (brightness[ring][spoke] > fade) {
+        brightness[ring][spoke] -= fade;
+      } else {
+        brightness[ring][spoke] = 0;
+      }
+      hsvToRgb(hue, 255, brightness[ring][spoke], &r, &g, &b);
+      setLed(ring, spoke, r, g, b, renderer);
+    }
+  }
+
+  // The pendulum should always be maximum brightness
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    setLedHue(ring, position / divisor, hue, renderer);
+    brightness[ring][position / divisor] = 255;
+  }
+  position += speed;
+
+  if (position >= 5 * divisor) {
+    --speed;
+  } else {
+    ++speed;
+  }
+  ++hue;
+
+  return AnimationResult(__func__, 150);
+}
+
 static AnimationResult comets(SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
@@ -343,7 +470,10 @@ int main() {
   uint8_t hue = 0;
   int animation_ms = 0;
   int animationIndex = 0;
-  AnimationResult(*animations[])(SDL_Renderer *) = {blurredSpiral,
+  AnimationResult(*animations[])(SDL_Renderer *) = {pendulum,
+                                                orbit,
+                                                 starfishOrbits,
+                                                 blurredSpiral,
                                                  blurredSpiralHues,
                                                  fadingRainbowRings,
                                                  cometsShort,
