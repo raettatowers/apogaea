@@ -8,7 +8,8 @@
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])))
 
-const int SPOKE_COUNT = 9;
+// The outer ring has 18, but the inner ones only have 9
+const int SPOKE_COUNT = 18;
 const int RING_COUNT = 5;
 
 const int WIDTH = 720;
@@ -18,12 +19,9 @@ const int LED_WIDTH = 10;
 SDL_Renderer *renderer = nullptr;
 
 uint8_t sin8(uint8_t theta);
-void setLed(int index, uint8_t red, uint8_t green, uint8_t blue,
-            SDL_Renderer *renderer);
 void setLed(int ring, int spoke, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int ring, int spoke, uint8_t hue, SDL_Renderer *renderer);
-void setLedHue(int index, uint8_t hue, SDL_Renderer *renderer);
 void setLedGrayscale(int ring, int spoke, uint8_t v, SDL_Renderer *renderer);
 void setLedDoubleGrayscale(int ring, int spoke, uint8_t v,
                            SDL_Renderer *renderer);
@@ -41,8 +39,10 @@ struct AnimationResult {
 
 static AnimationResult lightAll(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
-  for (int i = 0; i < 50; ++i) {
-    setLedHue(i, hue, renderer);
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+      setLedHue(ring, spoke, hue, renderer);
+    }
   }
   ++hue;
   return AnimationResult(__func__, 100);
@@ -55,7 +55,7 @@ static AnimationResult spinSingle(SDL_Renderer *const renderer) {
     setLedHue(ring, spoke, hue, renderer);
   }
   ++hue;
-  spoke = (spoke + 1) % SPOKE_COUNT;
+  spoke = (spoke + 2) % SPOKE_COUNT;
   return AnimationResult(__func__, 100);
 }
 
@@ -86,7 +86,7 @@ static AnimationResult spiral(SDL_Renderer *const renderer) {
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLedHue(RING_COUNT - 1 - ring, SPOKE_COUNT - 1 - spoke,
-                hue + ring * 20 + spoke * 25, renderer);
+                hue + ring * 20 + spoke * 10, renderer);
     }
   }
   hue += 3;
@@ -129,11 +129,11 @@ static AnimationResult singleSpiral(SDL_Renderer *const renderer) {
   static uint8_t hue = 0;
 
   for (int ring = 0; ring < RING_COUNT; ++ring) {
-    setLedHue(RING_COUNT - 1 - ring, (spoke + ring) % SPOKE_COUNT, hue,
+    setLedHue(RING_COUNT - 1 - ring, (spoke + ring * 2) % SPOKE_COUNT, hue,
               renderer);
   }
 
-  spoke = (spoke + 1) % SPOKE_COUNT;
+  spoke = (spoke + 2) % SPOKE_COUNT;
   ++hue;
 
   return AnimationResult(__func__, 400);
@@ -239,7 +239,6 @@ static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   const int startSpeed = 13;
   const int divisor = 16;
   const int fade = 10;
-  const int steps = 3;
 
   static int position = -startSpeed;
   static int speed = startSpeed;
@@ -248,6 +247,7 @@ static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   static uint8_t brightness[RING_COUNT][SPOKE_COUNT] = {0};
 
   uint8_t r, g, b;
+  // Draw all the fades
   for (int ring = 0; ring < RING_COUNT; ++ring) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       if (brightness[ring][spoke] == 255) {
@@ -263,7 +263,7 @@ static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   }
 
   // The ball should always be maximum brightness
-  for (int spoke = currentSpoke; spoke < SPOKE_COUNT; spoke += 3) {
+  for (int spoke = currentSpoke; spoke < SPOKE_COUNT; spoke += 6) {
     setLedHue(position / divisor, spoke, hue, renderer);
     brightness[position / divisor][spoke] = 255;
   }
@@ -272,7 +272,7 @@ static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   if (position < 0) {
     position = 0;
     speed = startSpeed;
-    currentSpoke = (currentSpoke + 1) % steps;
+    currentSpoke = (currentSpoke + 2) % 6;
     hue += 50;
   }
   --speed;
@@ -285,7 +285,7 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
   const int divisor = 16;
   const int fade = 10;
 
-  static int position = divisor + divisor / 2;
+  static int position = divisor * 2 + divisor / 3;
   static int speed = 0;
   static uint8_t hue = 0;
   static uint8_t brightness[RING_COUNT][SPOKE_COUNT] = {0};
@@ -312,7 +312,7 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
   }
   position += speed;
 
-  if (position >= 5 * divisor) {
+  if (position >= 9 * divisor) {
     --speed;
   } else {
     ++speed;
@@ -325,8 +325,9 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
 static AnimationResult comets(SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60, 80,
-                                          100, 120, 140, 160};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   10,  20,  30,  40,  50,
+                                          60,  70,  80,  90,  100, 110,
+                                          120, 130, 140, 150, 160, 170};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -354,8 +355,9 @@ static AnimationResult comets(SDL_Renderer *const renderer) {
 static AnimationResult cometsShort(SDL_Renderer *const renderer) {
   // These are going to be overridden soon anyway, so the exact values don't
   // matter, but let's make them not all start as red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60, 80,
-                                          100, 120, 140, 160};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   10,  20,  30,  40,  50,
+                                          60,  70,  80,  90,  100, 110,
+                                          120, 130, 140, 150, 160, 170};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -374,15 +376,6 @@ static AnimationResult cometsShort(SDL_Renderer *const renderer) {
   spokeStart = (spokeStart + 1) % SPOKE_COUNT;
 
   return AnimationResult(__func__, 400);
-}
-
-static AnimationResult snake(SDL_Renderer *const renderer) {
-  static uint8_t hue = 0;
-  static int index = 0;
-  setLedHue(index, hue, renderer);
-  ++hue;
-  index = (index + 1) % (RING_COUNT * SPOKE_COUNT);
-  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
@@ -482,28 +475,48 @@ static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
   return AnimationResult(__func__, 100);
 }
 
+static AnimationResult outerHue(SDL_Renderer *const renderer) {
+  static uint8_t hue = 0;
+  for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
+    setLedHue(RING_COUNT - 1, spoke, hue + (spoke * 255 / SPOKE_COUNT),
+              renderer);
+  }
+  hue -= 10;
+
+  return AnimationResult(__func__, 100);
+}
+
+static AnimationResult outerRipple(SDL_Renderer *const renderer) {
+  const int length = 7;
+  const int brightnesses[length] = {255 / 8, 255 / 4, 255 / 2, 255,
+                                    255 / 2, 255 / 4, 255 / 8};
+
+  static uint8_t hue = 0;
+  static int spoke = 0;
+
+  uint8_t r, g, b;
+
+  for (int i = 0; i < length; ++i) {
+    hsvToRgb(hue, 255, brightnesses[i], &r, &g, &b);
+    setLed(RING_COUNT - 1, (spoke + i) % SPOKE_COUNT, r, g, b, renderer);
+  }
+  ++spoke;
+  hue += 2;
+
+  return AnimationResult(__func__, 200);
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
   int animation_ms = 0;
   int animationIndex = 0;
-  AnimationResult (*animations[])(SDL_Renderer *) = {pendulum,
-                                                     orbit,
-                                                     triadOrbits,
-                                                     blurredSpiral,
-                                                     blurredSpiralHues,
-                                                     fadingRainbowRings,
-                                                     cometsShort,
-                                                     comets,
-                                                     snake,
-                                                     outwardRippleHue,
-                                                     singleSpiral,
-                                                     outwardRipple,
-                                                     spiral,
-                                                     lightAll,
-                                                     spinSingle,
-                                                     fastOutwardHue,
-                                                     fastInwardHue};
+  AnimationResult (*animations[])(SDL_Renderer *) = {
+      outerHue,       outerRipple,   pendulum,          orbit,
+      triadOrbits,    blurredSpiral, blurredSpiralHues, fadingRainbowRings,
+      cometsShort,    comets,        outwardRippleHue,  singleSpiral,
+      outwardRipple,  spiral,        lightAll,          spinSingle,
+      fastOutwardHue, fastInwardHue};
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -623,12 +636,6 @@ uint8_t sin8(uint8_t theta) {
   return y;
 }
 
-void setLedHue(const int index, const uint8_t h, SDL_Renderer *const renderer) {
-  uint8_t red, green, blue;
-  hsvToRgb(h, 255, 255, &red, &green, &blue);
-  setLed(index, red, green, blue, renderer);
-}
-
 void setLedHue(const int ring, const int spoke, const uint8_t h,
                SDL_Renderer *const renderer) {
   uint8_t red, green, blue;
@@ -662,18 +669,6 @@ void setLedFire(int ring, int spoke, uint8_t v, SDL_Renderer *renderer) {
   setLed(ring, spoke, red, green, 0, renderer);
 }
 
-void setLed(const int index, const uint8_t red, const uint8_t green,
-            const uint8_t blue, SDL_Renderer *const renderer) {
-  const int spoke = index / 5;
-  int ring;
-  if (index % 10 < 5) {
-    ring = index % 5;
-  } else {
-    ring = 4 - index % 5;
-  }
-  setLed(ring, spoke, red, green, blue, renderer);
-}
-
 void setLed(const int ring, const int spoke, const uint8_t red,
             const uint8_t green, const uint8_t blue,
             SDL_Renderer *const renderer) {
@@ -682,6 +677,10 @@ void setLed(const int ring, const int spoke, const uint8_t red,
   SDL_Rect rectangle;
   if (spoke >= 0 && spoke < SPOKE_COUNT) {
     if (ring >= 0 && ring < RING_COUNT) {
+      // The inner spokes are only half wired up, so skip them
+      if (ring != RING_COUNT - 1 && spoke % 2 == 1) {
+        return;
+      }
       const float angle_r = spoke * multiplier;
       const int xOffset = spacing * (ring + 3) * sinf(angle_r);
       const int yOffset = spacing * (ring + 3) * cosf(angle_r);
@@ -693,19 +692,6 @@ void setLed(const int ring, const int spoke, const uint8_t red,
       SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
       SDL_RenderFillRect(renderer, &rectangle);
     }
-  } else if (ring == RING_COUNT - 1 && spoke >= SPOKE_COUNT &&
-             spoke < SPOKE_COUNT * 2) {
-    // The outer ring has extra spoke lights
-    const float angle_r = (spoke - SPOKE_COUNT + 0.5) * multiplier;
-    const int xOffset = spacing * (ring + 3) * sinf(angle_r);
-    const int yOffset = spacing * (ring + 3) * cosf(angle_r);
-    // The ys are inverted
-    rectangle.x = WIDTH / 2 + xOffset;
-    rectangle.y = HEIGHT / 2 - yOffset;
-    rectangle.w = LED_WIDTH;
-    rectangle.h = LED_WIDTH;
-    SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
-    SDL_RenderFillRect(renderer, &rectangle);
   }
 }
 
