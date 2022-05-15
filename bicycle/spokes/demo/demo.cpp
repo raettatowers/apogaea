@@ -8,7 +8,7 @@
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])))
 
-const int SPOKE_COUNT = 10;
+const int SPOKE_COUNT = 9;
 const int RING_COUNT = 5;
 
 const int WIDTH = 720;
@@ -34,9 +34,9 @@ void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
 typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
 
 struct AnimationResult {
-  const char* functionName;
+  const char *functionName;
   int delay_ms;
-  AnimationResult(const char* f, int d) : functionName(f), delay_ms(d) {}
+  AnimationResult(const char *f, int d) : functionName(f), delay_ms(d) {}
 };
 
 static AnimationResult lightAll(SDL_Renderer *const renderer) {
@@ -235,10 +235,11 @@ static AnimationResult orbit(SDL_Renderer *const renderer) {
   return AnimationResult(__func__, 150);
 }
 
-static AnimationResult starfishOrbits(SDL_Renderer *const renderer) {
+static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   const int startSpeed = 13;
   const int divisor = 16;
   const int fade = 10;
+  const int steps = 3;
 
   static int position = -startSpeed;
   static int speed = startSpeed;
@@ -262,7 +263,7 @@ static AnimationResult starfishOrbits(SDL_Renderer *const renderer) {
   }
 
   // The ball should always be maximum brightness
-  for (int spoke = currentSpoke; spoke < SPOKE_COUNT; spoke += 2) {
+  for (int spoke = currentSpoke; spoke < SPOKE_COUNT; spoke += 3) {
     setLedHue(position / divisor, spoke, hue, renderer);
     brightness[position / divisor][spoke] = 255;
   }
@@ -271,7 +272,8 @@ static AnimationResult starfishOrbits(SDL_Renderer *const renderer) {
   if (position < 0) {
     position = 0;
     speed = startSpeed;
-    currentSpoke = currentSpoke >= 1 ? 0 : 1;
+    currentSpoke = (currentSpoke + 1) % steps;
+    hue += 50;
   }
   --speed;
   ++hue;
@@ -323,8 +325,8 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
 static AnimationResult comets(SDL_Renderer *const renderer) {
   // These values don't matter, they'll be overwritten soon anyway, but I
   // wanted it to start at something other than all red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
-                                          100, 120, 140, 160, 180};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60, 80,
+                                          100, 120, 140, 160};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -352,8 +354,8 @@ static AnimationResult comets(SDL_Renderer *const renderer) {
 static AnimationResult cometsShort(SDL_Renderer *const renderer) {
   // These are going to be overridden soon anyway, so the exact values don't
   // matter, but let's make them not all start as red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60,  80,
-                                          100, 120, 140, 160, 180};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0,   20,  40,  60, 80,
+                                          100, 120, 140, 160};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -418,6 +420,11 @@ static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b, renderer);
     }
+    if (currentRing == RING_COUNT - 1) {
+      for (int spoke = SPOKE_COUNT; spoke < SPOKE_COUNT * 2; ++spoke) {
+        setLed(currentRing, spoke, r, g, b, renderer);
+      }
+    }
 
     if (value < 255 - change) {
       value += change;
@@ -438,6 +445,11 @@ static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b, renderer);
     }
+    if (currentRing == RING_COUNT - 1) {
+      for (int spoke = SPOKE_COUNT; spoke < SPOKE_COUNT * 2; ++spoke) {
+        setLed(currentRing, spoke, r, g, b, renderer);
+      }
+    }
     // Previous rings
     for (int ring = RING_COUNT - 1; ring > currentRing; --ring) {
       const int hue =
@@ -445,6 +457,11 @@ static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
       hsvToRgb(hue, 255, 255, &r, &g, &b);
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(ring, spoke, r, g, b, renderer);
+      }
+      if (ring == RING_COUNT - 1) {
+        for (int spoke = SPOKE_COUNT; spoke < SPOKE_COUNT * 2; ++spoke) {
+          setLed(RING_COUNT - 1, spoke, r, g, b, renderer);
+        }
       }
     }
 
@@ -470,23 +487,23 @@ int main() {
   uint8_t hue = 0;
   int animation_ms = 0;
   int animationIndex = 0;
-  AnimationResult(*animations[])(SDL_Renderer *) = {pendulum,
-                                                orbit,
-                                                 starfishOrbits,
-                                                 blurredSpiral,
-                                                 blurredSpiralHues,
-                                                 fadingRainbowRings,
-                                                 cometsShort,
-                                                 comets,
-                                                 snake,
-                                                 outwardRippleHue,
-                                                 singleSpiral,
-                                                 outwardRipple,
-                                                 spiral,
-                                                 lightAll,
-                                                 spinSingle,
-                                                 fastOutwardHue,
-                                                 fastInwardHue};
+  AnimationResult (*animations[])(SDL_Renderer *) = {pendulum,
+                                                     orbit,
+                                                     triadOrbits,
+                                                     blurredSpiral,
+                                                     blurredSpiralHues,
+                                                     fadingRainbowRings,
+                                                     cometsShort,
+                                                     comets,
+                                                     snake,
+                                                     outwardRippleHue,
+                                                     singleSpiral,
+                                                     outwardRipple,
+                                                     spiral,
+                                                     lightAll,
+                                                     spinSingle,
+                                                     fastOutwardHue,
+                                                     fastInwardHue};
 
   // Returns zero on success else non-zero
   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -660,14 +677,14 @@ void setLed(const int index, const uint8_t red, const uint8_t green,
 void setLed(const int ring, const int spoke, const uint8_t red,
             const uint8_t green, const uint8_t blue,
             SDL_Renderer *const renderer) {
-  const float SPACING = 20.0f;
+  const float spacing = 20.0f;
+  const float multiplier = (M_PI * 2.0 * (1.0 / SPOKE_COUNT));
   SDL_Rect rectangle;
   if (spoke >= 0 && spoke < SPOKE_COUNT) {
     if (ring >= 0 && ring < RING_COUNT) {
-      const int xOffset =
-          SPACING * (ring + 3) * sinf(spoke * (M_PI * 2.0 * 0.1));
-      const int yOffset =
-          SPACING * (ring + 3) * cosf(spoke * (M_PI * 2.0 * 0.1));
+      const float angle_r = spoke * multiplier;
+      const int xOffset = spacing * (ring + 3) * sinf(angle_r);
+      const int yOffset = spacing * (ring + 3) * cosf(angle_r);
       // The ys are inverted
       rectangle.x = WIDTH / 2 + xOffset;
       rectangle.y = HEIGHT / 2 - yOffset;
@@ -676,6 +693,19 @@ void setLed(const int ring, const int spoke, const uint8_t red,
       SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
       SDL_RenderFillRect(renderer, &rectangle);
     }
+  } else if (ring == RING_COUNT - 1 && spoke >= SPOKE_COUNT &&
+             spoke < SPOKE_COUNT * 2) {
+    // The outer ring has extra spoke lights
+    const float angle_r = (spoke - SPOKE_COUNT + 0.5) * multiplier;
+    const int xOffset = spacing * (ring + 3) * sinf(angle_r);
+    const int yOffset = spacing * (ring + 3) * cosf(angle_r);
+    // The ys are inverted
+    rectangle.x = WIDTH / 2 + xOffset;
+    rectangle.y = HEIGHT / 2 - yOffset;
+    rectangle.w = LED_WIDTH;
+    rectangle.h = LED_WIDTH;
+    SDL_SetRenderDrawColor(renderer, red, green, blue, 255);
+    SDL_RenderFillRect(renderer, &rectangle);
   }
 }
 
