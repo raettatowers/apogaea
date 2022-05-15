@@ -141,7 +141,8 @@ static AnimationResult singleSpiral(SDL_Renderer *const renderer) {
 
 static AnimationResult blurredSpiral(SDL_Renderer *const renderer) {
   const int length = 5;
-  const int brightnesses[length] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
+  const int brightnesses[] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
+  static_assert(COUNT_OF(brightnesses) == length);
 
   static int currentSpoke = 0;
   static uint8_t currentHue = 0;
@@ -167,7 +168,8 @@ static AnimationResult blurredSpiral(SDL_Renderer *const renderer) {
 
 static AnimationResult blurredSpiralHues(SDL_Renderer *const renderer) {
   const int length = 5;
-  const int brightnesses[length] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
+  const int brightnesses[] = {255 / 4, 255 / 2, 255, 255 / 2, 255 / 4};
+  static_assert(COUNT_OF(brightnesses) == length);
 
   static int currentSpoke = 0;
   static uint8_t currentHue = 0;
@@ -323,11 +325,7 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
 }
 
 static AnimationResult comets(SDL_Renderer *const renderer) {
-  // These values don't matter, they'll be overwritten soon anyway, but I
-  // wanted it to start at something other than all red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   10,  20,  30,  40,  50,
-                                          60,  70,  80,  90,  100, 110,
-                                          120, 130, 140, 150, 160, 170};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -353,11 +351,7 @@ static AnimationResult comets(SDL_Renderer *const renderer) {
 }
 
 static AnimationResult cometsShort(SDL_Renderer *const renderer) {
-  // These are going to be overridden soon anyway, so the exact values don't
-  // matter, but let's make them not all start as red
-  static uint8_t spokeHue[SPOKE_COUNT] = {0,   10,  20,  30,  40,  50,
-                                          60,  70,  80,  90,  100, 110,
-                                          120, 130, 140, 150, 160, 170};
+  static uint8_t spokeHue[SPOKE_COUNT] = {0};
   static uint8_t spokeStart = 0;
   static uint8_t hue = 0;
 
@@ -488,8 +482,9 @@ static AnimationResult outerHue(SDL_Renderer *const renderer) {
 
 static AnimationResult outerRipple(SDL_Renderer *const renderer) {
   const int length = 7;
-  const int brightnesses[length] = {255 / 8, 255 / 4, 255 / 2, 255,
+  const int brightnesses[] = {255 / 8, 255 / 4, 255 / 2, 255,
                                     255 / 2, 255 / 4, 255 / 8};
+  static_assert(COUNT_OF(brightnesses) == length);
 
   static uint8_t hue = 0;
   static int spoke = 0;
@@ -527,6 +522,14 @@ int main() {
 
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   SDL_SetWindowTitle(window, animations[0](renderer).functionName);
+
+  // Some animations look bad when first called but then settle down, so just
+  // call each animation a few times to let them settle
+  for (unsigned int i = 0; i < COUNT_OF(animations); ++i) {
+    for (int j = 0; j < 20; ++j) {
+      animations[i](renderer);
+    }
+  }
 
   // Animation loop
   while (!shouldClose) {
