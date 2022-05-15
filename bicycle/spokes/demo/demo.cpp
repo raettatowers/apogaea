@@ -29,7 +29,7 @@ void setLedPastel(int ring, int spoke, uint8_t v, SDL_Renderer *renderer);
 void setLedFire(int ring, int spoke, uint8_t v, SDL_Renderer *renderer);
 void hsvToRgb(uint8_t hue, uint8_t saturation, uint8_t value, uint8_t *red,
               uint8_t *green, uint8_t *blue);
-typedef void(setLed_t(int, int, uint8_t, SDL_Renderer *));
+void test();
 
 struct AnimationResult {
   const char *functionName;
@@ -502,6 +502,7 @@ static AnimationResult outerRipple(SDL_Renderer *const renderer) {
 }
 
 int main() {
+  test();
   bool shouldClose = false;
   uint8_t hue = 0;
   int animation_ms = 0;
@@ -748,4 +749,52 @@ void hsvToRgb(const uint8_t hue, const uint8_t saturation, const uint8_t value,
     *blue = q;
     break;
   }
+}
+
+int ringSpokeToIndex(int ring, int spoke) {
+  switch (spoke % 3) {
+    case 0:
+      return (spoke / 3) * 11 + ring;
+    case 1:
+      if (ring != RING_COUNT - 1) {
+        return -1;
+      }
+      return (spoke / 3) * 11 + 5;
+    case 2:
+      return (spoke / 3) * 11 + 6 + RING_COUNT - 1 - ring;
+    default:
+      assert(false);
+      return -1;
+  }
+}
+
+void test() {
+#define TEST(a, b) if (a != b) { printf("got %d, expected %d\n", a, b); assert(a == b); }
+  TEST(ringSpokeToIndex(0, 0), 0);
+  TEST(ringSpokeToIndex(1, 0), 1);
+  TEST(ringSpokeToIndex(2, 0), 2);
+  TEST(ringSpokeToIndex(3, 0), 3);
+  TEST(ringSpokeToIndex(4, 0), 4);
+  TEST(ringSpokeToIndex(4, 1), 5);
+  TEST(ringSpokeToIndex(4, 2), 6);
+  TEST(ringSpokeToIndex(3, 2), 7);
+  TEST(ringSpokeToIndex(2, 2), 8);
+  TEST(ringSpokeToIndex(1, 2), 9);
+  TEST(ringSpokeToIndex(0, 2), 10);
+  TEST(ringSpokeToIndex(0, 3), 11);
+  TEST(ringSpokeToIndex(1, 3), 12);
+  TEST(ringSpokeToIndex(2, 3), 13);
+  TEST(ringSpokeToIndex(3, 3), 14);
+  TEST(ringSpokeToIndex(4, 3), 15);
+  TEST(ringSpokeToIndex(4, 4), 16);
+  TEST(ringSpokeToIndex(4, 5), 17);
+  TEST(ringSpokeToIndex(3, 5), 18);
+  TEST(ringSpokeToIndex(2, 5), 19);
+  TEST(ringSpokeToIndex(1, 5), 20);
+  TEST(ringSpokeToIndex(0, 5), 21);
+  TEST(ringSpokeToIndex(0, 6), 22);
+  TEST(ringSpokeToIndex(1, 6), 23);
+  TEST(ringSpokeToIndex(2, 6), 24);
+  TEST(ringSpokeToIndex(3, 6), 25);
+  TEST(ringSpokeToIndex(4, 6), 26);
 }
