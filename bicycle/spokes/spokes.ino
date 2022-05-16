@@ -85,7 +85,7 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(64);
   FastLED.clear();
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 2000);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 400);
 
   // Some animations look bad when first called but then settle down, so just
   // call each animation a few times to let them settle
@@ -97,7 +97,7 @@ void setup() {
 
   RemoteXY.brightnessSlider = 25;
   RemoteXY.cycleTimeSlider = 50;
-  RemoteXY.speedSlider = 50;
+  RemoteXY.speedSlider = 25;
   RemoteXY.animationSwitch = 1;
   RemoteXY.cycleSwitch = 1;
   RemoteXY_Handler();
@@ -114,7 +114,8 @@ void loop() {
 
   FastLED.clear();
   if (RemoteXY.animationSwitch == 1) {
-    const decltype(millis()) delayTime_ms = animations[animationIndex]() * ((static_cast<float>(RemoteXY.speedSlider) + 5.0f) / 20.0f);
+    const float multiplier = 25.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
+    const decltype(millis()) delayTime_ms = animations[animationIndex]() * multiplier;
     const auto start = millis();
     while (millis() < start + delayTime_ms) {
       RemoteXY_Handler();
@@ -123,12 +124,13 @@ void loop() {
     fill_solid(leds, LED_COUNT, CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b));
     RemoteXY_Handler();
   }
+  FastLED.show();
 
   // Handle the app changes
   if (previousAnimationSelect1 != RemoteXY.animationSelect1) {
     animationIndex =  RemoteXY.animationSelect1;
   } else if (previousAnimationSelect2 != RemoteXY.animationSelect2) {
-    animationIndex =  RemoteXY.animationSelect2;
+    animationIndex =  RemoteXY.animationSelect2 + 10;
   }
   previousAnimationSelect1 = RemoteXY.animationSelect1;
   previousAnimationSelect2 = RemoteXY.animationSelect2;
