@@ -249,7 +249,7 @@ int triadOrbits() {
   --speed;
   ++hue;
 
-  return 100;
+  return 75;
 }
 
 int pendulum() {
@@ -544,7 +544,7 @@ static int ringSpokeToIndex(int ring, int spoke) {
 
 void setLed(int ring, int spoke, uint8_t red, uint8_t green, uint8_t blue) {
   const int index = ringSpokeToIndex(ring, spoke);
-  if (index > 0 && index < LED_COUNT) {
+  if (index >= 0 && index < LED_COUNT) {
     leds[index] = CRGB(red, green, blue);
   }
 }
