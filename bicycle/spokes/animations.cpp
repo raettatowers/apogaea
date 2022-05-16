@@ -15,7 +15,7 @@ int lightAll() {
     }
   }
   ++hue;
-  return 100;
+  return 25;
 }
 
 int spinSingle() {
@@ -26,7 +26,7 @@ int spinSingle() {
   }
   ++hue;
   spoke = (spoke + 2) % SPOKE_COUNT;
-  return 100;
+  return 25;
 }
 
 int fastOutwardHue() {
@@ -37,7 +37,7 @@ int fastOutwardHue() {
     }
   }
   hue += 3;
-  return 100;
+  return 25;
 }
 
 int fastInwardHue() {
@@ -48,7 +48,7 @@ int fastInwardHue() {
     }
   }
   hue += 3;
-  return 100;
+  return 25;
 }
 
 int spiral() {
@@ -60,7 +60,7 @@ int spiral() {
     }
   }
   hue += 3;
-  return 100;
+  return 25;
 }
 
 int outwardRipple() {
@@ -75,7 +75,7 @@ int outwardRipple() {
   }
   ++hue;
   ripple += 3;
-  return 100;
+  return 25;
 }
 
 int outwardRippleHue() {
@@ -91,7 +91,7 @@ int outwardRippleHue() {
   }
   hue += 2;
   ripple += 3;
-  return 100;
+  return 25;
 }
 
 int singleSpiral() {
@@ -105,7 +105,7 @@ int singleSpiral() {
   spoke = (spoke + 2) % SPOKE_COUNT;
   ++hue;
 
-  return 400;
+  return 100;
 }
 
 int blurredSpiral() {
@@ -132,7 +132,7 @@ int blurredSpiral() {
   currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
   ++currentHue;
 
-  return 400;
+  return 100;
 }
 
 int blurredSpiralHues() {
@@ -161,7 +161,7 @@ int blurredSpiralHues() {
   currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
   currentHue += 10;
 
-  return 400;
+  return 100;
 }
 
 int orbit() {
@@ -203,7 +203,7 @@ int orbit() {
   --speed;
   ++hue;
 
-  return 150;
+  return 40;
 }
 
 int triadOrbits() {
@@ -249,7 +249,7 @@ int triadOrbits() {
   --speed;
   ++hue;
 
-  return 150;
+  return 100;
 }
 
 int pendulum() {
@@ -290,7 +290,7 @@ int pendulum() {
   }
   ++hue;
 
-  return 150;
+  return 40;
 }
 
 int comets() {
@@ -315,7 +315,7 @@ int comets() {
   hue += 20;
   spokeStart = (spokeStart + 1) % SPOKE_COUNT;
 
-  return 400;
+  return 100;
 }
 
 int cometsShort() {
@@ -337,7 +337,7 @@ int cometsShort() {
   hue += 20;
   spokeStart = (spokeStart + 1) % SPOKE_COUNT;
 
-  return 400;
+  return 100;
 }
 
 int fadingRainbowRings() {
@@ -362,7 +362,7 @@ int fadingRainbowRings() {
     // Previous rings
     for (int ring = 0; ring < currentRing; ++ring) {
       const int hue =
-          rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+        rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
       hsvToRgb(hue, 255, 255, &r, &g, &b);
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(ring, spoke, r, g, b);
@@ -370,7 +370,7 @@ int fadingRainbowRings() {
     }
     // Current ring
     const int hue =
-        rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+      rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
     hsvToRgb(hue, 255, value, &r, &g, &b);
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b);
@@ -395,7 +395,7 @@ int fadingRainbowRings() {
   } else {
     // Current ring
     const int hue =
-        rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
+      rainbowHues[(startHueIndex + currentRing) % COUNT_OF(rainbowHues)];
     hsvToRgb(hue, 255, value, &r, &g, &b);
     for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLed(currentRing, spoke, r, g, b);
@@ -408,7 +408,7 @@ int fadingRainbowRings() {
     // Previous rings
     for (int ring = RING_COUNT - 1; ring > currentRing; --ring) {
       const int hue =
-          rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
+        rainbowHues[(startHueIndex + ring) % COUNT_OF(rainbowHues)];
       hsvToRgb(hue, 255, 255, &r, &g, &b);
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(ring, spoke, r, g, b);
@@ -434,7 +434,7 @@ int fadingRainbowRings() {
     }
   }
 
-  return 100;
+  return 25;
 }
 
 int outerHue() {
@@ -444,13 +444,14 @@ int outerHue() {
   }
   hue -= 10;
 
-  return 100;
+  return 200;
 }
 
 int outerRipple() {
   const int length = 7;
   const int brightnesses[] = {255 / 8, 255 / 4, 255 / 2, 255,
-                                    255 / 2, 255 / 4, 255 / 8};
+                              255 / 2, 255 / 4, 255 / 8
+                             };
   static_assert(COUNT_OF(brightnesses) == length);
 
   static uint8_t hue = 0;
@@ -465,7 +466,7 @@ int outerRipple() {
   ++spoke;
   hue += 2;
 
-  return 200;
+  return 100;
 }
 
 void hsvToRgb(const uint8_t hue, const uint8_t saturation, const uint8_t value,
@@ -487,68 +488,56 @@ void hsvToRgb(const uint8_t hue, const uint8_t saturation, const uint8_t value,
   t = (value * (255 - ((saturation * (255 - remainder)) >> 8))) >> 8;
 
   switch (region) {
-  case 0:
-    *red = value;
-    *green = t;
-    *blue = p;
-    break;
-  case 1:
-    *red = q;
-    *green = value;
-    *blue = p;
-    break;
-  case 2:
-    *red = p;
-    *green = value;
-    *blue = t;
-    break;
-  case 3:
-    *red = p;
-    *green = q;
-    *blue = value;
-    break;
-  case 4:
-    *red = t;
-    *green = p;
-    *blue = value;
-    break;
-  default:
-    *red = value;
-    *green = p;
-    *blue = q;
-    break;
+    case 0:
+      *red = value;
+      *green = t;
+      *blue = p;
+      break;
+    case 1:
+      *red = q;
+      *green = value;
+      *blue = p;
+      break;
+    case 2:
+      *red = p;
+      *green = value;
+      *blue = t;
+      break;
+    case 3:
+      *red = p;
+      *green = q;
+      *blue = value;
+      break;
+    case 4:
+      *red = t;
+      *green = p;
+      *blue = value;
+      break;
+    default:
+      *red = value;
+      *green = p;
+      *blue = q;
+      break;
   }
 }
 
 static int ringSpokeToIndex(int ring, int spoke) {
-  int value;
   if (ring < 0 || ring >= RING_COUNT || spoke < 0 || spoke >= SPOKE_COUNT) {
     return -1;
   }
-  switch (spoke % 3) {
+  switch (spoke % 4) {
     case 0:
-       value = (spoke / 3) * 11 + ring;
-       if (value > LED_COUNT) {
-         return -1;
-       }
-       return value;
+      return (spoke / 4) * 11 + ring;
     case 1:
       if (ring != RING_COUNT - 1) {
         return -1;
       }
-       value = (spoke / 3) * 11 + 5;
-       if (value > LED_COUNT) {
-         return -1;
-       }
-       return value;
+      return (spoke / 4) * 11 + 5;
     case 2:
-       value = (spoke / 3) * 11 + 6 + RING_COUNT - 1 - ring;
-       if (value > LED_COUNT) {
-         return -1;
-       }
-       return value;
+      return (spoke / 4) * 11 + 6 + RING_COUNT - 1 - ring;
+    case 3:
+      return -1;
     default:
-      assert(false);
       return -1;
   }
 }

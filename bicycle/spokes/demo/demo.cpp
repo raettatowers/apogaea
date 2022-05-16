@@ -45,7 +45,7 @@ static AnimationResult lightAll(SDL_Renderer *const renderer) {
     }
   }
   ++hue;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 30);
 }
 
 static AnimationResult spinSingle(SDL_Renderer *const renderer) {
@@ -56,7 +56,7 @@ static AnimationResult spinSingle(SDL_Renderer *const renderer) {
   }
   ++hue;
   spoke = (spoke + 2) % SPOKE_COUNT;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult fastOutwardHue(SDL_Renderer *const renderer) {
@@ -67,7 +67,7 @@ static AnimationResult fastOutwardHue(SDL_Renderer *const renderer) {
     }
   }
   hue += 3;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult fastInwardHue(SDL_Renderer *const renderer) {
@@ -78,7 +78,7 @@ static AnimationResult fastInwardHue(SDL_Renderer *const renderer) {
     }
   }
   hue += 3;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult spiral(SDL_Renderer *const renderer) {
@@ -90,7 +90,7 @@ static AnimationResult spiral(SDL_Renderer *const renderer) {
     }
   }
   hue += 3;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult outwardRipple(SDL_Renderer *const renderer) {
@@ -105,7 +105,7 @@ static AnimationResult outwardRipple(SDL_Renderer *const renderer) {
   }
   ++hue;
   ripple += 3;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult outwardRippleHue(SDL_Renderer *const renderer) {
@@ -121,7 +121,7 @@ static AnimationResult outwardRippleHue(SDL_Renderer *const renderer) {
   }
   hue += 2;
   ripple += 3;
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult singleSpiral(SDL_Renderer *const renderer) {
@@ -136,7 +136,7 @@ static AnimationResult singleSpiral(SDL_Renderer *const renderer) {
   spoke = (spoke + 2) % SPOKE_COUNT;
   ++hue;
 
-  return AnimationResult(__func__, 400);
+  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult blurredSpiral(SDL_Renderer *const renderer) {
@@ -163,7 +163,7 @@ static AnimationResult blurredSpiral(SDL_Renderer *const renderer) {
   currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
   ++currentHue;
 
-  return AnimationResult(__func__, 400);
+  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult blurredSpiralHues(SDL_Renderer *const renderer) {
@@ -192,7 +192,7 @@ static AnimationResult blurredSpiralHues(SDL_Renderer *const renderer) {
   currentSpoke = (currentSpoke + 1) % SPOKE_COUNT;
   currentHue += 10;
 
-  return AnimationResult(__func__, 400);
+  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult orbit(SDL_Renderer *const renderer) {
@@ -234,7 +234,7 @@ static AnimationResult orbit(SDL_Renderer *const renderer) {
   --speed;
   ++hue;
 
-  return AnimationResult(__func__, 150);
+  return AnimationResult(__func__, 40);
 }
 
 static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
@@ -280,7 +280,7 @@ static AnimationResult triadOrbits(SDL_Renderer *const renderer) {
   --speed;
   ++hue;
 
-  return AnimationResult(__func__, 150);
+  return AnimationResult(__func__, 40);
 }
 
 static AnimationResult pendulum(SDL_Renderer *const renderer) {
@@ -321,7 +321,7 @@ static AnimationResult pendulum(SDL_Renderer *const renderer) {
   }
   ++hue;
 
-  return AnimationResult(__func__, 150);
+  return AnimationResult(__func__, 40);
 }
 
 static AnimationResult comets(SDL_Renderer *const renderer) {
@@ -347,7 +347,7 @@ static AnimationResult comets(SDL_Renderer *const renderer) {
   hue += 20;
   spokeStart = (spokeStart + 1) % SPOKE_COUNT;
 
-  return AnimationResult(__func__, 400);
+  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult cometsShort(SDL_Renderer *const renderer) {
@@ -369,7 +369,7 @@ static AnimationResult cometsShort(SDL_Renderer *const renderer) {
   hue += 20;
   spokeStart = (spokeStart + 1) % SPOKE_COUNT;
 
-  return AnimationResult(__func__, 400);
+  return AnimationResult(__func__, 100);
 }
 
 static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
@@ -466,7 +466,7 @@ static AnimationResult fadingRainbowRings(SDL_Renderer *const renderer) {
     }
   }
 
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult outerHue(SDL_Renderer *const renderer) {
@@ -477,7 +477,7 @@ static AnimationResult outerHue(SDL_Renderer *const renderer) {
   }
   hue -= 10;
 
-  return AnimationResult(__func__, 100);
+  return AnimationResult(__func__, 25);
 }
 
 static AnimationResult outerRipple(SDL_Renderer *const renderer) {
@@ -498,7 +498,7 @@ static AnimationResult outerRipple(SDL_Renderer *const renderer) {
   ++spoke;
   hue += 2;
 
-  return AnimationResult(__func__, 200);
+  return AnimationResult(__func__, 50);
 }
 
 int main() {
@@ -549,7 +549,7 @@ int main() {
     while (result.delay_ms > 0) {
       // 60 FPS
       SDL_Delay(1000 / 60);
-      result.delay_ms -= 60;
+      result.delay_ms -= 16;
 
       animation_ms += 1000 / 60;
 
@@ -685,6 +685,10 @@ void setLed(const int ring, const int spoke, const uint8_t red,
       if (ring != RING_COUNT - 1 && spoke % 2 == 1) {
         return;
       }
+      // The outer ring is only 3/4 hooked up
+      if (ring == RING_COUNT - 1 && spoke % 4 == 3) {
+        return;
+      }
       const float angle_r = spoke * multiplier;
       const int xOffset = spacing * (ring + 3) * sinf(angle_r);
       const int yOffset = spacing * (ring + 3) * cosf(angle_r);
@@ -751,21 +755,32 @@ void hsvToRgb(const uint8_t hue, const uint8_t saturation, const uint8_t value,
   }
 }
 
-int ringSpokeToIndex(int ring, int spoke) {
-  switch (spoke % 3) {
+int _ringSpokeToIndex(int ring, int spoke) {
+  if (ring < 0 || ring >= RING_COUNT || spoke < 0 || spoke >= SPOKE_COUNT) {
+    return -1;
+  }
+  switch (spoke % 4) {
     case 0:
-      return (spoke / 3) * 11 + ring;
+      return (spoke / 4) * 11 + ring;
     case 1:
       if (ring != RING_COUNT - 1) {
         return -1;
       }
-      return (spoke / 3) * 11 + 5;
+      return (spoke / 4) * 11 + 5;
     case 2:
-      return (spoke / 3) * 11 + 6 + RING_COUNT - 1 - ring;
+      return (spoke / 4) * 11 + 6 + RING_COUNT - 1 - ring;
+    case 3:
+      return -1;
     default:
       assert(false);
       return -1;
   }
+}
+
+int ringSpokeToIndex(int ring, int spoke) {
+  const int value = _ringSpokeToIndex(ring, spoke);
+  assert(value < 50);
+  return value;
 }
 
 void test() {
@@ -781,20 +796,42 @@ void test() {
   TEST(ringSpokeToIndex(2, 2), 8);
   TEST(ringSpokeToIndex(1, 2), 9);
   TEST(ringSpokeToIndex(0, 2), 10);
-  TEST(ringSpokeToIndex(0, 3), 11);
-  TEST(ringSpokeToIndex(1, 3), 12);
-  TEST(ringSpokeToIndex(2, 3), 13);
-  TEST(ringSpokeToIndex(3, 3), 14);
-  TEST(ringSpokeToIndex(4, 3), 15);
-  TEST(ringSpokeToIndex(4, 4), 16);
-  TEST(ringSpokeToIndex(4, 5), 17);
-  TEST(ringSpokeToIndex(3, 5), 18);
-  TEST(ringSpokeToIndex(2, 5), 19);
-  TEST(ringSpokeToIndex(1, 5), 20);
-  TEST(ringSpokeToIndex(0, 5), 21);
-  TEST(ringSpokeToIndex(0, 6), 22);
-  TEST(ringSpokeToIndex(1, 6), 23);
-  TEST(ringSpokeToIndex(2, 6), 24);
-  TEST(ringSpokeToIndex(3, 6), 25);
-  TEST(ringSpokeToIndex(4, 6), 26);
+  TEST(ringSpokeToIndex(0, 4), 11);
+  TEST(ringSpokeToIndex(1, 4), 12);
+  TEST(ringSpokeToIndex(2, 4), 13);
+  TEST(ringSpokeToIndex(3, 4), 14);
+  TEST(ringSpokeToIndex(4, 4), 15);
+  TEST(ringSpokeToIndex(4, 5), 16);
+  TEST(ringSpokeToIndex(4, 6), 17);
+  TEST(ringSpokeToIndex(3, 6), 18);
+  TEST(ringSpokeToIndex(2, 6), 19);
+  TEST(ringSpokeToIndex(1, 6), 20);
+  TEST(ringSpokeToIndex(0, 6), 21);
+  TEST(ringSpokeToIndex(0, 8), 22);
+  TEST(ringSpokeToIndex(1, 8), 23);
+  TEST(ringSpokeToIndex(2, 8), 24);
+  TEST(ringSpokeToIndex(3, 8), 25);
+  TEST(ringSpokeToIndex(4, 8), 26);
+
+  // Out of bounds
+  TEST(ringSpokeToIndex(-1, 0), -1);
+  TEST(ringSpokeToIndex(RING_COUNT, 0), -1);
+  TEST(ringSpokeToIndex(RING_COUNT + 10, 0), -1);
+  TEST(ringSpokeToIndex(0, -1), -1);
+  TEST(ringSpokeToIndex(0, SPOKE_COUNT), -1);
+  TEST(ringSpokeToIndex(0, SPOKE_COUNT + 10), -1);
+
+  // Every fourth spoke is never on
+  for (int ring = 0; ring < RING_COUNT; ++ring) {
+    TEST(ringSpokeToIndex(ring, 3), -1);
+    TEST(ringSpokeToIndex(ring, 7), -1);
+    TEST(ringSpokeToIndex(ring, 11), -1);
+    TEST(ringSpokeToIndex(ring, 15), -1);
+  }
+
+  for (int ring = 0; ring < RING_COUNT + 5; ++ring) {
+    for (int spoke = 0; spoke < SPOKE_COUNT + 5; ++spoke) {
+      assert(ringSpokeToIndex(ring, spoke) < 50);
+    }
+  }
 }

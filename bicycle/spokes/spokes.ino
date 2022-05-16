@@ -70,9 +70,9 @@ int (* const animations[])() = {
   fadingRainbowRings,
   cometsShort,
   comets,
+  outwardRipple,
   outwardRippleHue,
   singleSpiral,
-  outwardRipple,
   spiral,
   lightAll,
   fastOutwardHue,
@@ -85,7 +85,7 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(64);
   FastLED.clear();
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 400);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
 
   // Some animations look bad when first called but then settle down, so just
   // call each animation a few times to let them settle
@@ -114,7 +114,7 @@ void loop() {
 
   FastLED.clear();
   if (RemoteXY.animationSwitch == 1) {
-    const float multiplier = 25.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
+    const float multiplier = 20.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
     const decltype(millis()) delayTime_ms = animations[animationIndex]() * multiplier;
     const auto start = millis();
     while (millis() < start + delayTime_ms) {
@@ -136,8 +136,11 @@ void loop() {
   previousAnimationSelect2 = RemoteXY.animationSelect2;
 
   const decltype(millis()) animationDuration_ms = RemoteXY.cycleTimeSlider * (maxAnimationTime_ms - minAnimationTime_ms) / 100 + minAnimationTime_ms;
-  if (RemoteXY.cycleSwitch == 1 && millis() > animationStart_ms + animationDuration_ms) {
-    animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+  if (RemoteXY.cycleSwitch == 1) {
+    if (millis() > animationStart_ms + animationDuration_ms) {
+      animationIndex = (animationIndex + 1) % COUNT_OF(animations);
+      animationStart_ms = millis();
+    }
   } else {
     // If we're not cycling, just keep resetting the start time
     animationStart_ms = millis();
