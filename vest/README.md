@@ -3,9 +3,9 @@ LED vest
 
 A glowing furry vest. Copied from an idea from Finchronicity.
 
-https://hackaday.io/project/395-led-vest/log/570-power
-https://forum.pjrc.com/threads/25939-Led-vest
-https://github.com/finominal/LedVestPlasmaGenerator
+- [Hackaday LED vest](https://hackaday.io/project/395-led-vest/log/570-power)
+- [PJRC forums LED vest]([https://forum.pjrc.com/threads/25939-Led-vest)
+- [Finchronicity's source code](https://github.com/finominal/LedVestPlasmaGenerator)
 
 Parts
 -----
@@ -153,3 +153,19 @@ C++ lookup tables. I had previously used a [web page to generate the
 tables](https://macetech.github.io/FastLED-XY-Map-Generator/) but wrote my own
 script because I needed some other lookup tables. To compile, you'll need to
 run the Python program and save the output as "offsets.hpp".
+
+Demo
+----
+
+I wrote an SDL demo program to make testing animations easier. It's in the
+demo/ folder. I originally had it including the animations from the Arduino
+sketch and having an interface to make them both work, but that was cumbersome.
+Now I just copy the code over and change whatever it needs. Press left and
+right arrow keys to switch between animations.
+
+Video
+-----
+
+I wanted to show short video clips in glorious 10x10 resolution, so I have a
+script that converts a video file into an array of color values. This takes a
+lot of space on an Arduino, so I'm planning on adding an SD card later.

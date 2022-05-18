@@ -60,7 +60,27 @@ firmware, but luckily, mine hadn't been updated yet.
 Spoke lights
 ------------
 
-I bought a 5m 50 LED strand. I think my tire is 26" diameter = 660mm. If I
-don't go all the way to the inner, plus some for wrapping and let's call that
-500mm per run. So I can do 10 back and forths. That's only 5 LEDs per spoke
-run? Actually maybe that's fine?
+I bought a [WS2812B 5m 50 LED
+strand](https://www.amazon.com/strand/dp/B08HK67784/) and wanted to wind them
+in my spokes so they make a star pattern with several rings. My tire is 26"
+diameter = 660mm. The wheel has 36 spokes, so if I wanted to have the spokes
+evenly distributed, I would need to wrap every either 2, 3, 4, 6, 9, or 12
+spokes. If I did 3, then I would have 50 / (36 / 3) = 4 LEDs per spoke; doing 4
+would give me 50 / (36 / 4) = 5 per spoke. Doing every 3 would be nice because
+the spokes alternate between the sides of the wheel, so both sides would be
+wrapped, but I went with 4 because I wanted more LEDs per spoke. The LEDs are
+sort of omnidirectional and can be seen from the opposite side, so this seemed
+fine.
+
+I wrapped the wire around each spoke. I started from the center and went out,
+then over 4 spokes, and back in. On the outer rim, the space between spokes is
+larger, and because of the distance, there's an extra LED between the spokes.
+That worked out great, because I had 5 "extra" LEDs from the above calculation.
+I added an additional wrap where the spokes crossed to keep them from slipping
+while the tire spins. They're surprisingly solid, and the strand I bought is
+water and dust-resistant (IP65) so it should be fine to leave on permanently.
+
+For the controller, I used an ESP32. I can control the strand over BLE from my
+phone using the excellent [RemoteXY](https://remotexy.com) app.
+
+I have an SDL demo program that I used to test animations in the demo/ folder.

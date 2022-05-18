@@ -6,7 +6,7 @@ Various LED art projects that I use for Apogaea or other festivals.
 Bicycle
 -------
 
-Just some simple animations for a couple LED strips I attached to my bike.
+LED animations for my bicycle. LED strips, spokes, and hopefully more to come.
 
 Goggles
 -------
@@ -31,4 +31,7 @@ Animations, button, sound reactive.
 Vest
 ----
 
-Fur vest with LEDs that make it glow.
+Fur vest with LEDs that make it glow. Inspired/stolen from the [LED
+vest](https://www.youtube.com/watch?v=J8TyGCo32pY) by
+[Finominal](https://github.com/finominal). Check out [their
+code](https://github.com/finominal/LedVestPlasmaGenerator).
