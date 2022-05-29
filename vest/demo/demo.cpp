@@ -9,17 +9,13 @@
 #define PROGMEM
 
 #include "../constants.hpp"
-#include "../video/big_lebowski_trimmed.hpp"
-#include "../video/rainbow_spiral_centered.hpp"
-#include "../video/rainbow_spiral_wide.hpp"
-#include "../video/rick_roll_centered.hpp"
-#include "../video/rick_roll_wide.hpp"
 
 const int WIDTH = 720;
 const int HEIGHT = 480;
 
-SDL_Renderer *renderer = nullptr;
-bool fullVest = false;
+static SDL_Renderer *renderer = nullptr;
+static bool fullVest = false;
+static uint8_t singleHue = 0;
 
 int16_t sin16(uint16_t theta);
 uint8_t sin8(uint8_t theta);
@@ -32,6 +28,7 @@ void setLed(int x, int y, uint8_t red, uint8_t green, uint8_t blue,
             SDL_Renderer *renderer);
 void setLedHue(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedGrayscale(int x, int y, uint8_t v, SDL_Renderer *renderer);
+void setLedSingleHue(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedDoubleGrayscale(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedPastel(int x, int y, uint8_t v, SDL_Renderer *renderer);
 void setLedFire(int x, int y, uint8_t v, SDL_Renderer *renderer);
@@ -515,35 +512,6 @@ const char *testPastel(int, SDL_Renderer *const renderer) {
   testPalette(setLedPastel, renderer);
   return __func__;
 }
-const char *rainbowSpiralWide(int, SDL_Renderer *const renderer) {
-  wideVideo(RAINBOW_SPIRAL_WIDE, COUNT_OF(RAINBOW_SPIRAL_WIDE),
-            RAINBOW_SPIRAL_WIDE_MILLIS_PER_FRAME, renderer);
-  return __func__;
-}
-
-const char *rainbowSpiralCentered(int, SDL_Renderer *const renderer) {
-  centeredVideo(RAINBOW_SPIRAL_CENTERED, COUNT_OF(RAINBOW_SPIRAL_CENTERED),
-                RAINBOW_SPIRAL_CENTERED_MILLIS_PER_FRAME, renderer);
-  return __func__;
-}
-
-const char *rickRollWide(int, SDL_Renderer *const renderer) {
-  wideVideo(RICK_ROLL_WIDE, COUNT_OF(RICK_ROLL_WIDE),
-            RICK_ROLL_WIDE_MILLIS_PER_FRAME, renderer);
-  return __func__;
-}
-
-const char *rickRollCentered(int, SDL_Renderer *const renderer) {
-  centeredVideo(RICK_ROLL_CENTERED, COUNT_OF(RICK_ROLL_CENTERED),
-                RICK_ROLL_CENTERED_MILLIS_PER_FRAME, renderer);
-  return __func__;
-}
-
-const char *bigLebowski(int, SDL_Renderer *const renderer) {
-  centeredVideo(BIG_LEBOWSKI_TRIMMED, COUNT_OF(BIG_LEBOWSKI_TRIMMED),
-                BIG_LEBOWSKI_TRIMMED_MILLIS_PER_FRAME, renderer);
-  return __func__;
-}
 
 const char *testFire(int, SDL_Renderer *const renderer) {
   testPalette(setLedFire, renderer);
@@ -567,6 +535,12 @@ const char *basicSpiralReversedHue(int time, SDL_Renderer *const renderer) {
 
 const char *basicSpiralGrayscale(int time, SDL_Renderer *const renderer) {
   basicSpiral(time, setLedGrayscale, renderer);
+  return __func__;
+}
+
+const char *basicSpiralSingleHue(int time, SDL_Renderer *const renderer) {
+  basicSpiral(time, setLedSingleHue, renderer);
+  ++singleHue;
   return __func__;
 }
 
@@ -754,6 +728,49 @@ const char *plasmaBidoulleFastChangingColors(int time,
   return __func__;
 }
 
+void diamondColors(int time, setLed_t setLed, SDL_Renderer *const renderer) {
+  static uint8_t start = 0;
+  uint8_t timeOffset = sin16(time >> 2) >> 10;
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      uint8_t offset = start + abs(LED_COLUMN_COUNT / 2 - x) * 4 + abs(LED_ROW_COUNT / 2 - y) * 2 + timeOffset;
+      setLed(x, y, offset, renderer);
+    }
+  }
+  --start;
+}
+
+const char *diamondColorsHue(int time, SDL_Renderer *const renderer) {
+  diamondColors(time, setLedHue, renderer);
+  return __func__;
+}
+
+const char *diamondColorsPastel(int time, SDL_Renderer *const renderer) {
+  diamondColors(time, setLedPastel, renderer);
+  return __func__;
+}
+
+void pointyColors(setLed_t setLed, SDL_Renderer *const renderer) {
+  static uint8_t start = 0;
+  for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
+    for (int y = 0; y < LED_ROW_COUNT; ++y) {
+      uint8_t offset = start + (abs(LED_COLUMN_COUNT / 2 - x) - abs(y - LED_ROW_COUNT)) * 4;
+      setLed(x, y, offset, renderer);
+    }
+  }
+  --start;
+}
+
+const char *pointyColorsHue(int, SDL_Renderer *const renderer) {
+  pointyColors(setLedHue, renderer);
+  return __func__;
+}
+
+const char *pointyColorsPastel(int, SDL_Renderer *const renderer) {
+  pointyColors(setLedPastel, renderer);
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
@@ -761,6 +778,11 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
+      basicSpiralSingleHue,
+      diamondColorsHue,
+      diamondColorsPastel,
+      pointyColorsHue,
+      pointyColorsPastel,
       plasmaBidoulleFastChristmas,
       basicSpiralHue,
       basicSpiralReversedHue,
@@ -770,11 +792,6 @@ int main() {
       basicSpiralReversedDoubleGrayscale,
       throbbingSpiralHue,
       spiralHueFloat,
-      rainbowSpiralWide,
-      rainbowSpiralCentered,
-      rickRollWide,
-      rickRollCentered,
-      bigLebowski,
       plasmaBidoulle,
       plasmaBidoulleFast,
       plasmaBidoulleFastChangingColors,
@@ -966,17 +983,31 @@ uint8_t sin8(uint8_t theta) {
   return y;
 }
 
-void setLedHue(const int x, const int y, const uint8_t v,
+/**
+ * Sets the color to a hue at full saturation and value.
+ */
+void setLedHue(const int x, const int y, const uint8_t hue,
                SDL_Renderer *const renderer) {
   uint8_t red, green, blue;
-  hsvToRgb(v, 255, 255, &red, &green, &blue);
+  hsvToRgb(hue, 255, 255, &red, &green, &blue);
   setLed(x, y, red, green, blue, renderer);
 }
 
-void setLedGrayscale(const int x, const int y, const uint8_t v,
+void setLedGrayscale(const int x, const int y, const uint8_t brightness,
                      SDL_Renderer *const renderer) {
-  const uint8_t value = sin8(v);
+  const uint8_t value = sin8(brightness);
   setLed(x, y, value, value, value, renderer);
+}
+
+/**
+ * Sets the color to a slowly iterating hue, using the passed in value as as brightness.
+ */
+void setLedSingleHue(const int x, const int y, const uint8_t v,
+                     SDL_Renderer *const renderer) {
+  const uint8_t brightness = sin8(v);
+  uint8_t red, green, blue;
+  hsvToRgb(singleHue, 255, brightness, &red, &green, &blue);
+  setLed(x, y, red, green, blue, renderer);
 }
 
 void setLedDoubleGrayscale(const int x, const int y, const uint8_t v,
