@@ -599,7 +599,6 @@ const char *plasmaBidoulle(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-
 const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   const uint16_t multiplier = 0.15f * PI_16_1_0;
   // I found that using precomputed tables for the circles makes the animation
@@ -637,8 +636,8 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-
-const char *plasmaBidoulleFastChristmas(int time, SDL_Renderer *const renderer) {
+const char *plasmaBidoulleFastChristmas(int time,
+                                        SDL_Renderer *const renderer) {
   const uint16_t multiplier = 0.15f * PI_16_1_0;
   // I found that using precomputed tables for the circles makes the animation
   // jittery, so blend two adjacent values so smooth it out
@@ -668,16 +667,16 @@ const char *plasmaBidoulleFastChristmas(int time, SDL_Renderer *const renderer) 
       const int16_t v = v1 + v2 + v3;
       uint8_t red = (sin16(v) / 256) + 128;
       if (red < 128) {
-          red = 0;
+        red = 0;
       }
       int16_t green = (sin16(v + 2 * 32768 / 3) / 256) + 128;
       if (green < 128 || red >= 128) {
-          green = 0;
+        green = 0;
       }
-      //const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
+      // const int16_t blue = (sin16(v + 4 * 32768 / 3) / 256) + 128;
       int16_t blue = 0;
       if (red == 0 && green == 0 && blue == 0) {
-          red = green = blue = 255;
+        red = green = blue = 255;
       }
       setLed(x, y, red, green, blue, renderer);
     }
@@ -733,7 +732,8 @@ void diamondColors(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   uint8_t timeOffset = sin16(time >> 2) >> 10;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      uint8_t offset = start + abs(LED_COLUMN_COUNT / 2 - x) * 4 + abs(LED_ROW_COUNT / 2 - y) * 2 + timeOffset;
+      uint8_t offset = start + abs(LED_COLUMN_COUNT / 2 - x) * 4 +
+                       abs(LED_ROW_COUNT / 2 - y) * 2 + timeOffset;
       setLed(x, y, offset, renderer);
     }
   }
@@ -754,7 +754,8 @@ void pointyColors(setLed_t setLed, SDL_Renderer *const renderer) {
   static uint8_t start = 0;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      uint8_t offset = start + (abs(LED_COLUMN_COUNT / 2 - x) - abs(y - LED_ROW_COUNT)) * 4;
+      uint8_t offset =
+          start + (abs(LED_COLUMN_COUNT / 2 - x) - abs(y - LED_ROW_COUNT)) * 4;
       setLed(x, y, offset, renderer);
     }
   }
@@ -771,12 +772,14 @@ const char *pointyColorsPastel(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
-const char* horizontalComets(int, SDL_Renderer *const renderer) {
+const char *horizontalComets(int, SDL_Renderer *const renderer) {
   const int delayStart = 6;
   const int length = 8;
 
   static uint8_t delay = delayStart;
-  static int16_t cometPositions[LED_ROW_COUNT] = { [0 ... LED_ROW_COUNT - 1] = LED_COLUMN_COUNT + length + 1 };
+  const int init = LED_COLUMN_COUNT + length + 1;
+  static int16_t cometPositions[LED_ROW_COUNT] = {
+      init, init, init, init, init, init, init, init, init, init, init, init};
   static bool left[LED_ROW_COUNT] = {0};
   static uint8_t hues[LED_ROW_COUNT] = {0};
   static uint8_t hue = 0;
@@ -787,7 +790,8 @@ const char* horizontalComets(int, SDL_Renderer *const renderer) {
     int index = rand() % COUNT_OF(cometPositions);
     // Just give up after 10 rolls
     for (int i = 0; i < 10; ++i) {
-      if (cometPositions[index] < -length || cometPositions[index] >= LED_COLUMN_COUNT + length) {
+      if (cometPositions[index] < -length ||
+          cometPositions[index] >= LED_COLUMN_COUNT + length) {
         set = true;
         break;
       }
@@ -839,7 +843,7 @@ int main() {
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
-    horizontalComets,
+      horizontalComets,
       basicSpiralSingleHue,
       diamondColorsHue,
       diamondColorsPastel,
@@ -1060,7 +1064,8 @@ void setLedGrayscale(const int x, const int y, const uint8_t brightness,
 }
 
 /**
- * Sets the color to a slowly iterating hue, using the passed in value as as brightness.
+ * Sets the color to a slowly iterating hue, using the passed in value as as
+ * brightness.
  */
 void setLedSingleHue(const int x, const int y, const uint8_t v,
                      SDL_Renderer *const renderer) {
