@@ -771,13 +771,75 @@ const char *pointyColorsPastel(int, SDL_Renderer *const renderer) {
   return __func__;
 }
 
+const char* horizontalComets(int, SDL_Renderer *const renderer) {
+  const int delayStart = 6;
+  const int length = 8;
+
+  static uint8_t delay = delayStart;
+  static int16_t cometPositions[LED_ROW_COUNT] = { [0 ... LED_ROW_COUNT - 1] = LED_COLUMN_COUNT + length + 1 };
+  static bool left[LED_ROW_COUNT] = {0};
+  static uint8_t hues[LED_ROW_COUNT] = {0};
+  static uint8_t hue = 0;
+
+  --delay;
+  if (delay == 0) {
+    bool set = false;
+    int index = rand() % COUNT_OF(cometPositions);
+    // Just give up after 10 rolls
+    for (int i = 0; i < 10; ++i) {
+      if (cometPositions[index] < -length || cometPositions[index] >= LED_COLUMN_COUNT + length) {
+        set = true;
+        break;
+      }
+      index = rand() % COUNT_OF(cometPositions);
+    }
+
+    if (set) {
+      if (rand() % 2 == 0) {
+        cometPositions[index] = LED_COLUMN_COUNT - 1;
+        left[index] = true;
+      } else {
+        cometPositions[index] = 0;
+        left[index] = false;
+      }
+      hues[index] = hue;
+      hue += 25;
+    }
+
+    delay = delayStart;
+  }
+
+  uint8_t red, green, blue;
+  for (int index = 0; index < COUNT_OF(cometPositions); ++index) {
+    const auto start = cometPositions[index];
+    uint8_t brightness = 255;
+    if (left[index]) {
+      for (int j = 0; j < length; ++j) {
+        hsvToRgb(hues[index], 255, brightness, &red, &green, &blue);
+        setLed(start + j, index, red, green, blue, renderer);
+        brightness -= 30;
+      }
+      --cometPositions[index];
+    } else {
+      for (int j = 0; j < length; ++j) {
+        hsvToRgb(hues[index], 255, brightness, &red, &green, &blue);
+        setLed(start - j, index, red, green, blue, renderer);
+        brightness -= 30;
+      }
+      ++cometPositions[index];
+    }
+  }
+
+  return __func__;
+}
+
 int main() {
   bool shouldClose = false;
   uint8_t hue = 0;
-  int animation_ms = 0;
   int time = 0;
   int animationIndex = 0;
   const char *(*animations[])(int, SDL_Renderer *) = {
+    horizontalComets,
       basicSpiralSingleHue,
       diamondColorsHue,
       diamondColorsPastel,
@@ -845,8 +907,6 @@ int main() {
       // 60 FPS
       SDL_Delay(1000 / 60);
       delay_ms -= 60;
-
-      animation_ms += 1000 / 60;
 
       SDL_Event event;
       // Events management
