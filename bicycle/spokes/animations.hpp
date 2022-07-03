@@ -1,3 +1,6 @@
+#ifndef ANIMATIONS_HPP
+#define ANIMATIONS_HPP
+
 #include <cstdint>
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])))
@@ -31,3 +34,5 @@ int cometsShort();
 int fadingRainbowRings();
 int outerHue();
 int outerRipple();
+
+#endif

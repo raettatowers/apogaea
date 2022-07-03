@@ -1,3 +1,4 @@
+// DOIT ESP32 DevKit v1
 #define REMOTEXY_MODE__ESP32CORE_BLE
 #include <BLEDevice.h>
 #include <FastLED.h>
