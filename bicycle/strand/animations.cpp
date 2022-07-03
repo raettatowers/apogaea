@@ -47,7 +47,11 @@ RainbowColors::RainbowColors(uint8_t skipPerLed_, uint8_t skipPerIteration_) :
 
 CRGB RainbowColors::getColor() {
   offset += skipPerLed;
-  value += 20;
+  if (value < 255 - 20) {
+    value += 20;
+  } else {
+    value = 255;
+  }
   return CHSV(offset, 255, value);
 }
 
@@ -58,27 +62,44 @@ void RainbowColors::reset() {
   value = 0;
 }
 
+MultipleAnimations::MultipleAnimations(
+  CRGB* const leds_,
+  const uint8_t ledCount_,
+  Animation** animations_,
+  const uint8_t animationCount_
+) :
+  leds(leds_),
+  ledCount(ledCount_),
+  animations(animations_),
+  animationCount(animationCount_)
+{
+}
 
-InchWormAnimation::InchWormAnimation(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start) :
-  state(),
+void MultipleAnimations::animate(ColorFunctor& functor) {
+  for (int i = 0; i < animationCount; ++i) {
+    animations[i]->animate(functor);
+  }
+}
+
+Streak::Streak(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start) :
+  state(streakState_t::BEGIN),
   leds(leds_),
   numLeds(numLeds_),
   length(length_),
   index(start < numLeds_ ? start : 0)
 {
   if (index < length_) {
-    state = inchWormState_t::BEGIN;
+    state = streakState_t::BEGIN;
   } else if (index < numLeds_ - length) {
-    state = inchWormState_t::MIDDLE;
+    state = streakState_t::MIDDLE;
   } else {
-    state = inchWormState_t::END;
+    state = streakState_t::END;
   }
 }
 
-
-void InchWormAnimation::animate(ColorFunctor & colorFunctor) {
+void Streak::animate(ColorFunctor & colorFunctor) {
   switch (state) {
-    case inchWormState_t::BEGIN:
+    case streakState_t::BEGIN:
       for (int i = 0; i < index; ++i) {
         leds[i] = colorFunctor.getColor();
       }
@@ -86,10 +107,10 @@ void InchWormAnimation::animate(ColorFunctor & colorFunctor) {
       // I don't ever expect index > length, but just to be defensive, do >=
       if (index >= length) {
         index = 0;
-        state = inchWormState_t::MIDDLE;
+        state = streakState_t::MIDDLE;
       }
       break;
-    case inchWormState_t::MIDDLE:
+    case streakState_t::MIDDLE:
       for (int i = 0; i < length; ++i) {
         leds[index + i] = colorFunctor.getColor();
       }
@@ -97,10 +118,10 @@ void InchWormAnimation::animate(ColorFunctor & colorFunctor) {
       // I don't ever expect index + length > INCH_WORM_LENGTH, but just to be defensive, do >=
       if (index + length >= numLeds) {
         index = 0;
-        state = inchWormState_t::END;
+        state = streakState_t::END;
       }
       break;
-    case inchWormState_t::END:
+    case streakState_t::END:
       for (int i = 0; i < length - index; ++i) {
         leds[numLeds - length + index + i] = colorFunctor.getColor();
       }
@@ -108,11 +129,40 @@ void InchWormAnimation::animate(ColorFunctor & colorFunctor) {
       // I don't ever expect index > length, but just to be defensive, do >=
       if (index >= length) {
         index = 0;
-        state = inchWormState_t::BEGIN;
+        state = streakState_t::BEGIN;
       }
       break;
     default:
-      state = inchWormState_t::BEGIN;
+      state = streakState_t::BEGIN;
       index = 0;
   }
+}
+
+Comet::Comet(CRGB* leds_, uint8_t ledCount_) :
+  leds(leds_),
+  ledCount(ledCount_),
+  start(0),
+  hue(0),
+  hues(new uint8_t[ledCount_]),
+  brightnesses(new uint8_t[ledCount_])
+{
+  memset(hues, 0, ledCount_ * sizeof(hues[0]));
+  memset(brightnesses, 0, ledCount_ * sizeof(brightnesses[0]));
+}
+
+void Comet::animate(ColorFunctor&) {
+  const int offBrightness = 0;
+  const int brightnessStep = 20;
+  const int cometBrightness = 255;
+  const int length = 10;
+
+  fill_solid(leds, ledCount, CHSV(hue + 128, 255, offBrightness));
+  uint8_t brightness = 255 - length * brightnessStep;
+  static_assert(cometBrightness - brightnessStep * length > 0);
+  for (int i = 0; i < length; ++i) {
+    leds[(start + i) % ledCount] = CHSV(hue, 255, brightness);
+    brightness += brightnessStep;
+  }
+  ++hue;
+  ++start;
 }

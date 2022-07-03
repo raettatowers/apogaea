@@ -1,47 +1,58 @@
 #include <FastLED.h>
 #include "animations.hpp"
+#include "constants.hpp"
+
+// This include is needed to fix "undefined reference to `Adafruit_USBD_CDC::begin(unsigned long)'"
+//#include <Adafruit_CircuitPlayground.h>
 
 // Just a single strand running up the top tube
 
 // How many leds in your strip?
-#define NUM_LEDS 57
+const int NUM_LEDS = 100;
 
 // For led chips like Neopixels, which have a data line, ground, and power, you just
 // need to define DATA_PIN.  For led chipsets that are SPI based (four wires - data, clock,
 // ground, and power), like the LPD8806 define both DATA_PIN and CLOCK_PIN
-const int DATA_PIN = 7;
-const int CLOCK_PIN = 6;
+const int DATA_PIN = 2;
 const int BUTTON_PIN = 11;
 
 // Define the array of leds
 CRGB leds[NUM_LEDS];
 
-InchWormAnimation worm1(leds, NUM_LEDS, 9, 0);
-InchWormAnimation worm2(leds, NUM_LEDS, 9, NUM_LEDS / 2);
+Streak streak1(leds, NUM_LEDS, 9, 0);
+Streak streak2(leds, NUM_LEDS, 9, NUM_LEDS / 2);
+Animation* pair[] = {&streak1, &streak2};
+MultipleAnimations streaks(leds, NUM_LEDS, pair, COUNT_OF(pair));
+Comet comet(leds, NUM_LEDS);
+
 UsaColors usaColors;
 RainbowColors rainbowColors(1, 1);
 RainbowColors iteratingColors1(20, 20), iteratingColors2(20, 20);
 SingleColor singleColor;
 
-const int NUM_COLOR_FUNCTORS = 3;
-ColorFunctor* colorFunctors[][2] = {
-  //{&singleColor, &singleColor},
-  //{&usaColors, &usaColors},
-  {&rainbowColors, &rainbowColors},
-  {&iteratingColors1, &iteratingColors2},
+Animation* animations[] = {
+  &streaks,
+  &comet,
+};
+
+ColorFunctor* colorFunctors[] = {
+  //&singleColor,
+  //&usaColors,
+  &rainbowColors,
+  &iteratingColors1,
 };
 
 
 void setup() {
-  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, BGR>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812B, DATA_PIN, BGR>(leds, NUM_LEDS);
   FastLED.setBrightness(64);
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-  pinMode(CLOCK_PIN, OUTPUT);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 400);
+  FastLED.clear();
   pinMode(DATA_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
   singleColor.color = CRGB::Green;
-  Serial.begin(9600);
+  Serial.begin(115200);
 }
 
 
@@ -50,18 +61,16 @@ const int minSleepTime_ms = 30;
 const int sleepTimeIncrement_ms = 3;
 int sleepTime_ms = minSleepTime_ms;
 int sleepTimeStep_ms = -sleepTimeIncrement_ms;
+uint8_t animationIndex = 0;
 uint8_t colorFunctorIndex = 0;
 
 auto start_ms = millis();
 
 void loop() {
   // Do animations here
-  ColorFunctor* functor1 = colorFunctors[colorFunctorIndex][0];
-  ColorFunctor* functor2 = colorFunctors[colorFunctorIndex][1];
-  worm1.animate(*functor1);
-  functor1->reset();
-  worm2.animate(*functor2);
-  functor2->reset();
+  ColorFunctor* functor = colorFunctors[colorFunctorIndex];
+  animations[animationIndex]->animate(*functor);
+  functor->reset();
 
   FastLED.show();
   // Vary the speed of the animation
@@ -73,12 +82,16 @@ void loop() {
   }
   auto start = millis();
   while (millis() < start + sleepTime_ms) {
-    checkAndHandleButton();
+    //checkAndHandleButton();
   }
   FastLED.clear();
 
   if (start_ms + 30000 < millis()) {
-    colorFunctorIndex = (colorFunctorIndex + 1) % NUM_COLOR_FUNCTORS;
+    ++animationIndex;
+    if (animationIndex == COUNT_OF(animations)) {
+      animationIndex = 0;
+      colorFunctorIndex = (colorFunctorIndex + 1) % COUNT_OF(colorFunctors);
+    }
     start_ms = millis();
   }
 }
@@ -107,6 +120,15 @@ void checkAndHandleButton() {
   if (!pressed) {
     pressed = true;
     digitalWrite(LED_BUILTIN, HIGH);
-    colorFunctorIndex = (colorFunctorIndex + 1) % NUM_COLOR_FUNCTORS;
+    colorFunctorIndex = (colorFunctorIndex + 1) % COUNT_OF(colorFunctors);
+  }
+}
+
+// Fix for "undefined reference to `std::__throw_bad_alloc()'"
+namespace std {
+  void __throw_bad_alloc()
+  {
+    Serial.println("Unable to allocate memory");
+    for (;;);
   }
 }

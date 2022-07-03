@@ -45,16 +45,56 @@ class RainbowColors : public ColorFunctor {
     void reset();
 };
 
-class InchWormAnimation : public Animation {
+class MultipleAnimations : public Animation {
   public:
-    InchWormAnimation(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start);
+    MultipleAnimations(
+      CRGB* leds,
+      uint8_t ledCount,
+      Animation** animations,
+      uint8_t animationCount
+    );
+    ~MultipleAnimations() = default;
+    void animate(ColorFunctor& colorFunctor) override;
+  private:
+    CRGB* const leds;
+    const uint8_t ledCount;
+    Animation** animations;
+    const uint8_t animationCount;
+
+    MultipleAnimations(MultipleAnimations&) = delete;
+    MultipleAnimations(MultipleAnimations&&) = delete;
+};
+
+class Streak : public Animation {
+  public:
+    Streak(CRGB * leds_, uint8_t numLeds_, uint8_t length_, uint8_t start);
     void animate(ColorFunctor & colorFunctor);
 
-  private:
-    enum class inchWormState_t { BEGIN, MIDDLE, END };
-    inchWormState_t state = inchWormState_t::BEGIN;
-    CRGB const * leds;
+  protected:
+    enum class streakState_t { BEGIN, MIDDLE, END };
+    streakState_t state;
+    CRGB * const leds;
     const uint8_t numLeds;
     const uint8_t length;
     uint8_t index = 0;
+
+    Streak(Streak&) = delete;
+    Streak(Streak&&) = delete;
+};
+
+class Comet : public Animation {
+  public:
+    Comet(CRGB* leds, uint8_t ledCount);
+    void animate(ColorFunctor&) override;
+
+  private:
+    CRGB* const leds;
+    const uint8_t ledCount;
+    uint8_t start;
+    uint8_t hue;
+    uint8_t* hues;
+    uint8_t* brightnesses;
+
+    Comet(Comet&) = delete;
+    Comet(Comet&&) = delete;
 };
