@@ -44,7 +44,7 @@ void setup() {
   analogReference(AR_DEFAULT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(ONBOARD_LED_PIN, OUTPUT);
 
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), setButtonDownState, CHANGE);
@@ -53,7 +53,7 @@ void setup() {
   internalPixel.setBrightness(5);
   // Pause if the button is pressed so that if I mess something up,
   // I can still upload code and recover
-  if (digitalRead(BUTTON_PIN) == HIGH) {
+  if (digitalRead(BUTTON_PIN) == LOW) {
     uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00};
     for (int i = 0; i < 10; ++i) {
       for (auto color : colors) {
@@ -132,6 +132,7 @@ void loop() {
   if (CONFIGURATION_FUNCTIONS[configurationsIndex] != nullptr) {
     CONFIGURATION_FUNCTIONS[configurationsIndex](buttonState == ButtonState_t::BUTTON_PRESS);
   } else {
+    Serial.printf("Doing animation %d\n", animationsIndex);
     // Do a regular animation
     ANIMATIONS[animationsIndex](hue);
 
@@ -146,7 +147,8 @@ void loop() {
 
 
 void setButtonDownState() {
-  buttonDown = (digitalRead(BUTTON_PIN) == HIGH);
+  buttonDown = (digitalRead(BUTTON_PIN) == LOW);
+  digitalWrite(LED_BUILTIN, buttonDown ? HIGH : LOW);
 }
 
 
