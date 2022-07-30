@@ -807,7 +807,7 @@ const char *horizontalComets(int, SDL_Renderer *const renderer) {
         left[index] = false;
       }
       hues[index] = hue;
-      hue += 25;
+      hue += 45;
     }
 
     delay = delayStart;

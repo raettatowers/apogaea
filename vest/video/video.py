@@ -36,7 +36,7 @@ def process(arguments: argparse.Namespace) -> None:
 
     def sample_to_int(sample: List[int]) -> int:
         """Converts a sample to int."""
-        value = (sample[2] << 16) + (sample[1] << 8) + sample[0] 
+        value = (sample[2] << 16) + (sample[1] << 8) + sample[0]
         return value
 
     output_name = path.Path(re.sub("\.[^.]+$", ".anim", arguments.video_file))

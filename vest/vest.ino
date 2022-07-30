@@ -1,5 +1,6 @@
 #include <FastLED.h>
 #include <math.h>
+#include <SPI.h>
 // RemoteXY select connection mode and include library
 #define REMOTEXY_MODE__ESP32CORE_BLE
 #include <BLEDevice.h>
@@ -9,6 +10,7 @@
 
 #include "animations.hpp"
 #include "constants.hpp"
+#include "movies.hpp"
 
 // RemoteXY configurate
 #pragma pack(push, 1)
@@ -61,9 +63,11 @@ CRGB leds[LED_COUNT];
 const int LED_PIN = 0;
 
 void setup() {
+  SPI.begin();
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(SD_PIN, OUTPUT);
 
   Serial.begin(115200);
 
@@ -78,6 +82,7 @@ void setup() {
 }
 
 static uint8_t hue = 0;
+static bool playingMovie = false;
 
 static int soundFunction() {
   return 0;
@@ -103,6 +108,7 @@ static PlasmaBidoulleFast bidoullePastel(pastelGenerator);
 static PlasmaBidoulleFast bidoulleChanging(changingGenerator);
 static Plasma3 plasma3(hueGenerator);
 static BasicSpiral spiral(hueGenerator);
+static MoviePlayer moviePlayer;
 
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
@@ -120,7 +126,7 @@ void loop() {
       ++hue;
     }
 
-    const int delay_ms = animations[RemoteXY.animation]->animate(hue);
+    const int delay_ms = playingMovie ? moviePlayer.animate(0) : animations[RemoteXY.animation]->animate(hue);
     FastLED.show();
     delayAndHandleRemoteXy(delay_ms);
   }
@@ -141,8 +147,30 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
 
   if (previousSwitchCycle != RemoteXY.switch_cycle) {
     animationStart_ms = millis();
+    playingMovie = false;
   }
   previousSwitchCycle = RemoteXY.switch_cycle;
+
+  if (RemoteXY.button_play) {
+    playingMovie = true;
+  }
+  if (RemoteXY.button_next) {
+    if (moviePlayer) {
+      moviePlayer.next(RemoteXY.text_sd, COUNT_OF(RemoteXY.text_sd));
+    } else {
+      const char message[] = "FAIL";
+      static_assert(COUNT_OF(message) < COUNT_OF(RemoteXY.text_sd));
+      strcpy(RemoteXY.text_sd, message);
+    }
+  } else if (RemoteXY.button_previous) {
+    if (moviePlayer) {
+      moviePlayer.previous(RemoteXY.text_sd, COUNT_OF(RemoteXY.text_sd));
+    } else {
+      const char message[] = "FAIL";
+      static_assert(COUNT_OF(message) < COUNT_OF(RemoteXY.text_sd));
+      strcpy(RemoteXY.text_sd, message);
+    }
+  }
 
   if (RemoteXY.switch_cycle && millis() > animationStart_ms + animationDuration_ms) {
     animationStart_ms = millis();

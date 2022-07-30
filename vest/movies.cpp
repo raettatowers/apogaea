@@ -7,17 +7,17 @@
 #include "movies.hpp"
 
 extern CRGB leds[LED_COUNT];
-const char* const DIRECTORY = "animations";
+static const char* const DIRECTORY = "animations";
 
 MoviePlayer::MoviePlayer() :
-  _initialized(false),
   _playing(false),
   _directory(),
   _file(),
-  _currentFileIndex(0)
+  _currentFileIndex(0),
+  _millisPerFrame()
 {
-  // TODO: I think 5 might be the pin? Need to check if this is right
-  if (!SD.begin(5)) {
+  pinMode(SD_PIN, OUTPUT);
+  if (!SD.begin(SD_PIN)) {
     return;
   }
 
@@ -31,10 +31,13 @@ MoviePlayer::MoviePlayer() :
   }
 
   _file = _directory.openNextFile();
-  _initialized = true;
+  if (_file) {
+    static_assert(BYTE_ORDER == LITTLE_ENDIAN);
+    _file.read(reinterpret_cast<uint8_t*>(&_millisPerFrame), sizeof(_millisPerFrame));
+  }
 }
 
-void MoviePlayer::next(char* const output, const int length) {
+void MoviePlayer::next(char* const output, const size_t length) {
   _file = _directory.openNextFile();
   if (!_file) {
     _directory.rewindDirectory();
@@ -48,7 +51,7 @@ void MoviePlayer::next(char* const output, const int length) {
   _playing = false;
 }
 
-void MoviePlayer::previous(char* const output, const int length) {
+void MoviePlayer::previous(char* const output, const size_t length) {
   if (_currentFileIndex > 0) {
     _directory.rewindDirectory();
     for (int i = 0; i <= _currentFileIndex; ++i) {
@@ -75,6 +78,10 @@ void MoviePlayer::togglePlay() {
   _playing = !_playing;
 }
 
+MoviePlayer::operator bool() const {
+  return static_cast<bool>(_file);
+}
+
 int MoviePlayer::animate(uint8_t) {
   const int HEADER_OFFSET = 2;
   if (!_playing) {
@@ -82,11 +89,16 @@ int MoviePlayer::animate(uint8_t) {
   }
 
   if (!_file.available()) {
-    _file.seek(0);
+    _file.seek(sizeof(_millisPerFrame));
   }
   // Looks like the struct is packed
   static_assert(sizeof(leds) == LED_COUNT * 3);
   // TODO: Should I check the response number of bytes read?
   _file.read(reinterpret_cast<uint8_t*>(leds), sizeof(leds));
   return _millisPerFrame;
+}
+
+
+void MoviePlayer::reset() {
+  _file.seek(sizeof(_millisPerFrame));
 }

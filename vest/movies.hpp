@@ -1,3 +1,6 @@
+#ifndef MOVIES_HPP
+#define MOVIES_HPP
+
 #include "animations.hpp"
 #include <FS.h>
 
@@ -5,8 +8,8 @@ class MoviePlayer : public Animation {
   public:
     MoviePlayer();
     ~MoviePlayer() = default;
-    void next(char* output, int length);
-    void previous(char* output, int length);
+    void next(char* output, size_t length);
+    void previous(char* output, size_t length);
     void play();
     void pause();
     void togglePlay();
@@ -19,10 +22,11 @@ class MoviePlayer : public Animation {
     MoviePlayer(const MoviePlayer&) = delete;
     MoviePlayer(MoviePlayer&&) = delete;
 
-    bool _initialized;
     bool _playing;
     File _directory;
     File _file;
     int _currentFileIndex;
     uint16_t _millisPerFrame;
 };
+
+#endif
