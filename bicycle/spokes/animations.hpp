@@ -5,11 +5,12 @@
 
 #define COUNT_OF(x) ((sizeof(x) / sizeof(0 [x])))
 
-const int LED_COUNT = 50;
+const int LED_COUNT = 15;  // TODO: Change this back to 50
 // The outer ring has 18, but the inner ones only have 9
 const int SPOKE_COUNT = 18;
 const int RING_COUNT = 5;
-static_assert(SPOKE_COUNT / 2 * RING_COUNT + RING_COUNT == LED_COUNT);
+// TODO: Uncomment this
+//static_assert(SPOKE_COUNT / 2 * RING_COUNT + RING_COUNT == LED_COUNT);
 
 void setLed(int ring, int spoke, std::uint8_t red, std::uint8_t green, std::uint8_t blue);
 void setLedHue(int ring, int spoke, std::uint8_t hue);
@@ -34,5 +35,9 @@ int cometsShort();
 int fadingRainbowRings();
 int outerHue();
 int outerRipple();
+
+// FFT stuff
+void bluetoothDataCallback(const uint8_t *data, uint32_t length);
+void renderFFT(void* parameter);
 
 #endif

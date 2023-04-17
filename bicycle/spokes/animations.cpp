@@ -252,6 +252,7 @@ int triadOrbits() {
   return 75;
 }
 
+/*
 int pendulum() {
   const int divisor = 16;
   const int fade = 10;
@@ -292,6 +293,7 @@ int pendulum() {
 
   return 40;
 }
+*/
 
 int comets() {
   static uint8_t spokeHue[SPOKE_COUNT] = {0};

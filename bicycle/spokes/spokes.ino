@@ -1,43 +1,59 @@
 // DOIT ESP32 DevKit v1
-#define REMOTEXY_MODE__ESP32CORE_BLE
+// Note that this sketch is too big to fit in normally program storage space. DOIT ESP32 DevKit v1
+// only has 128 KiB of space, but you can change the partition size to get it to fit. To do that,
+// you need to change the board type to ESP32 Dev Module. You'll also need to change some upload
+// parameters:
+// Upload speed: 921600
+// Flash frequency: 80 MHz
+// Partition scheme: Huge APP
+// CPU: 240 MHz
+// Arduino Runs On: Core: 0
+// Events Run On: Core: 0
+
+#define REMOTEXY_MODE__ESP32CORE_WIFI_POINT
+#include <atomic>
 #include <BLEDevice.h>
+#include <BluetoothA2DPSink.h>
 #include <FastLED.h>
+#include <WiFi.h>
 #include <RemoteXY.h>
 
 #include "animations.hpp"
 
 // RemoteXY connection settings
-#define REMOTEXY_BLUETOOTH_NAME "spokes"
+#define REMOTEXY_WIFI_SSID "spokes"
+#define REMOTEXY_WIFI_PASSWORD "12345678"
+#define REMOTEXY_SERVER_PORT 6377
 
 #pragma pack(push, 1)
-uint8_t RemoteXY_CONF[] =   // 504 bytes
-{ 255, 10, 0, 0, 0, 241, 1, 16, 24, 1, 129, 0, 10, 3, 14, 3, 17, 79, 117, 116,
-  101, 114, 32, 104, 117, 101, 0, 129, 0, 10, 7, 17, 3, 17, 79, 117, 116, 101, 114, 32,
-  114, 105, 112, 112, 108, 101, 0, 129, 0, 10, 11, 14, 3, 17, 80, 101, 110, 100, 117, 108,
-  117, 109, 0, 129, 0, 10, 15, 7, 3, 17, 79, 114, 98, 105, 116, 0, 129, 0, 10, 19,
-  16, 3, 17, 84, 114, 105, 97, 100, 32, 111, 114, 98, 105, 116, 115, 0, 129, 0, 10, 23,
-  19, 3, 17, 66, 108, 117, 114, 114, 101, 100, 32, 115, 112, 105, 114, 97, 108, 0, 129, 0,
-  10, 27, 27, 3, 17, 66, 108, 117, 114, 114, 101, 100, 32, 115, 112, 105, 114, 97, 108, 32,
-  104, 117, 101, 115, 0, 129, 0, 10, 31, 30, 3, 17, 70, 97, 100, 105, 110, 103, 32, 114,
-  105, 110, 103, 115, 0, 129, 0, 10, 35, 19, 3, 17, 67, 111, 109, 101, 116, 115, 32, 115,
-  104, 111, 114, 116, 0, 129, 0, 10, 39, 18, 3, 17, 67, 111, 109, 101, 116, 115, 32, 108,
-  111, 110, 103, 0, 3, 10, 3, 2, 4, 40, 2, 26, 3, 6, 3, 42, 4, 24, 2, 26,
-  129, 0, 10, 47, 27, 3, 17, 79, 117, 116, 119, 97, 114, 100, 32, 114, 105, 112, 112, 108,
-  101, 32, 104, 117, 101, 0, 129, 0, 10, 51, 18, 3, 17, 83, 105, 110, 103, 108, 101, 32,
-  115, 112, 105, 114, 97, 108, 0, 129, 0, 10, 59, 18, 3, 17, 79, 117, 116, 119, 97, 114,
-  100, 32, 104, 117, 101, 0, 129, 0, 10, 63, 16, 3, 17, 73, 110, 119, 97, 114, 100, 32,
-  104, 117, 101, 0, 2, 1, 42, 2, 18, 7, 2, 26, 31, 31, 67, 121, 99, 108, 101, 0,
-  83, 105, 110, 103, 108, 101, 0, 129, 0, 3, 72, 21, 4, 17, 66, 114, 105, 103, 104, 116,
-  110, 101, 115, 115, 0, 129, 0, 4, 77, 20, 4, 17, 67, 121, 99, 108, 101, 32, 116, 105,
-  109, 101, 0, 4, 128, 26, 71, 32, 5, 2, 26, 4, 128, 26, 76, 32, 5, 2, 26, 129,
-  0, 12, 82, 12, 4, 17, 83, 112, 101, 101, 100, 0, 4, 128, 26, 81, 32, 5, 2, 26,
-  6, 0, 41, 24, 20, 20, 2, 26, 129, 0, 10, 55, 11, 3, 17, 83, 112, 105, 114, 97,
-  108, 0, 129, 0, 10, 43, 21, 3, 17, 79, 117, 116, 119, 97, 114, 100, 32, 114, 105, 112,
-  112, 108, 101, 0, 3, 3, 41, 11, 4, 12, 2, 26, 129, 0, 46, 12, 13, 3, 17, 65,
-  110, 105, 109, 97, 116, 105, 111, 110, 115, 0, 129, 0, 46, 16, 11, 3, 17, 65, 108, 108,
-  32, 115, 111, 108, 105, 100, 0, 129, 0, 46, 20, 13, 3, 17, 82, 105, 109, 32, 115, 111,
-  108, 105, 100, 0
-};
+uint8_t RemoteXY_CONF[] =   // 505 bytes
+  { 255,10,0,0,0,242,1,16,24,1,129,0,10,3,14,3,17,79,117,116,
+  101,114,32,104,117,101,0,129,0,10,7,17,3,17,79,117,116,101,114,32,
+  114,105,112,112,108,101,0,129,0,10,11,7,3,17,79,114,98,105,116,0,
+  129,0,10,15,16,3,17,84,114,105,97,100,32,111,114,98,105,116,115,0,
+  129,0,10,19,19,3,17,66,108,117,114,114,101,100,32,115,112,105,114,97,
+  108,0,129,0,10,23,27,3,17,66,108,117,114,114,101,100,32,115,112,105,
+  114,97,108,32,104,117,101,115,0,129,0,10,27,30,3,17,70,97,100,105,
+  110,103,32,114,105,110,103,115,0,129,0,10,31,19,3,17,67,111,109,101,
+  116,115,32,115,104,111,114,116,0,129,0,10,35,18,3,17,67,111,109,101,
+  116,115,32,108,111,110,103,0,3,10,3,2,4,40,2,26,3,5,3,42,
+  4,20,2,26,129,0,10,43,27,3,17,79,117,116,119,97,114,100,32,114,
+  105,112,112,108,101,32,104,117,101,0,129,0,10,47,18,3,17,83,105,110,
+  103,108,101,32,115,112,105,114,97,108,0,129,0,10,55,18,3,17,79,117,
+  116,119,97,114,100,32,104,117,101,0,129,0,10,59,16,3,17,73,110,119,
+  97,114,100,32,104,117,101,0,2,1,42,2,18,7,2,26,31,31,67,121,
+  99,108,101,0,83,105,110,103,108,101,0,129,0,3,72,21,4,17,66,114,
+  105,103,104,116,110,101,115,115,0,129,0,4,77,20,4,17,67,121,99,108,
+  101,32,116,105,109,101,0,4,128,26,71,32,5,2,26,4,128,26,76,32,
+  5,2,26,129,0,12,82,12,4,17,83,112,101,101,100,0,4,128,26,81,
+  32,5,2,26,6,0,41,29,20,20,2,26,129,0,10,51,11,3,17,83,
+  112,105,114,97,108,0,129,0,10,39,21,3,17,79,117,116,119,97,114,100,
+  32,114,105,112,112,108,101,0,3,4,40,11,4,16,2,26,129,0,46,12,
+  13,3,17,65,110,105,109,97,116,105,111,110,115,0,129,0,46,16,11,3,
+  17,65,108,108,32,115,111,108,105,100,0,129,0,46,20,13,3,17,82,105,
+  109,32,115,111,108,105,100,0,129,0,46,24,13,3,17,66,108,117,101,116,
+  111,111,116,104,0 };
+
 // this structure defines all the variables and events of your control interface
 struct {
 
@@ -60,13 +76,17 @@ struct {
 #pragma pack(pop)
 
 const int LED_PIN = 4;
+const char* const BLUETOOTH_SINK_NAME = "spokes";
 
 CRGB leds[LED_COUNT];
+BluetoothA2DPSink bluetoothSink;
+std::atomic_bool renderSpectrumAnalyzer;
+QueueHandle_t fftQueue;
 
 int (* const animations[])() = {
   outerHue,
   outerRipple,
-  pendulum,
+  // pendulum,  // The pendulum animation is boring
   orbit,
   triadOrbits,
   blurredSpiral,
@@ -83,12 +103,15 @@ int (* const animations[])() = {
 };
 
 void setup() {
-  RemoteXY_Init();
+  Serial.begin(115200);
+  Serial.println("1");
+
   pinMode(LED_PIN, OUTPUT);
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalLEDStrip);
-  FastLED.setBrightness(64);
+  FastLED.setBrightness(15);  // TODO: Change this back to 64
   FastLED.clear();
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
+  Serial.println("2");
 
   // Some animations look bad when first called but then settle down, so just
   // call each animation a few times to let them settle
@@ -97,13 +120,36 @@ void setup() {
       animations[i]();
     }
   }
+  Serial.println("3");
 
+  RemoteXY_Init();
   RemoteXY.brightnessSlider = 15;
   RemoteXY.cycleTimeSlider = 50;
   RemoteXY.speedSlider = 25;
   RemoteXY.solidSelect = 0;
   RemoteXY.cycleSwitch = 1;
   RemoteXY_Handler();
+  Serial.println("4");
+
+  bluetoothSink.start(BLUETOOTH_SINK_NAME);
+  bluetoothSink.set_stream_reader(bluetoothDataCallback, false);  // I2S output = false
+  Serial.println("5");
+
+  renderSpectrumAnalyzer = false;
+  fftQueue = xQueueCreate(1, sizeof(int));
+  if (fftQueue == NULL) {
+    log_i("Error creating the A2DP->FFT queue");
+  } else {
+    xTaskCreatePinnedToCore(renderFFT,      // Function that should be called
+                            "FFT Renderer", // Name of the task (for debugging)
+                            10000,          // Stack size (bytes)
+                            NULL,           // Parameter to pass
+                            1,              // Task priority
+                            NULL,           // Task handle
+                            1               // Core you want to run the task on (0 or 1)
+    );
+  }
+  Serial.println("6");
 }
 
 void loop() {
@@ -114,41 +160,55 @@ void loop() {
   static decltype(millis()) animationStart_ms = 0;
   static int animationIndex = 0;
   static uint8_t previousAnimationSelect1 = 0, previousAnimationSelect2 = 0;
+  Serial.println("7");
 
   FastLED.clear();
+  decltype(millis()) delayInterval_ms = 50;
   switch (RemoteXY.solidSelect) {
     case 0: // Animations
+      Serial.println("9");
+      renderSpectrumAnalyzer = false;
       {
         const float multiplier = 20.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
-        const decltype(millis()) delayTime_ms = animations[animationIndex]() * multiplier;
-        const auto start = millis();
-        while (millis() < start + delayTime_ms) {
-          RemoteXY_Handler();
-        }
+        delayInterval_ms = animations[animationIndex]() * multiplier;
         break;
       }
     case 1: // All solid
+      Serial.println("10");
       fill_solid(leds, LED_COUNT, CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b));
-      RemoteXY_Handler();
+      renderSpectrumAnalyzer = false;
       break;
-    case 2:
+    case 2: // Rim solid
+      Serial.println("11");
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(RING_COUNT - 1, spoke, RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b);
       }
-      RemoteXY_Handler();
+      renderSpectrumAnalyzer = false;
+      break;
+    case 3: // Bluetooth
+      Serial.println("12");
+      renderSpectrumAnalyzer = true;
       break;
   }
   FastLED.show();
+  const auto start = millis();
+  Serial.println("13");
+  while (millis() < start + delayInterval_ms) {
+    RemoteXY_Handler();
+  }
 
+  Serial.println("14");
   // Handle the app changes
   if (previousAnimationSelect1 != RemoteXY.animationSelect1) {
     animationIndex =  RemoteXY.animationSelect1;
   } else if (previousAnimationSelect2 != RemoteXY.animationSelect2) {
     animationIndex =  RemoteXY.animationSelect2 + 10;
   }
+  Serial.println("15");
   previousAnimationSelect1 = RemoteXY.animationSelect1;
   previousAnimationSelect2 = RemoteXY.animationSelect2;
 
+  Serial.println("16");
   const decltype(millis()) animationDuration_ms = RemoteXY.cycleTimeSlider * (maxAnimationTime_ms - minAnimationTime_ms) / 100 + minAnimationTime_ms;
   if (RemoteXY.cycleSwitch == 1) {
     if (millis() > animationStart_ms + animationDuration_ms) {
@@ -160,5 +220,6 @@ void loop() {
     animationStart_ms = millis();
   }
 
+  Serial.println("17");
   FastLED.setBrightness(RemoteXY.brightnessSlider * (255 - minBrightness) / 100 + minBrightness);
 }
