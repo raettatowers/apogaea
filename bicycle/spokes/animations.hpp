@@ -29,7 +29,7 @@ int blurredSpiral();
 int blurredSpiralHues();
 int orbit();
 int triadOrbits();
-int pendulum();
+//int pendulum();  // This animation sucks
 int comets();
 int cometsShort();
 int fadingRainbowRings();

@@ -6,7 +6,7 @@
 // Upload speed: 921600
 // Flash frequency: 80 MHz
 // Partition scheme: Huge APP
-// CPU: 240 MHz
+// CPU: 80 MHz? It got hot at 240
 // Arduino Runs On: Core: 0
 // Events Run On: Core: 0
 
@@ -103,15 +103,11 @@ int (* const animations[])() = {
 };
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("1");
-
   pinMode(LED_PIN, OUTPUT);
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, LED_COUNT).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(15);  // TODO: Change this back to 64
   FastLED.clear();
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 300);
-  Serial.println("2");
 
   // Some animations look bad when first called but then settle down, so just
   // call each animation a few times to let them settle
@@ -120,7 +116,6 @@ void setup() {
       animations[i]();
     }
   }
-  Serial.println("3");
 
   RemoteXY_Init();
   RemoteXY.brightnessSlider = 15;
@@ -129,11 +124,9 @@ void setup() {
   RemoteXY.solidSelect = 0;
   RemoteXY.cycleSwitch = 1;
   RemoteXY_Handler();
-  Serial.println("4");
 
   bluetoothSink.start(BLUETOOTH_SINK_NAME);
   bluetoothSink.set_stream_reader(bluetoothDataCallback, false);  // I2S output = false
-  Serial.println("5");
 
   renderSpectrumAnalyzer = false;
   fftQueue = xQueueCreate(1, sizeof(int));
@@ -142,14 +135,13 @@ void setup() {
   } else {
     xTaskCreatePinnedToCore(renderFFT,      // Function that should be called
                             "FFT Renderer", // Name of the task (for debugging)
-                            10000,          // Stack size (bytes)
+                            5000,          // Stack size (bytes)
                             NULL,           // Parameter to pass
                             1,              // Task priority
                             NULL,           // Task handle
                             1               // Core you want to run the task on (0 or 1)
     );
   }
-  Serial.println("6");
 }
 
 void loop() {
@@ -160,13 +152,11 @@ void loop() {
   static decltype(millis()) animationStart_ms = 0;
   static int animationIndex = 0;
   static uint8_t previousAnimationSelect1 = 0, previousAnimationSelect2 = 0;
-  Serial.println("7");
 
   FastLED.clear();
   decltype(millis()) delayInterval_ms = 50;
   switch (RemoteXY.solidSelect) {
     case 0: // Animations
-      Serial.println("9");
       renderSpectrumAnalyzer = false;
       {
         const float multiplier = 20.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
@@ -174,41 +164,34 @@ void loop() {
         break;
       }
     case 1: // All solid
-      Serial.println("10");
       fill_solid(leds, LED_COUNT, CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b));
       renderSpectrumAnalyzer = false;
       break;
     case 2: // Rim solid
-      Serial.println("11");
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(RING_COUNT - 1, spoke, RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b);
       }
       renderSpectrumAnalyzer = false;
       break;
     case 3: // Bluetooth
-      Serial.println("12");
       renderSpectrumAnalyzer = true;
       break;
   }
   FastLED.show();
   const auto start = millis();
-  Serial.println("13");
   while (millis() < start + delayInterval_ms) {
     RemoteXY_Handler();
   }
 
-  Serial.println("14");
   // Handle the app changes
   if (previousAnimationSelect1 != RemoteXY.animationSelect1) {
     animationIndex =  RemoteXY.animationSelect1;
   } else if (previousAnimationSelect2 != RemoteXY.animationSelect2) {
     animationIndex =  RemoteXY.animationSelect2 + 10;
   }
-  Serial.println("15");
   previousAnimationSelect1 = RemoteXY.animationSelect1;
   previousAnimationSelect2 = RemoteXY.animationSelect2;
 
-  Serial.println("16");
   const decltype(millis()) animationDuration_ms = RemoteXY.cycleTimeSlider * (maxAnimationTime_ms - minAnimationTime_ms) / 100 + minAnimationTime_ms;
   if (RemoteXY.cycleSwitch == 1) {
     if (millis() > animationStart_ms + animationDuration_ms) {
@@ -220,6 +203,5 @@ void loop() {
     animationStart_ms = millis();
   }
 
-  Serial.println("17");
   FastLED.setBrightness(RemoteXY.brightnessSlider * (255 - minBrightness) / 100 + minBrightness);
 }

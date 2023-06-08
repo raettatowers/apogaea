@@ -64,6 +64,7 @@ void renderFFT(void*) {
     for (byte spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
       setLedHue(1, spoke, 0); // Just set ring to red
     }
+    return;
   }
 
   int item = 0;
