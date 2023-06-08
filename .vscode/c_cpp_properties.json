@@ -12,7 +12,8 @@
             "forcedInclude": [],
             "cStandard": "c11",
             "cppStandard": "c++14",
-            "defines": []
+            "defines": [],
+            "configurationProvider": "ms-vscode.makefile-tools"
         },
         {
             "name": "Arduino",
