@@ -5,18 +5,14 @@
 
 #include "constants.hpp"
 
-static const int SAMPLE_COUNT = 256;
-static const float SAMPLING_FREQUENCY_HZ = 5000;
-static const float MINIMUM_DIVISOR = 1000;
+static const int SAMPLE_COUNT = 1024;
+static const float SAMPLING_FREQUENCY_HZ = 41000;
+static const float MINIMUM_DIVISOR = 2000;
 static const int STRAND_COUNT = 5;
-static const int BUCKET_COUNT = 16;
-// Run python3 steps.py BUCKET_COUNT SAMPLE_COUNT/2 to get this
-static constexpr int STEPS[] = {27, 22, 17, 14, 11, 9, 7, 5, 4, 3, 3, 2, 1, 1, 1, 1};
-static_assert(COUNT_OF(STEPS) == BUCKET_COUNT);
-// sum(STEPS) should equal the SAMPLE_COUNT / 2
-template <int N, int _unused> struct sum { static const int value = sum<N - 1, 0>::value + STEPS[N];};
-template <int _unused> struct sum<0, _unused> { static const int value = STEPS[0]; };
-static_assert(sum<COUNT_OF(STEPS) - 1, 0>::value == SAMPLE_COUNT / 2);
+static const int BUCKET_COUNT = 20;
+// Generated from python3 steps.py 1024 41000
+const uint8_t VREAL_TO_BUCKET[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29};
+static_assert(COUNT_OF(VREAL_TO_BUCKET) == BUCKET_COUNT);
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
@@ -34,7 +30,7 @@ void runInThread(void *);
 void setupSpectrumAnalyzer();
 void spectrumAnalyzer();
 
-#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal); ++i)
+#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
 
 void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
@@ -47,10 +43,17 @@ void computeFft() {
   vReal[0] = 0.0;
   vReal[1] = 0.0;
   vReal[SAMPLE_COUNT - 1] = 0.0;
+  // Bass lines have more energy than higher samples, so just reduce them a smidge
+  for (int i = 0; i < COUNT_OF(VREAL_TO_BUCKET) / 2; ++i) {
+    vReal[i] *= 0.5;
+  }
 }
 
 void renderFft() {
   FftType maxSample = -1;
+  FOR_VREAL {
+    maxSample = max(maxSample, vReal[i]);
+  }
   maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
   // Map them all to 0.0 .. 1.0
   const FftType multiplier = 1.0 / maxSample;
@@ -58,33 +61,38 @@ void renderFft() {
     vReal[i] = vReal[i] * multiplier;
   }
 
-  FftType averages[BUCKET_COUNT];
-  int realIndex = 0;
-  int avgIndex = 0;
-  for (const auto step : STEPS) {
-    averages[avgIndex] = 0;
-    for (int i = 0; i < step; ++i) {
-      averages[avgIndex] += vReal[realIndex];
-      ++realIndex;
-    }
-    averages[avgIndex] /= step;
-    // Do 254 to avoid any floating point issues
-    averages[avgIndex] *= 254;
-    ++avgIndex;
+  uint8_t buckets[BUCKET_COUNT] = {0};
+  // Because we skip some, e.g. bucket 25 doesn't correspond to a note, we could probably average
+  // that into bucket 26 for more accuracy.
+  int bucketIndex = 0;
+  for (const auto vrIndex : VREAL_TO_BUCKET) {
+    // Do 254 to avoid floating point problems
+    buckets[bucketIndex] = vReal[vrIndex] * 254;
+    ++bucketIndex;
   }
+
+  static int count = 0;
+  count = (count + 1) % 255;
+  if (count == 0) {
+    for (const auto vrIndex : VREAL_TO_BUCKET) {
+      // Do 254 to avoid floating point problems
+      Serial.printf("%0.2f ", vReal[vrIndex]);
+    }
+    Serial.println();
+  }
+
 
   // Add a fade off effect
   static uint8_t peaks[BUCKET_COUNT] = {0};
-  static_assert(COUNT_OF(averages) == COUNT_OF(peaks));
-  for (int i = 0; i < COUNT_OF(averages); ++i) {
+  for (int i = 0; i < COUNT_OF(buckets); ++i) {
     if (peaks[i] > 3) {
       // If you want to do peaks, uncomment this
       //peaks[i] -= 2;
       // Otherwise, no drop off
       peaks[i] = 0;
     }
-    if (averages[i] > peaks[i]) {
-      peaks[i] = averages[i];
+    if (buckets[i] > peaks[i]) {
+      peaks[i] = buckets[i];
     }
 
     leds[i] = CHSV(0, 255, peaks[i]);

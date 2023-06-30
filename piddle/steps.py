@@ -1,70 +1,108 @@
 import sys
 
-if "-h" in sys.argv or len(sys.argv) not in (3, 4):
-    print(f"Usage: {sys.argv[0]} <bucket_count> <sample_count> [frequency]")
-    sys.exit()
+def main():
+    if "-h" in sys.argv or len(sys.argv) != 3:
+        print(f"Usage: {sys.argv[0]} <bucket_count> <frequency>")
+        sys.exit()
 
-bucket_count = int(sys.argv[1])
-sample_count = int(sys.argv[2])
-frequency = if len(sys.argv) == 4 : int(sys.argv[3]) else -1
+    bucket_count = int(sys.argv[1])
+    frequency = int(sys.argv[2])
 
-lower = 1
-upper = 10
+    step_size = frequency / bucket_count
+    lower = 0
+    empty = []
+    skips = []
+    for index in range(bucket_count):
+        # Find which notes
+        upper = lower + step_size
+        found = []
+        for note in notes:
+            if lower <= note[0] <= upper:
+                found.append(note[1])
 
-def parts(x):
-    return reversed([int(x ** i) for i in range(bucket_count)])
+        if upper < notes[0][0]:
+            print(f"Bucket {index} has no notes")
 
-for _ in range(100):
-    mid = (lower + upper) / 2
-    total = sum(parts(mid))
-    if total == sample_count:
-        break
-    if total < sample_count:
-        lower = mid
-    else:
-        upper = mid
+        if len(found) == 0:
+            empty.append(index)
+        else:
+            if len(empty) > 0:
+                #print(f"Buckets {' '.join((str(b) for b in empty))} were empty")
+                empty = []
+            skips.append(index)
+            print(f"Bucket {index} {lower:0.1f}-{upper:0.1f} has {' '.join(found)}")
 
-print(mid)
-formatted = ', '.join(str(i) for i in parts(mid))
-print(f"{{{formatted}}}")
+        lower = upper
+    print("Remaining buckets are empty because they're above note range")
+    print(f"{{{', '.join((str(s) for s in skips))}}}")
 
+# From https://pages.mtu.edu/~suits/notefreqs.html
 notes = (
-    (261, "C4"),
-    (523, "C5"),
-    (1046, "C6"),
-    (2093, "C7"),
-    (4186, "C8"),
-    (293, "D4"),
-    (587, "D5"),
-    (1174, "D6"),
-    (2349, "D7"),
-    (4698, "D8"),
-    (329, "E4"),
-    (659, "E5"),
-    (1318, "E6"),
-    (2637, "E7"),
-    (5274, "E8"),
-    (349, "F4"),
-    (698, "F5"),
-    (1396, "F6"),
-    (2793, "F7"),
-    (5587, "F8"),
-    (392, "G4"),
-    (783, "G5"),
-    (1567, "G6"),
-    (3135, "G7"),
-    (6271, "G8"),
-    (440, "A4"),
-    (880, "A5"),
-    (1760, "A6"),
-    (3520, "A7"),
-    (7040, "A8"),
-    (493, "B4"),
-    (987, "B5"),
-    (1975, "B6"),
-    (3951, "B7"),
-    (7902, "B8"),
+    # Skip these because they are so low
+    #(16.35, "C0"),
+    #(18.35, "D0"),
+    #(20.60, "E0"),
+    #(21.83, "F0"),
+    #(24.50, "G0"),
+    #(27.50, "A0"),
+    #(30.87, "B0"),
+    #(32.70, "C1"),
+    #(36.71, "D1"),
+    (41.20, "E1"),  # This is the lowest note with a 4-string bass guitar
+    (43.65, "F1"),
+    (49.00, "G1"),
+    (55.00, "A1"),
+    (61.74, "B1"),
+    (65.41, "C2"),
+    (73.42, "D2"),
+    (82.41, "E2"),
+    (87.31, "F2"),
+    (98.00, "G2"),
+    (110.00, "A2"),
+    (123.47, "B2"),
+    (130.81, "C3"),
+    (146.83, "D3"),
+    (164.81, "E3"),
+    (174.61, "F3"),
+    (196.00, "G3"),
+    (220.00, "A3"),
+    (246.94, "B3"),
+    (261.63, "C4"),
+    (293.66, "D4"),
+    (329.63, "E4"),
+    (349.23, "F4"),
+    (392.00, "G4"),
+    (440.00, "A4"),
+    (493.88, "B4"),
+    (523.25, "C5"),
+    (587.33, "D5"),
+    (659.25, "E5"),
+    (698.46, "F5"),
+    (783.99, "G5"),
+    (880.00, "A5"),
+    (987.77, "B5"),
+    (1046.50, "C6"),
+    (1174.66, "D6"),  # This is the highest a trumpet goes
+    #(1318.51, "E6"),
+    #(1396.91, "F6"),
+    #(1567.98, "G6"),
+    #(1760.00, "A6"),
+    #(1975.53, "B6"),
+    #(2093.00, "C7"),
+    #(2349.32, "D7"),
+    #(2637.02, "E7"),
+    #(2793.83, "F7"),
+    #(3135.96, "G7"),
+    #(3520.00, "A7"),
+    #(3951.07, "B7"),
+    #(4186.01, "C8"),
+    #(4698.63, "D8"),
+    #(5274.04, "E8"),
+    #(5587.65, "F8"),
+    #(6271.93, "G8"),
+    #(7040.00, "A8"),
+    #(7902.13, "B8"),
 )
-if frequency > 0:
-    # TODO: Figure out frequency bucketing
-    print("C4 is middle C")
+
+if __name__ == "__main__":
+    main()
