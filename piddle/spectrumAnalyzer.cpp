@@ -71,17 +71,6 @@ void renderFft() {
     ++bucketIndex;
   }
 
-  static int count = 0;
-  count = (count + 1) % 255;
-  if (count == 0) {
-    for (const auto vrIndex : VREAL_TO_BUCKET) {
-      // Do 254 to avoid floating point problems
-      Serial.printf("%0.2f ", vReal[vrIndex]);
-    }
-    Serial.println();
-  }
-
-
   // Add a fade off effect
   static uint8_t peaks[BUCKET_COUNT] = {0};
   for (int i = 0; i < COUNT_OF(buckets); ++i) {
