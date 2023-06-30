@@ -10,8 +10,12 @@ static const float SAMPLING_FREQUENCY_HZ = 10000;
 static const float MINIMUM_DIVISOR = 1000;
 static const int STRAND_COUNT = 5;
 static const int BUCKET_COUNT = 16;
-// Put a value between 10 and 80. Smaller the number, higher the audio response
-static const int MAX_AUDIO_RESPONSE = 20;
+static constexpr int STEPS[] = {30, 25, 20, 15, 11, 7, 5, 3, 2, 2, 2, 2, 1, 1, 1, 1};
+static_assert(COUNT_OF(STEPS) == BUCKET_COUNT);
+// sum(STEPS) should equal the SAMPLE_COUNT / 2
+template <int N, int _unused> struct sum { static const int value = sum<N - 1, 0>::value + STEPS[N];};
+template <int _unused> struct sum<0, _unused> { static const int value = STEPS[0]; };
+static_assert(sum<COUNT_OF(STEPS) - 1, 0>::value == SAMPLE_COUNT / 2);
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
@@ -45,69 +49,43 @@ void computeFft() {
 }
 
 void renderFft() {
-  static int count = 0;
-  ++count;
-  if (count > 255) {
-    count = 0;
-    Serial.println();
-    Serial.println(millis());
-  }
-
   FftType maxSample = -1;
-  FOR_VREAL {
-    maxSample = max(maxSample, vReal[i]);
-  }
-  if (count == 0) {
-    Serial.printf("max:%0.1f\n", maxSample);
-  }
   maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
   // Map them all to 0.0 .. 1.0
   const FftType multiplier = 1.0 / maxSample;
-  if (count == 0) {
-    Serial.printf("maxSample:%0.1f\n", maxSample);
-    Serial.printf("vReal[5] before:%0.1f\n", vReal[5]);
-  }
   FOR_VREAL {
     vReal[i] = vReal[i] * multiplier;
   }
-  if (count == 0) {
-    Serial.printf("vReal[5] after:%0.3f\n", vReal[5]);
-  }
 
-  const int step = SAMPLE_COUNT / 2 / BUCKET_COUNT;
   FftType averages[BUCKET_COUNT];
-  for (int i = 0, avgIndex = 0; i < SAMPLE_COUNT / 2; i += step, ++avgIndex) {
+  int realIndex = 0;
+  int avgIndex = 0;
+  for (const auto step : STEPS) {
     averages[avgIndex] = 0;
-    for (int j = 0; j < step; j++) {
-      averages[avgIndex] += vReal[i + j];
+    for (int i = 0; i < step; ++i) {
+      averages[avgIndex] += vReal[realIndex];
+      ++realIndex;
     }
     averages[avgIndex] /= step;
     // Do 254 to avoid any floating point issues
     averages[avgIndex] *= 254;
+    ++avgIndex;
   }
 
+  // Add a fade off effect
   static uint8_t peaks[BUCKET_COUNT] = {0};
   static_assert(COUNT_OF(averages) == COUNT_OF(peaks));
   for (int i = 0; i < COUNT_OF(averages); ++i) {
-    if (peaks[i] > 0) {
-      --peaks[i];
+    if (peaks[i] > 3) {
+      // If you want to do peaks, uncomment this
+      //peaks[i] -= 3;
+      peaks[i] = 0;
     }
     if (averages[i] > peaks[i]) {
       peaks[i] = averages[i];
     }
 
     leds[i] = CHSV(0, 255, peaks[i]);
-  }
-
-  if (count == 0) {
-    Serial.printf("peak[1]:%d\n", peaks[1]);
-    Serial.printf("averages[1]:%0.1f\n", averages[1]);
-    FftType sum = 0;
-    for (int i = 0; i < step; ++i) {
-      Serial.printf("%0.1f ", vReal[step + i]);
-      sum += vReal[step + i];
-    }
-    Serial.printf("\nsum: %f\n", sum);
   }
 
   // Just for testing
