@@ -6,6 +6,41 @@
 #include <arduinoFFT.h>
 #include <FastLED.h>
 
+/*
+// RemoteXY select connection mode and include library 
+#define REMOTEXY_MODE__ESP32CORE_BLE
+#include <BLEDevice.h>
+#include <RemoteXY.h>
+
+#define REMOTEXY_BLUETOOTH_NAME "Piddle"
+
+// RemoteXY configurate  
+#pragma pack(push, 1)
+uint8_t RemoteXY_CONF[] =   // 69 bytes
+  { 255,7,0,0,0,62,0,16,24,1,4,128,6,20,52,5,2,26,4,128,
+  6,28,52,5,2,26,1,0,6,4,12,12,2,31,0,1,0,25,4,12,
+  12,2,31,0,1,0,45,4,12,12,2,31,0,4,128,6,36,52,5,2,
+  26,3,8,6,46,7,49,2,26 };
+  
+// this structure defines all the variables and events of your control interface 
+struct {
+
+    // input variables
+  int8_t slider_1; // =0..100 slider position 
+  int8_t slider_2; // =0..100 slider position 
+  uint8_t button_1; // =1 if button pressed, else =0 
+  uint8_t button_2; // =1 if button pressed, else =0 
+  uint8_t button_3; // =1 if button pressed, else =0 
+  int8_t slider_3; // =0..100 slider position 
+  uint8_t select_1; // =0 if select position A, =1 if position B, =2 if position C, ... 
+
+    // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0 
+
+} RemoteXY;
+#pragma pack(pop)
+*/
+
 #include "constants.hpp"
 
 void spectrumAnalyzer();
@@ -21,6 +56,12 @@ void blink(int delay_ms = 500) {
 }
 
 void setup() {
+  // Disable this before compiling!
+  Serial.begin(115200);
+  #warning "Serial is enabled"
+
+  //RemoteXY_Init(); 
+
   //analogReference(AR_DEFAULT); // Not on ESP32?
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -30,21 +71,16 @@ void setup() {
   FastLED.setBrightness(16);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1000);
 
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < 3; ++i) {
     blink(100);
   }
 
   setupSpectrumAnalyzer();
 }
 
-long time_ms = 0;
-bool on = true;
 void loop() {
-  if (millis() > time_ms + 1000) {
-    digitalWrite(LED_BUILTIN, on ? HIGH : LOW);
-    time_ms = millis();
-    on = !on;
-  }
+  //RemoteXY_Handler();
+
   FastLED.clear();
   spectrumAnalyzer();
   FastLED.show();

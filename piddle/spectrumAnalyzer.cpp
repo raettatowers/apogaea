@@ -5,55 +5,31 @@
 
 #include "constants.hpp"
 
-static const int SAMPLE_COUNT = 512;
-static const float SAMPLING_FREQUENCY_HZ = 44100;
-static const float AMPLITUDE = 200.0;
-static const int NUM_BANDS = 8;
+static const int SAMPLE_COUNT = 256;
+static const float SAMPLING_FREQUENCY_HZ = 10000;
+static const float MINIMUM_DIVISOR = 1000;
+static const int STRAND_COUNT = 5;
+static const int BUCKET_COUNT = 16;
+// Put a value between 10 and 80. Smaller the number, higher the audio response
+static const int MAX_AUDIO_RESPONSE = 20;
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
-static FftType sampleAverages[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
 static QueueHandle_t queue;
-static int32_t peak[] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 extern CRGB leds[LED_COUNT];
 
-static int visualizationCounter = 0;
-static int32_t lastVisualizationUpdate = 0;
+void collectSamples();
+void computeFft();
+void logChanges();
+void logHighest();
+void renderFft();
+void runInThread(void *);
+void setupSpectrumAnalyzer();
+void spectrumAnalyzer();
 
-void setupSpectrumAnalyzer() {
-  queue = xQueueCreate(1, sizeof(int));
-  assert(queue != nullptr);
-}
-
-static void createBands(int i, int dsize) {
-  uint8_t band = 0;
-  if (i <= 2) {
-    band = 0; // 125Hz
-  } else if (i <= 5) {
-    band = 1; // 250Hz
-  } else if (i <= 7) {
-    band = 2; // 500Hz
-  } else if (i <= 15) {
-    band = 3; // 1000Hz
-  } else if (i <= 30) {
-    band = 4; // 2000Hz
-  } else if (i <= 53) {
-    band = 5; // 4000Hz
-  } else if (i <= 106) {
-    band = 6; // 8000Hz
-  } else {
-    band = 7;
-  }
-  int dmax = AMPLITUDE;
-  if (dsize > dmax) {
-    dsize = dmax;
-  }
-  if (dsize > peak[band]) {
-    peak[band] = dsize;
-  }
-}
+#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal); ++i)
 
 void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
@@ -62,77 +38,82 @@ void computeFft() {
   fft.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
   fft.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
   fft.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
-
-  // The first 2 samples? are the average power of the signal, so skip them.
-  // Samples < 20Hz are so low that humans can't hear them, so skip those too.
-  const int SKIP = 2 + 5;
-  const auto averagePower = vReal[0];
+  // Samples 0, 1, and SAMPLE_COUNT - 1 are the sample average or something, so just drop them
+  vReal[0] = 0.0;
+  vReal[1] = 0.0;
+  vReal[SAMPLE_COUNT - 1] = 0.0;
 }
 
 void renderFft() {
-  static uint8_t previousValues[LED_COUNT] = {0};
-  // Change the base hue of low intensity sounds so we can get more colors
-  static uint8_t baseHue = 0;
-
-  baseHue += 1;
-
-  FftType (&sampleAverages)[LED_COUNT] = collectSamples();
-
-  // The bassline really drowns out the other samples, so reduce its effect
-  // Actually, is that because the FFT has very small buckets for lower samples?
-  // If the average intensity of half an octave is stuffed into a single bucket,
-  // that might be causing it to be overrepresented. TODO
-  for (uint8_t i = 0; i < COUNT_OF(sampleAverages) / 8; ++i) {
-    sampleAverages[i] *= 0.5;
-  }
-  for (uint8_t i = 0; i < COUNT_OF(sampleAverages) / 4; ++i) {
-    sampleAverages[i] *= 0.5;
+  static int count = 0;
+  ++count;
+  if (count > 255) {
+    count = 0;
+    Serial.println();
+    Serial.println(millis());
   }
 
   FftType maxSample = -1;
-  for (auto sa : sampleAverages) {
-    maxSample = max(maxSample, sa);
+  FOR_VREAL {
+    maxSample = max(maxSample, vReal[i]);
   }
-  // Set a default max so that if it's quiet, we're not visualizing random noises
-  maxSample = max(maxSample, 1000);
-  const FftType MULTIPLIER = 1.0 / maxSample;
-  // Clamp them all to 0.0 - 1.0
-  for (auto& sa : sampleAverages) {
-    sa *= MULTIPLIER;
+  if (count == 0) {
+    Serial.printf("max:%0.1f\n", maxSample);
+  }
+  maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
+  // Map them all to 0.0 .. 1.0
+  const FftType multiplier = 1.0 / maxSample;
+  if (count == 0) {
+    Serial.printf("maxSample:%0.1f\n", maxSample);
+    Serial.printf("vReal[5] before:%0.1f\n", vReal[5]);
+  }
+  FOR_VREAL {
+    vReal[i] = vReal[i] * multiplier;
+  }
+  if (count == 0) {
+    Serial.printf("vReal[5] after:%0.3f\n", vReal[5]);
   }
 
-  const uint8_t MAX_BRIGHTNESS = 128;
-  // This cutoff needs some tweaking based on leds->getBrightness()
-  // 10 works with brightness = 20
-  const uint8_t CUTOFF = 10;
-
-  for (uint8_t i = 0; i < COUNT_OF(sampleAverages); ++i) {
-    // Implement a fade-off effect
-    const int FADE_OFF = 20;
-    uint8_t value = max(previousValues[i] > FADE_OFF ? previousValues[i] - FADE_OFF : 0, sampleAverages[i] * 0xFF);
-    previousValues[i] = value;
-    // Let's also reduce the color space a bit so that the colors aren't all over the place
-    const uint8_t hue = value / 2 + baseHue;
-    uint8_t brightness = min(MAX_BRIGHTNESS, value);
-    // The visualization looks like garbage when brightness is high because all of the
-    // LEDs turn on, and I want dim LEDs off
-    if (brightness < CUTOFF) {
-      brightness = 0;
+  const int step = SAMPLE_COUNT / 2 / BUCKET_COUNT;
+  FftType averages[BUCKET_COUNT];
+  for (int i = 0, avgIndex = 0; i < SAMPLE_COUNT / 2; i += step, ++avgIndex) {
+    averages[avgIndex] = 0;
+    for (int j = 0; j < step; j++) {
+      averages[avgIndex] += vReal[i + j];
     }
-    leds[i] = CHSV(hue, 0xFF, brightness);
+    averages[avgIndex] /= step;
+    // Do 254 to avoid any floating point issues
+    averages[avgIndex] *= 254;
   }
 
-  FastLED.show();
+  static uint8_t peaks[BUCKET_COUNT] = {0};
+  static_assert(COUNT_OF(averages) == COUNT_OF(peaks));
+  for (int i = 0; i < COUNT_OF(averages); ++i) {
+    if (peaks[i] > 0) {
+      --peaks[i];
+    }
+    if (averages[i] > peaks[i]) {
+      peaks[i] = averages[i];
+    }
 
-  /*
-  if ((millis() - lastVisualizationUpdate) > 1000) {
-    log_e("Fps: %f", visualizationCounter / ((millis() - lastVisualizationUpdate) / 1000.0));
-    visualizationCounter = 0;
-    lastVisualizationUpdate = millis();
-    hueOffset += 5;
+    leds[i] = CHSV(0, 255, peaks[i]);
   }
-  */
-  visualizationCounter++;
+
+  if (count == 0) {
+    Serial.printf("peak[1]:%d\n", peaks[1]);
+    Serial.printf("averages[1]:%0.1f\n", averages[1]);
+    FftType sum = 0;
+    for (int i = 0; i < step; ++i) {
+      Serial.printf("%0.1f ", vReal[step + i]);
+      sum += vReal[step + i];
+    }
+    Serial.printf("\nsum: %f\n", sum);
+  }
+
+  // Just for testing
+  static uint8_t hue = 0;
+  leds[0] = CHSV(hue, 100, 100);
+  ++hue;
 }
 
 void collectSamples() {
@@ -148,7 +129,7 @@ void collectSamples() {
     // This should handle overflow, or at least not lock up
     const auto limit = start + i * samplingPeriod_us;
     while (micros() < limit) {
-        // Do nothing
+      // Do nothing
     }
   }
 }
@@ -169,4 +150,94 @@ void spectrumAnalyzer() {
   collectSamples();
   computeFft();
   renderFft();
+  //logChanges() ; delay(1000);
+  //logHighest(); delay(1000);
+}
+
+int bucketToLed(const int bucket) {
+  // With SAMPLE_COUNT = 512 and SAMPLING_FREQUENCY_HZ = 5000, I get:
+  // C4 = 27
+  // C4.5 = 28
+  // D4 = 30
+  // D4.5 = 32
+  // E4 = 34
+  // F4 = 36
+  // F4.5 = 38
+  // G4 = 40
+  // G4.5 = 43
+  // A4 = 45
+  // A4.5 = 48
+  // B4 = 51
+  // C5 = 54
+  // C5.5 = 57
+  // D5 = 60
+  // D5.5 = 64
+  // E5 = 68
+  // F5 = 71
+  // F5.5 = 76
+  // G5 = 80
+  // G5.5 = 85
+  // A5 = 90
+  // A5.5 = 95
+  // B5 = 101
+
+  return -1;  
+}
+
+/**
+ * Just for testing, log any time the highest index changes
+ */
+void logChanges() {
+  FftType maxSample = -1;
+  FOR_VREAL {
+    maxSample = max(maxSample, vReal[i]);
+  }
+  // Set a default max so that if it's quiet, we're not visualizing random noises
+  maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
+  const FftType multiplier = 1.0 / maxSample;
+  // Clamp them all to 0.0 - 1.0
+  for (auto& vr : vReal) {
+    vr *= multiplier;
+  }
+
+  Serial.print(".");
+  // Skip the first couple samples because they're just the average, and bass line
+  static int previousHighestIndex = 0;
+  int highestIndex = 0;
+  FftType highest = vReal[2];
+  // The first 2? samples are the average power of the signal, so skip them.
+  // Samples < 20Hz are so low that humans can't hear them, so skip those too.
+  for (int i = 10; i < SAMPLE_COUNT / 2; ++i) {
+    if (vReal[i] > highest) {
+      highest = vReal[i];
+      highestIndex = i;
+    }
+  }
+  if (previousHighestIndex != highestIndex) {
+    Serial.printf("\nNew highest: %d, value %f pre-scaled:%f\n", highestIndex, vReal[highestIndex], vReal[highestIndex] / multiplier);
+    Serial.printf("Max: %f\n", maxSample);
+  }
+  previousHighestIndex = highestIndex;
+}
+
+/**
+ * Just for testing, log the highest value.
+ */
+void logHighest() {
+  Serial.print(".");
+  // Skip the first couple samples because they're just the average, and bass line
+  int highestIndex = 0;
+  FftType highest = vReal[10];
+  for (int i = 2; i < 90; ++i) {
+    if (vReal[i] > highest) {
+      highest = vReal[i];
+      highestIndex = i;
+    }
+  }
+  Serial.printf("highest before normalization index: %d, value: %f\n", highestIndex, highest);
+}
+
+void setupSpectrumAnalyzer() {
+  queue = xQueueCreate(1, sizeof(int));
+  assert(queue != nullptr);
 }
