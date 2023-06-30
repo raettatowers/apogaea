@@ -6,11 +6,12 @@
 #include "constants.hpp"
 
 static const int SAMPLE_COUNT = 256;
-static const float SAMPLING_FREQUENCY_HZ = 10000;
+static const float SAMPLING_FREQUENCY_HZ = 5000;
 static const float MINIMUM_DIVISOR = 1000;
 static const int STRAND_COUNT = 5;
 static const int BUCKET_COUNT = 16;
-static constexpr int STEPS[] = {30, 25, 20, 15, 11, 7, 5, 3, 2, 2, 2, 2, 1, 1, 1, 1};
+// Run python3 steps.py BUCKET_COUNT SAMPLE_COUNT/2 to get this
+static constexpr int STEPS[] = {27, 22, 17, 14, 11, 9, 7, 5, 4, 3, 3, 2, 1, 1, 1, 1};
 static_assert(COUNT_OF(STEPS) == BUCKET_COUNT);
 // sum(STEPS) should equal the SAMPLE_COUNT / 2
 template <int N, int _unused> struct sum { static const int value = sum<N - 1, 0>::value + STEPS[N];};
@@ -78,7 +79,8 @@ void renderFft() {
   for (int i = 0; i < COUNT_OF(averages); ++i) {
     if (peaks[i] > 3) {
       // If you want to do peaks, uncomment this
-      //peaks[i] -= 3;
+      //peaks[i] -= 2;
+      // Otherwise, no drop off
       peaks[i] = 0;
     }
     if (averages[i] > peaks[i]) {
@@ -88,10 +90,10 @@ void renderFft() {
     leds[i] = CHSV(0, 255, peaks[i]);
   }
 
-  // Just for testing
-  static uint8_t hue = 0;
-  leds[0] = CHSV(hue, 100, 100);
-  ++hue;
+  // // Just for testing
+  // static uint8_t hue = 0;
+  // leds[0] = CHSV(hue, 100, 100);
+  // ++hue;
 }
 
 void collectSamples() {
