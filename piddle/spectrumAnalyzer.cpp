@@ -25,18 +25,20 @@ static QueueHandle_t queue;
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 
-void collectSamples();
-void computeFft();
-void logChanges();
-void logHighest();
-void renderFft();
-void runInThread(void *);
 void setupSpectrumAnalyzer();
 void spectrumAnalyzer();
 
+static void collectSamples();
+static void computeFft();
+static void logChanges();
+static void logHighest();
+static void renderFft();
+static void runInThread(void *);
+static void slideDown();
+
 #define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
 
-void computeFft() {
+static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
   // For music, FFT_WIN_TYP_HAMMING seemed to do best, but FFT_WIN_TYP_TRIANGLE
   // seemed best for the sine wave. HANN and TRIANGLE also did well.
@@ -53,7 +55,7 @@ void computeFft() {
   }
 }
 
-void renderFft() {
+static void renderFft() {
   FftType maxSample = -1;
   FOR_VREAL {
     maxSample = max(maxSample, vReal[i]);
@@ -75,34 +77,13 @@ void renderFft() {
     ++bucketIndex;
   }
 
-  /*
-  // Add a fade off effect
-  static uint8_t peaks[BUCKET_COUNT] = {0};
-  for (int i = 0; i < COUNT_OF(buckets); ++i) {
-    if (peaks[i] > 3) {
-      peaks[i] -= 2;
-    }
-    if (buckets[i] > peaks[i]) {
-      peaks[i] = buckets[i];
-    }
-
-    leds[i] = CHSV(0, 255, peaks[i]);
-  }
-  */
+  //fadeOut();
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the ouside edge, going up, and the other notes to trickle down from the center.
 
   // Do treble first
-  // Slide all the previous ones down
-  for (int i = 0; i < STRIP_COUNT; ++i) {
-    for (int j = LEDS_PER_STRIP / 2 - 1; j >= 1; --j) {
-      leds[i][j] = leds[i][j - 1];
-    }
-    for (int j = LEDS_PER_STRIP / 2 - 1; j < LEDS_PER_STRIP - 1; ++j) {
-      leds[i][j] = leds[i][j + 1];
-    }
-  }
+  slideDown();
   // Then add the new one
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
     // Black
@@ -118,8 +99,6 @@ void renderFft() {
       leds[i / 2][LEDS_PER_STRIP - 1] = color;
     }
   }
-
-  return;
 
   // Then bass line
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
@@ -144,7 +123,7 @@ void renderFft() {
   }
 }
 
-void collectSamples() {
+static void collectSamples() {
   static const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
   static_assert(sizeof(micros()) == 4);
   // micros() returns an unsigned 4 byte number, so we can only run for 4.3B / 1M = 4.3K seconds or
@@ -162,7 +141,7 @@ void collectSamples() {
   }
 }
 
-void runInThread(void *) {
+static void runInThread(void *) {
   int item = 0;
   for (;;) {
     if (uxQueueMessagesWaiting(queue) > 0) {
@@ -182,7 +161,18 @@ void spectrumAnalyzer() {
   //logHighest(); delay(1000);
 }
 
-int bucketToLed(const int bucket) {
+static void slideDown() {
+  for (int i = 0; i < STRIP_COUNT; ++i) {
+    for (int j = LEDS_PER_STRIP / 2 - 1; j >= 1; --j) {
+      leds[i][j] = leds[i][j - 1];
+    }
+    for (int j = LEDS_PER_STRIP / 2 - 1; j < LEDS_PER_STRIP - 1; ++j) {
+      leds[i][j] = leds[i][j + 1];
+    }
+  }
+}
+
+static int bucketToLed(const int bucket) {
   // With SAMPLE_COUNT = 512 and SAMPLING_FREQUENCY_HZ = 5000, I get:
   // C4 = 27
   // C4.5 = 28
@@ -215,7 +205,7 @@ int bucketToLed(const int bucket) {
 /**
  * Just for testing, log any time the highest index changes
  */
-void logChanges() {
+static void logChanges() {
   FftType maxSample = -1;
   FOR_VREAL {
     maxSample = max(maxSample, vReal[i]);
