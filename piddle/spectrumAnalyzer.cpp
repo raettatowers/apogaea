@@ -10,33 +10,32 @@ static const float SAMPLING_FREQUENCY_HZ = 41000;
 static const float MINIMUM_DIVISOR = 2000;
 static const int STRAND_COUNT = 5;
 static const int STRAND_LENGTH = 100;
-static const int BUCKET_COUNT = 20;
 static const int MINIMUM_THRESHOLD = 1;
-// Generated from python3 steps.py 1024 41000
-//constexpr uint8_t VREAL_TO_BUCKET[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29};
-constexpr uint8_t VREAL_TO_BUCKET[] = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21, 23, 25, 28, 30, 33};
-static_assert(COUNT_OF(VREAL_TO_BUCKET) == BUCKET_COUNT);
+// Generated from python3 steps.py 2048 41000
+constexpr uint8_t VREAL_TO_BUCKET[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58};
+static const int BUCKET_COUNT = COUNT_OF(VREAL_TO_BUCKET);
 static_assert(VREAL_TO_BUCKET[COUNT_OF(VREAL_TO_BUCKET) - 1] < SAMPLE_COUNT / 2);
 
-static FftType vReal[SAMPLE_COUNT];
+static FftType _vReal[SAMPLE_COUNT];
+static FftType _samples[SAMPLE_COUNT];
+static FftType* vReal = _vReal;
+static FftType* samples = _samples;
 static FftType vImaginary[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
 static QueueHandle_t queue;
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 
-void setupSpectrumAnalyzer();
+void setupSpectrumAnalyzer(const int arduinoCore);
 void spectrumAnalyzer();
 
 static void collectSamples();
 static void computeFft();
-static void logChanges();
-static void logHighest();
 static void renderFft();
 static void runInThread(void *);
 static void slideDown();
 
-#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
+#define FOR_SAMPLES for (int i = 0; i < COUNT_OF(samples) / 2; ++i)
 
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
@@ -50,6 +49,7 @@ static void computeFft() {
   vReal[1] = 0.0;
   vReal[SAMPLE_COUNT - 1] = 0.0;
   // Bass lines have more energy than higher samples, so just reduce them a smidge
+  // TODO: Alternatively, we could just normalize the bass and treble samples separately
   for (int i = 0; i < COUNT_OF(VREAL_TO_BUCKET) / 2; ++i) {
     vReal[i] *= 0.75;
   }
@@ -57,14 +57,14 @@ static void computeFft() {
 
 static void renderFft() {
   FftType maxSample = -1;
-  FOR_VREAL {
-    maxSample = max(maxSample, vReal[i]);
+  FOR_SAMPLES {
+    maxSample = max(maxSample, samples[i]);
   }
   maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
   // Map them all to 0.0 .. 1.0
   const FftType multiplier = 1.0 / maxSample;
-  FOR_VREAL {
-    vReal[i] = vReal[i] * multiplier;
+  FOR_SAMPLES {
+    samples[i] = samples[i] * multiplier;
   }
 
   uint8_t buckets[BUCKET_COUNT] = {0};
@@ -73,7 +73,7 @@ static void renderFft() {
   int bucketIndex = 0;
   for (const auto vrIndex : VREAL_TO_BUCKET) {
     // Do 254 to avoid floating point problems
-    buckets[bucketIndex] = vReal[vrIndex] * 254;
+    buckets[bucketIndex] = samples[vrIndex] * 254;
     ++bucketIndex;
   }
 
@@ -90,7 +90,8 @@ static void renderFft() {
     auto color = CHSV(0, 0, 0);
     const auto value = buckets[i + BUCKET_COUNT / 2];
     if (value > MINIMUM_THRESHOLD) {
-      color = CHSV(value, 255, value);
+      // TODO: More colors. FOr testing, let's just do blue.
+      color = CHSV(160, 255, value);
     }
 
     if (i % 2 == 0) {
@@ -100,6 +101,7 @@ static void renderFft() {
     }
   }
 
+  return;
   // Then bass line
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
     // For testing, let's always just clear the bottom
@@ -113,8 +115,8 @@ static void renderFft() {
       color = CHSV(0, 255, value);
     }
 
-    // TODO: I might need to reverse these two?
     const int length = value / 16;
+    // TODO: I might need to reverse these two?
     if (i % 2 == 0) {
       fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2], length, color);
     } else {
@@ -131,34 +133,43 @@ static void collectSamples() {
 
   const auto start = micros();
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
-    vImaginary[i] = 0;
+    samples[i] = analogRead(MICROPHONE_ANALOG_PIN);
     // This should handle overflow, or at least not lock up
     const auto limit = start + i * samplingPeriod_us;
     while (micros() < limit) {
-      // Do nothing
+      // Busy wait
     }
   }
+
+  // Wait for the other core to finish processing
+  while (uxQueueMessagesWaiting(queue) != 0) {
+    // Busy wait
+  }
+
+  // Once it's finished processing, we want to swap the samples and the recently computed FFT
+  std::swap(samples, vReal);
+  // and reset vImaginary
+  std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
+
+  // Notify the other core
+  int item = 0;
+  xQueueSend(queue, &item, portMAX_DELAY);
 }
 
 static void runInThread(void *) {
-  int item = 0;
-  for (;;) {
+  int unused = 0;
+  while (true) {
     if (uxQueueMessagesWaiting(queue) > 0) {
       computeFft();
+      // Release handle
+      xQueueReceive(queue, &unused, 0);
     }
-    // Release handle
-    xQueueReceive(queue, &item, 0);
-    renderFft();
   }
 }
 
 void spectrumAnalyzer() {
   collectSamples();
-  computeFft();
   renderFft();
-  //logChanges() ; delay(1000);
-  //logHighest(); delay(1000);
 }
 
 static void slideDown() {
@@ -172,90 +183,18 @@ static void slideDown() {
   }
 }
 
-static int bucketToLed(const int bucket) {
-  // With SAMPLE_COUNT = 512 and SAMPLING_FREQUENCY_HZ = 5000, I get:
-  // C4 = 27
-  // C4.5 = 28
-  // D4 = 30
-  // D4.5 = 32
-  // E4 = 34
-  // F4 = 36
-  // F4.5 = 38
-  // G4 = 40
-  // G4.5 = 43
-  // A4 = 45
-  // A4.5 = 48
-  // B4 = 51
-  // C5 = 54
-  // C5.5 = 57
-  // D5 = 60
-  // D5.5 = 64
-  // E5 = 68
-  // F5 = 71
-  // F5.5 = 76
-  // G5 = 80
-  // G5.5 = 85
-  // A5 = 90
-  // A5.5 = 95
-  // B5 = 101
-
-  return -1;  
-}
-
-/**
- * Just for testing, log any time the highest index changes
- */
-static void logChanges() {
-  FftType maxSample = -1;
-  FOR_VREAL {
-    maxSample = max(maxSample, vReal[i]);
-  }
-  // Set a default max so that if it's quiet, we're not visualizing random noises
-  maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
-  const FftType multiplier = 1.0 / maxSample;
-  // Clamp them all to 0.0 - 1.0
-  for (auto& vr : vReal) {
-    vr *= multiplier;
-  }
-
-  Serial.print(".");
-  // Skip the first couple samples because they're just the average, and bass line
-  static int previousHighestIndex = 0;
-  int highestIndex = 0;
-  FftType highest = vReal[2];
-  // The first 2? samples are the average power of the signal, so skip them.
-  // Samples < 20Hz are so low that humans can't hear them, so skip those too.
-  for (int i = 10; i < SAMPLE_COUNT / 2; ++i) {
-    if (vReal[i] > highest) {
-      highest = vReal[i];
-      highestIndex = i;
-    }
-  }
-  if (previousHighestIndex != highestIndex) {
-    Serial.printf("\nNew highest: %d, value %f pre-scaled:%f\n", highestIndex, vReal[highestIndex], vReal[highestIndex] / multiplier);
-    Serial.printf("Max: %f\n", maxSample);
-  }
-  previousHighestIndex = highestIndex;
-}
-
-/**
- * Just for testing, log the highest value.
- */
-void logHighest() {
-  Serial.print(".");
-  // Skip the first couple samples because they're just the average, and bass line
-  int highestIndex = 0;
-  FftType highest = vReal[10];
-  for (int i = 2; i < 90; ++i) {
-    if (vReal[i] > highest) {
-      highest = vReal[i];
-      highestIndex = i;
-    }
-  }
-  Serial.printf("highest before normalization index: %d, value: %f\n", highestIndex, highest);
-}
-
-void setupSpectrumAnalyzer() {
+void setupSpectrumAnalyzer(const int arduinoCore) {
   queue = xQueueCreate(1, sizeof(int));
   assert(queue != nullptr);
+
+  const int core = arduinoCore == 0 ? 1 : 0;
+  xTaskCreatePinnedToCore(
+    runInThread,
+    "computeFft", // Name of the task (for debugging)
+    10000, // Stack size (bytes)
+    NULL, // Parameter to pass
+    1, // Task priority
+    NULL, // Task handle
+    core // Core you want to run the task on (0 or 1)
+  );
 }

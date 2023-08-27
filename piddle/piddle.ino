@@ -44,7 +44,7 @@ struct {
 #include "constants.hpp"
 
 void spectrumAnalyzer();
-void setupSpectrumAnalyzer();
+void setupSpectrumAnalyzer(int arduinoCore);
 
 CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 
@@ -75,7 +75,7 @@ void setup() {
   FastLED.setBrightness(16);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1000);
 
-  setupSpectrumAnalyzer();
+  setupSpectrumAnalyzer(xPortGetCoreID());
 
   for (int i = 0; i < 3; ++i) {
     blink(100);

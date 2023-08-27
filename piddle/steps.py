@@ -6,6 +6,9 @@ def main():
         sys.exit()
 
     bucket_count = int(sys.argv[1])
+    if bucket_count not in (2**n for n in range(20)):
+        print(f"bucket_count ({bucket_count}) must be a power of 2")
+        sys.exit()
     frequency = int(sys.argv[2])
 
     step_size = frequency / bucket_count
@@ -35,6 +38,7 @@ def main():
         lower = upper
     print("Remaining buckets are empty because they're above note range")
     print(f"{{{', '.join((str(s) for s in skips))}}}")
+    print(f"Length = {len(skips)}")
 
 # From https://pages.mtu.edu/~suits/notefreqs.html
 notes = (
@@ -88,7 +92,7 @@ notes = (
     #(1567.98, "G6"),
     #(1760.00, "A6"),
     #(1975.53, "B6"),
-    #(2093.00, "C7"),
+    #(2093.00, "C7"),  # This is the highest a flute goes
     #(2349.32, "D7"),
     #(2637.02, "E7"),
     #(2793.83, "F7"),
