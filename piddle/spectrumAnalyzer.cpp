@@ -5,37 +5,32 @@
 
 #include "constants.hpp"
 
-static const int SAMPLE_COUNT = 1024;
-static const float SAMPLING_FREQUENCY_HZ = 41000;
+static const int SAMPLE_COUNT = 512;
+static const float SAMPLING_FREQUENCY_HZ = 41000 / 8;
 static const float MINIMUM_DIVISOR = 2000;
 static const int STRAND_COUNT = 5;
 static const int STRAND_LENGTH = 100;
 static const int MINIMUM_THRESHOLD = 1;
-// Generated from python3 steps.py 2048 41000
-constexpr uint8_t VREAL_TO_BUCKET[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58};
+// Generated from python3 steps.py 512 5125
+constexpr uint8_t VREAL_TO_BUCKET[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117};
 static const int BUCKET_COUNT = COUNT_OF(VREAL_TO_BUCKET);
 static_assert(VREAL_TO_BUCKET[COUNT_OF(VREAL_TO_BUCKET) - 1] < SAMPLE_COUNT / 2);
 
-static FftType _vReal[SAMPLE_COUNT];
-static FftType _samples[SAMPLE_COUNT];
-static FftType* vReal = _vReal;
-static FftType* samples = _samples;
+static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
-static QueueHandle_t queue;
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 
-void setupSpectrumAnalyzer(const int arduinoCore);
+void setupSpectrumAnalyzer();
 void spectrumAnalyzer();
 
 static void collectSamples();
 static void computeFft();
 static void renderFft();
-static void runInThread(void *);
 static void slideDown();
 
-#define FOR_SAMPLES for (int i = 0; i < COUNT_OF(samples) / 2; ++i)
+#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
 
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
@@ -57,14 +52,14 @@ static void computeFft() {
 
 static void renderFft() {
   FftType maxSample = -1;
-  FOR_SAMPLES {
-    maxSample = max(maxSample, samples[i]);
+  FOR_VREAL {
+    maxSample = max(maxSample, vReal[i]);
   }
   maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
   // Map them all to 0.0 .. 1.0
   const FftType multiplier = 1.0 / maxSample;
-  FOR_SAMPLES {
-    samples[i] = samples[i] * multiplier;
+  FOR_VREAL {
+    vReal[i] = vReal[i] * multiplier;
   }
 
   uint8_t buckets[BUCKET_COUNT] = {0};
@@ -73,11 +68,9 @@ static void renderFft() {
   int bucketIndex = 0;
   for (const auto vrIndex : VREAL_TO_BUCKET) {
     // Do 254 to avoid floating point problems
-    buckets[bucketIndex] = samples[vrIndex] * 254;
+    buckets[bucketIndex] = vReal[vrIndex] * 254;
     ++bucketIndex;
   }
-
-  //fadeOut();
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the ouside edge, going up, and the other notes to trickle down from the center.
@@ -131,44 +124,23 @@ static void collectSamples() {
   // micros() returns an unsigned 4 byte number, so we can only run for 4.3B / 1M = 4.3K seconds or
   // 71 minutes. We definitely need to worry about overflow.
 
-  const auto start = micros();
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    samples[i] = analogRead(MICROPHONE_ANALOG_PIN);
+    const auto start_us = micros();
+    vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
     // This should handle overflow, or at least not lock up
-    const auto limit = start + i * samplingPeriod_us;
-    while (micros() < limit) {
+    const auto limit_us = start_us + samplingPeriod_us;
+    while (micros() < limit_us) {
       // Busy wait
     }
   }
 
-  // Wait for the other core to finish processing
-  while (uxQueueMessagesWaiting(queue) != 0) {
-    // Busy wait
-  }
-
-  // Once it's finished processing, we want to swap the samples and the recently computed FFT
-  std::swap(samples, vReal);
   // and reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
-
-  // Notify the other core
-  int item = 0;
-  xQueueSend(queue, &item, portMAX_DELAY);
-}
-
-static void runInThread(void *) {
-  int unused = 0;
-  while (true) {
-    if (uxQueueMessagesWaiting(queue) > 0) {
-      computeFft();
-      // Release handle
-      xQueueReceive(queue, &unused, 0);
-    }
-  }
 }
 
 void spectrumAnalyzer() {
   collectSamples();
+  computeFft();
   renderFft();
 }
 
@@ -183,18 +155,5 @@ static void slideDown() {
   }
 }
 
-void setupSpectrumAnalyzer(const int arduinoCore) {
-  queue = xQueueCreate(1, sizeof(int));
-  assert(queue != nullptr);
-
-  const int core = arduinoCore == 0 ? 1 : 0;
-  xTaskCreatePinnedToCore(
-    runInThread,
-    "computeFft", // Name of the task (for debugging)
-    10000, // Stack size (bytes)
-    NULL, // Parameter to pass
-    1, // Task priority
-    NULL, // Task handle
-    core // Core you want to run the task on (0 or 1)
-  );
+void setupSpectrumAnalyzer() {
 }
