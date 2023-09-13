@@ -69,7 +69,7 @@ static void renderFft() {
 
   uint8_t buckets[BUCKET_COUNT] = {0};
   // TODO: Because we skip some, e.g. bucket 25 doesn't correspond to a note, we could probably
-  // average that into bucket 26 for more accuracy.
+  // average that into bucket 26, or just take the max in that range, for more accuracy.
   int bucketIndex = 0;
   for (const auto vrIndex : VREAL_TO_BUCKET) {
     // Do 254 to avoid floating point problems
@@ -87,10 +87,9 @@ static void renderFft() {
   slideDown();
 
   // Do treble first
-  // Then add the new one
+  static_assert(STRIP_COUNT * 2 + c4Index < COUNT_OF(buckets));
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
-    // Black
-    auto color = CHSV(0, 0, 0);
+    auto color = CHSV(0, 0, 0);  // Black
     const auto value = buckets[i + c4Index];
     if (value > MINIMUM_THRESHOLD) {
       const uint8_t hue = hueOffset + i * (256 / (STRIP_COUNT * 2));
