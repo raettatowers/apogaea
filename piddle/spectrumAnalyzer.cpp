@@ -83,8 +83,9 @@ static void renderFft() {
     auto color = CHSV(0, 0, 0);
     const auto value = buckets[i + BUCKET_COUNT / 2];
     if (value > MINIMUM_THRESHOLD) {
-      // TODO: More colors. FOr testing, let's just do blue.
-      color = CHSV(160, 255, value);
+      // Start blue, increase into green
+      uint8_t hue = 180 - (value / 3);
+      color = CHSV(hue, 255, value);
     }
 
     if (i % 2 == 0) {
