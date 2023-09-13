@@ -22,6 +22,9 @@ static FftType vImaginary[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
+// We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
+// of trickling down with the rest of the LEDs
+CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
 
 void setupSpectrumAnalyzer();
 void spectrumAnalyzer();
@@ -51,6 +54,7 @@ static void computeFft() {
   }
 }
 
+static uint8_t hueOffset = 0;
 static void renderFft() {
   FftType maxSample = -1;
   FOR_VREAL {
@@ -76,16 +80,20 @@ static void renderFft() {
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the ouside edge, going up, and the other notes to trickle down from the center.
 
-  // Do treble first
+  // First, restore the copy of the LEDs
+  for (int i = 0; i < STRIP_COUNT; ++i) {
+    memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
+  }
   slideDown();
+
+  // Do treble first
   // Then add the new one
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
     // Black
     auto color = CHSV(0, 0, 0);
-    const auto value = buckets[i + BUCKET_COUNT / 2];
+    const auto value = buckets[i + c4Index];
     if (value > MINIMUM_THRESHOLD) {
-      // Start blue, increase into green
-      uint8_t hue = 180 - (value / 3);
+      const uint8_t hue = hueOffset + i * (256 / (STRIP_COUNT * 2));
       color = CHSV(hue, 255, value);
     }
 
@@ -95,27 +103,28 @@ static void renderFft() {
       leds[i / 2][LEDS_PER_STRIP - 1] = color;
     }
   }
+  ++hueOffset;
 
-  return;
   // Then bass line
-  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
-    // For testing, let's always just clear the bottom
-    fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2 - 10], 20, CRGB::Black);
+  // But first, save the copy of the LEDs
+  for (int i = 0; i < STRIP_COUNT; ++i) {
+    memcpy(ledsBackup[i], leds[i], sizeof(leds[0]));
+  }
 
-    // Black
-    auto color = CHSV(0, 0, 0);
-    const auto value = buckets[i];
-    if (value > MINIMUM_THRESHOLD) {
-      // Red
-      color = CHSV(0, 255, value);
+  static_assert(c4Index - STRIP_COUNT * 2 > 0);
+  const auto bassColor = CHSV(0, 255, 128);  // Dim red
+  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
+    const auto value = buckets[i + c4Index - STRIP_COUNT * 2];
+    if (value < MINIMUM_THRESHOLD) {
+      continue;
     }
 
-    const int length = value / 16;
+    const int length = min(value / 8, LEDS_PER_STRIP);
     // TODO: I might need to reverse these two?
     if (i % 2 == 0) {
-      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2], length, color);
+      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2], length, bassColor);
     } else {
-      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2 - length], length, color);
+      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2 - length], length, bassColor);
     }
   }
 }
