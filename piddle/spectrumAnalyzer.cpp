@@ -13,6 +13,7 @@ static const int STRAND_LENGTH = 100;
 static const int MINIMUM_THRESHOLD = 1;
 // Generated from python3 steps.py 512 5125
 constexpr uint8_t VREAL_TO_BUCKET[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117};
+const int c4Index = 15;
 static const int BUCKET_COUNT = COUNT_OF(VREAL_TO_BUCKET);
 static_assert(VREAL_TO_BUCKET[COUNT_OF(VREAL_TO_BUCKET) - 1] < SAMPLE_COUNT / 2);
 

@@ -34,10 +34,13 @@ def main():
                 empty = []
             skips.append(index)
             print(f"Bucket {index} {lower:0.1f}-{upper:0.1f} has {' '.join(found)}")
+            if "C4" in found:
+                c4 = index
 
         lower = upper
     print("Remaining buckets are empty because they're above note range")
     print(f"{{{', '.join((str(s) for s in skips))}}}")
+    print(f"const int c4Index = {skips.index(c4)};")
     print(f"Length = {len(skips)}")
 
 # From https://pages.mtu.edu/~suits/notefreqs.html
