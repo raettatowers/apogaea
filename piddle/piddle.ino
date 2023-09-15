@@ -55,6 +55,10 @@ void blink(const int delay_ms = 500) {
   delay(delay_ms);
 }
 
+void buttonInterrupt() {
+  // This space intentionally left blank. Kept for further expansion.
+}
+
 void setup() {
   // // Disable this before compiling!
   // Serial.begin(115200);
@@ -63,7 +67,6 @@ void setup() {
   //RemoteXY_Init(); 
 
   //analogReference(AR_DEFAULT); // Not on ESP32?
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(MICROPHONE_ANALOG_PIN, INPUT);
 
@@ -74,6 +77,10 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PINS[4], GRB>(leds[4], LEDS_PER_STRIP);
   FastLED.setBrightness(16);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1000);
+
+  // The boot button is connected to GPIO0
+  pinMode(0, INPUT);
+  attachInterrupt(0, buttonInterrupt, FALLING);
 
   setupSpectrumAnalyzer();
 
