@@ -7,15 +7,16 @@
 
 static const int SAMPLE_COUNT = 512;
 static const float SAMPLING_FREQUENCY_HZ = 41000 / 8;
-static const float MINIMUM_DIVISOR = 2000;
+static const float MINIMUM_DIVISOR = 4000;
 static const int STRAND_COUNT = 5;
 static const int STRAND_LENGTH = 100;
-static const int MINIMUM_THRESHOLD = 1;
+static const int MINIMUM_THRESHOLD = 20;
 // Generated from python3 steps.py 512 5125
-constexpr uint8_t VREAL_TO_BUCKET[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117};
+static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117, 131, 139, 156, 175, 197, 209, 234};
 const int c4Index = 15;
-static const int BUCKET_COUNT = COUNT_OF(VREAL_TO_BUCKET);
-static_assert(VREAL_TO_BUCKET[COUNT_OF(VREAL_TO_BUCKET) - 1] < SAMPLE_COUNT / 2);
+const int startTrebleIndex = 20;
+static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
+static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
@@ -33,7 +34,11 @@ static void collectSamples();
 static void computeFft();
 static void renderFft();
 static void slideDown();
+static FftType maxVRealForNote(int note);
+static void normalizeSamplesTo0_1();
+static void logNotes(const FftType noteValues[NOTE_COUNT]);
 
+// TODO: Should this start at 2?
 #define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
 
 static void computeFft() {
@@ -48,37 +53,17 @@ static void computeFft() {
   vReal[1] = 0.0;
   vReal[SAMPLE_COUNT - 1] = 0.0;
   // Bass lines have more energy than higher samples, so just reduce them a smidge
-  // TODO: Alternatively, we could just normalize the bass and treble samples separately
-  for (int i = 0; i < COUNT_OF(VREAL_TO_BUCKET) / 2; ++i) {
+  for (int i = 0; i < NOTE_TO_VREAL_INDEX[startTrebleIndex]; ++i) {
     vReal[i] *= 0.75;
   }
 }
 
 static uint8_t hueOffset = 0;
 static void renderFft() {
-  FftType maxSample = -1;
-  FOR_VREAL {
-    maxSample = max(maxSample, vReal[i]);
-  }
-  maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
-  // Map them all to 0.0 .. 1.0
-  const FftType multiplier = 1.0 / maxSample;
-  FOR_VREAL {
-    vReal[i] = vReal[i] * multiplier;
-  }
-
-  uint8_t buckets[BUCKET_COUNT] = {0};
-  // TODO: Because we skip some, e.g. bucket 25 doesn't correspond to a note, we could probably
-  // average that into bucket 26, or just take the max in that range, for more accuracy.
-  int bucketIndex = 0;
-  for (const auto vrIndex : VREAL_TO_BUCKET) {
-    // Do 254 to avoid floating point problems
-    buckets[bucketIndex] = vReal[vrIndex] * 254;
-    ++bucketIndex;
-  }
+  normalizeSamplesTo0_1();
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
-  // on the ouside edge, going up, and the other notes to trickle down from the center.
+  // on the outside edge, going up, and the other notes to trickle down from the center.
 
   // First, restore the copy of the LEDs
   for (int i = 0; i < STRIP_COUNT; ++i) {
@@ -86,11 +71,21 @@ static void renderFft() {
   }
   slideDown();
 
+  FftType noteValues[NOTE_COUNT];
+  for (int note = 0; note < NOTE_COUNT; ++note) {
+    noteValues[note] = maxVRealForNote(note);
+  }
+
+  logNotes(noteValues);
+
   // Do treble first
-  static_assert(STRIP_COUNT * 2 + c4Index < COUNT_OF(buckets));
-  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
+  for (int i = 0; i < STRAND_COUNT; ++i) {
+    // Let's do max of 2 notes
+    FftType maxValueOf2 = max(noteValues[startTrebleIndex + i], noteValues[startTrebleIndex + i + STRAND_COUNT]);
+
+    // 254 to avoid rounding problems
+    const uint8_t value = maxValueOf2 * 254;
     auto color = CHSV(0, 0, 0);  // Black
-    const auto value = buckets[i + c4Index];
     if (value > MINIMUM_THRESHOLD) {
       const uint8_t hue = hueOffset + i * (256 / (STRIP_COUNT * 2));
       color = CHSV(hue, 255, value);
@@ -110,15 +105,15 @@ static void renderFft() {
     memcpy(ledsBackup[i], leds[i], sizeof(leds[0]));
   }
 
-  static_assert(c4Index - STRIP_COUNT * 2 > 0);
+  static_assert(startTrebleIndex - STRIP_COUNT * 2 > 2);
   const auto bassColor = CHSV(0, 255, 128);  // Dim red
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
-    const auto value = buckets[i + c4Index - STRIP_COUNT * 2];
+    const auto value = NOTE_TO_VREAL_INDEX[startTrebleIndex + i - STRIP_COUNT * 2];
     if (value < MINIMUM_THRESHOLD) {
       continue;
     }
 
-    const int length = min(value / 8, LEDS_PER_STRIP);
+    const int length = min(value / 4, LEDS_PER_STRIP);
     // TODO: I might need to reverse these two?
     if (i % 2 == 0) {
       fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2], length, bassColor);
@@ -166,4 +161,62 @@ static void slideDown() {
 }
 
 void setupSpectrumAnalyzer() {
+}
+
+/**
+ * Returns the max vReal value in a particular note. For example, if NOTE_TO_VREAL_INDEX[c4Index] =
+ * 39 and NOTE_TO_VREAL_INDEX[c4Index] = 43, it will look in vReal[39:43] and return the largest value.
+ */
+static FftType maxVRealForNote(const int note) {
+  if (note >= COUNT_OF(NOTE_TO_VREAL_INDEX) - 1) {
+    return vReal[COUNT_OF(NOTE_TO_VREAL_INDEX) - 1];
+  }
+  FftType maxVReal = vReal[NOTE_TO_VREAL_INDEX[note]];
+  for (int i = NOTE_TO_VREAL_INDEX[note]; i < NOTE_TO_VREAL_INDEX[note + 1]; ++i) {
+    maxVReal = max(maxVReal, vReal[i]);
+  }
+  return maxVReal;
+}
+
+
+/**
+ * Normalize all the samples to [0..1], or lower if all the samples are low
+ */
+static void normalizeSamplesTo0_1() {
+  // TODO: Normalize the bass and treble separately?
+  FftType minSample = std::numeric_limits<FftType>::max();
+  FOR_VREAL {
+    minSample = min(minSample, vReal[i]);
+  }
+  FOR_VREAL {
+    vReal[i] -= minSample;
+  }
+  FftType maxSample = std::numeric_limits<FftType>::min();
+  FOR_VREAL {
+    maxSample = max(maxSample, vReal[i]);
+  }
+  // Always have some divisor, in case all the values are low
+  maxSample = max(maxSample, static_cast<FftType>(MINIMUM_DIVISOR));
+  // Map them all to 0.0 .. 1.0
+  const FftType multiplier = 1.0 / maxSample;
+  FOR_VREAL {
+    vReal[i] = vReal[i] * multiplier;
+  }
+}
+
+static void logNotes(const FftType noteValues[NOTE_COUNT]) {
+  static decltype(millis()) nextDisplayTime = 1000;
+  if (millis() < nextDisplayTime) {
+    return;
+  }
+  nextDisplayTime = millis() + 1000;
+
+  for (int i = 0; i < NOTE_COUNT; ++i) {
+    Serial.printf("%02d:", i);
+    for (int j = 0; j < static_cast<int>(noteValues[i] * 32); ++j) {
+      Serial.print("-");
+    }
+    Serial.println();
+  }
+  Serial.println();
 }
