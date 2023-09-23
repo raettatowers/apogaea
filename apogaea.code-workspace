@@ -6,5 +6,10 @@
         {
             "path": "../sketches"
         }
-    ]
+    ],
+    "settings": {
+        "files.associations": {
+            "cmath": "cpp"
+        }
+    }
 }
