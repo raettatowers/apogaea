@@ -16,17 +16,17 @@
 #define REMOTEXY_BLUETOOTH_NAME "Piddle"
 
 
-// RemoteXY configurate 
+// RemoteXY configurate
 #pragma pack(push, 1)
-uint8_t RemoteXY_CONF[] =   // 127 bytes
-  { 255,5,0,0,0,120,0,16,24,1,4,128,6,11,52,5,2,26,129,0,
+uint8_t RemoteXY_CONF[] = // 136 bytes
+  { 255,5,0,21,0,129,0,16,24,1,4,128,6,11,52,5,2,26,129,0,
   15,3,31,6,17,84,114,101,98,108,101,32,110,111,116,101,0,129,0,16,
   19,31,6,17,66,114,105,103,104,116,110,101,115,115,0,129,0,17,36,29,
   6,17,83,101,110,115,105,116,105,118,105,116,121,0,4,128,6,28,52,5,
   2,26,4,128,6,43,52,5,2,26,3,3,46,54,8,22,2,26,129,0,
   8,62,35,6,17,84,114,101,98,108,101,32,114,97,110,103,101,0,1,0,
-  26,82,12,12,2,31,0 };
- 
+  26,82,12,12,2,31,0,67,4,4,73,53,6,2,26,21 };
+
 // this structure defines all the variables and events of your control interface
 struct {
 
@@ -34,8 +34,11 @@ struct {
   int8_t trebleSlider; // =0..100 slider position
   int8_t brightnessSlider; // =0..100 slider position
   int8_t sensitivitySlider; // =0..100 slider position
-  uint8_t trebleRangeSelect; // =0 if select position A, =1 if position B, =2 if position C, ... 
-  uint8_t buttonTest; // =1 if button pressed, else =0 
+  uint8_t trebleRangeSelect; // =0 if select position A, =1 if position B, =2 if position C, ...
+  uint8_t buttonTest; // =1 if button pressed, else =0
+
+    // output variables
+  char text[21];  // string UTF8 end zero
 
     // other variable
   uint8_t connect_flag;  // =1 if wire connected, else =0
@@ -98,10 +101,14 @@ void setup() {
 extern float minimumDivisor;
 extern int startTrebleNote;
 extern int additionalTrebleRange;
+extern float vReal[];
 void loop() {
   RemoteXY_Handler();
   FastLED.setBrightness(RemoteXY.brightnessSlider);
-  minimumDivisor = 1000 + (-RemoteXY.sensitivitySlider + 50) * 60;
+  constexpr int low = 500;
+  constexpr int high = 20500;
+  constexpr int mid = (low + high) / 2;
+  minimumDivisor = mid + (-RemoteXY.sensitivitySlider + 50) * (high - low) / 100; 
   startTrebleNote = c4Note + (RemoteXY.trebleSlider - 50) / 10;
   additionalTrebleRange = RemoteXY.trebleRangeSelect;
 
@@ -114,6 +121,9 @@ void loop() {
       leds[i][LEDS_PER_STRIP - 10] = CRGB::Red;
     }
     FastLED.show();
+
+    snprintf(RemoteXY.text, sizeof(RemoteXY.text), "%d", analogRead(MICROPHONE_ANALOG_PIN));
+    RemoteXY.text[sizeof(RemoteXY.text) - 1] = '\0';
     delay(20);
   } else {
     spectrumAnalyzer();
