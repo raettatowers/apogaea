@@ -7,8 +7,6 @@
 
 static const int SAMPLE_COUNT = 512;
 static const float SAMPLING_FREQUENCY_HZ = 41000 / 8;
-static const int STRAND_COUNT = 5;
-static const int STRAND_LENGTH = 100;
 static const int MINIMUM_THRESHOLD = 20;
 // Generated from python3 steps.py 512 5125
 static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117, 131, 139, 156, 175, 197, 209, 234};
@@ -20,7 +18,7 @@ int startTrebleNote = c4Note;
 float minimumDivisor = 1000;
 int additionalTrebleRange = 0;
 
-static FftType vReal[SAMPLE_COUNT];
+FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
 
@@ -84,11 +82,11 @@ static void renderFft() {
   //logNotes(noteValues);
 
   // Do treble first
-  for (int i = 0; i < STRAND_COUNT; ++i) {
+  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
     // Let's do max of trebleRange notes
     FftType maxValueOfRange = noteValues[startTrebleNote + i];
     for (int j = 0; j < additionalTrebleRange; ++j) {
-      const int nextNote = startTrebleNote + i + STRAND_COUNT;
+      const int nextNote = startTrebleNote + i + (STRIP_COUNT * 2 * (j + 1));
       if (nextNote < NOTE_COUNT) {
         maxValueOfRange = max(maxValueOfRange, noteValues[nextNote]);
       }
