@@ -63,7 +63,7 @@ static void renderFft() {
   // Normalize the bass and treble separately
   const int startTrebleVRealIndex = NOTE_TO_VREAL_INDEX[startTrebleNote];
   normalizeSamplesTo0_1(vReal, startTrebleVRealIndex);
-  normalizeSamplesTo0_1(&vReal[startTrebleVRealIndex], SAMPLE_COUNT - startTrebleVRealIndex);
+  normalizeSamplesTo0_1(&vReal[startTrebleVRealIndex], SAMPLE_COUNT / 2 - startTrebleVRealIndex);
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the outside edge, going up, and the other notes to trickle down from the center.
