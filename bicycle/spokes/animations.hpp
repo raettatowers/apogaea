@@ -36,8 +36,4 @@ int fadingRainbowRings();
 int outerHue();
 int outerRipple();
 
-// FFT stuff
-void bluetoothDataCallback(const uint8_t *data, uint32_t length);
-void renderFFT(void* parameter);
-
 #endif

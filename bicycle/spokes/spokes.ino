@@ -7,23 +7,16 @@
 // Flash frequency: 80 MHz
 // Partition scheme: Huge APP
 // CPU: 80 MHz? It got hot at 240
-// Arduino Runs On: Core: 0
-// Events Run On: Core: 0
 
-#define REMOTEXY_MODE__ESP32CORE_WIFI_POINT
-#include <atomic>
+#define REMOTEXY_MODE__ESP32CORE_BLE
 #include <BLEDevice.h>
-#include <BluetoothA2DPSink.h>
 #include <FastLED.h>
-#include <WiFi.h>
 #include <RemoteXY.h>
 
 #include "animations.hpp"
 
 // RemoteXY connection settings
-#define REMOTEXY_WIFI_SSID "spokes"
-#define REMOTEXY_WIFI_PASSWORD "12345678"
-#define REMOTEXY_SERVER_PORT 6377
+#define REMOTEXY_BLUETOOTH_NAME "spokes"
 
 #pragma pack(push, 1)
 uint8_t RemoteXY_CONF[] =   // 505 bytes
@@ -76,12 +69,8 @@ struct {
 #pragma pack(pop)
 
 const int LED_PIN = 4;
-const char* const BLUETOOTH_SINK_NAME = "spokes";
 
 CRGB leds[LED_COUNT];
-BluetoothA2DPSink bluetoothSink;
-std::atomic_bool renderSpectrumAnalyzer;
-QueueHandle_t fftQueue;
 
 int (* const animations[])() = {
   outerHue,
@@ -124,24 +113,6 @@ void setup() {
   RemoteXY.solidSelect = 0;
   RemoteXY.cycleSwitch = 1;
   RemoteXY_Handler();
-
-  bluetoothSink.start(BLUETOOTH_SINK_NAME);
-  bluetoothSink.set_stream_reader(bluetoothDataCallback, false);  // I2S output = false
-
-  renderSpectrumAnalyzer = false;
-  fftQueue = xQueueCreate(1, sizeof(int));
-  if (fftQueue == NULL) {
-    log_i("Error creating the A2DP->FFT queue");
-  } else {
-    xTaskCreatePinnedToCore(renderFFT,      // Function that should be called
-                            "FFT Renderer", // Name of the task (for debugging)
-                            5000,          // Stack size (bytes)
-                            NULL,           // Parameter to pass
-                            1,              // Task priority
-                            NULL,           // Task handle
-                            1               // Core you want to run the task on (0 or 1)
-    );
-  }
 }
 
 void loop() {
@@ -157,7 +128,6 @@ void loop() {
   decltype(millis()) delayInterval_ms = 50;
   switch (RemoteXY.solidSelect) {
     case 0: // Animations
-      renderSpectrumAnalyzer = false;
       {
         const float multiplier = 20.0f / (static_cast<float>(RemoteXY.speedSlider) + 5.0f);
         delayInterval_ms = animations[animationIndex]() * multiplier;
@@ -165,16 +135,11 @@ void loop() {
       }
     case 1: // All solid
       fill_solid(leds, LED_COUNT, CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b));
-      renderSpectrumAnalyzer = false;
       break;
     case 2: // Rim solid
       for (int spoke = 0; spoke < SPOKE_COUNT; ++spoke) {
         setLed(RING_COUNT - 1, spoke, RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b);
       }
-      renderSpectrumAnalyzer = false;
-      break;
-    case 3: // Bluetooth
-      renderSpectrumAnalyzer = true;
       break;
   }
   FastLED.show();
