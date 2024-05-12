@@ -7,6 +7,123 @@ A glowing furry vest. Copied from an idea from Finchronicity.
 - [PJRC forums LED vest]([https://forum.pjrc.com/threads/25939-Led-vest)
 - [Finchronicity's source code](https://github.com/finominal/LedVestPlasmaGenerator)
 
+Version 2
+=========
+
+This is my second attempt at making a vest. Version 1 used LED strips. This
+required a whole bunch of soldering: each end had to be soldered to the next,
+and I had each strip connected in parallel to some wires running along
+the bottom. Here's the problem: fabric likes to bend and stretch, but
+solder joints and LED strips do not. Even with hot glue covering the
+solder joints for strain relief, they were constantly being pulled
+out. For version 2, I'm going to used seed LED strands which flex more and use
+several of them connected to different pins, so that even if one connection
+fails, the remaining ones will still work.
+
+Parts
+-----
+
+- White shaggy faux fur fabric, Joann Fabrics, 1.5 yards: $48 https://www.joann.com/shaggy-fur-fabric/17763558.html
+- Blank rug hooking mesh canvas kit: $18 https://www.amazon.com/gp/product/B07SFCYS5Y/
+- Seed LED strand, 1000 count 30 mm per LED, WS2812B 5V white PCB IP65, Ray Wu's store Ali Express: $22 https://www.aliexpress.us/item/3256805296630315.html
+- Arduino-compatible controller board, ESP32 Mini: $21 https://www.amazon.com/ESP32/dp/B07BK435ZW/
+- Wire
+- Soldering iron and solder
+- Hot glue gun
+- Capacitor, 500-1000 uF at 6.3V or higher
+- Resistor, 300-500 ohm
+- Sewing machine, thread, and hand needle
+
+Sewing
+------
+
+I used the same pattern as my v1. This time, I didn't use a fabric liner.
+Instead, I bought some a mesh rug making kit and threaded the cable through the
+holes. I then used hook and loop to attach it to the fur vest part. This is
+nice because I can remove the electric part from the fur for cleaning. Each
+square in the mesh canvas is exactly 6 mm, so with my LED strand, I had 5
+squares per LED.
+
+Lighting
+--------
+
+I wound up with 298 active LEDs, a little more than v1. Due to how I wound the
+LEDs, I wound up with some extra LEDs that won't be active and are skipped. In
+total, about 350 LEDs.
+
+Power
+-----
+
+Just from idling with no LEDs on, the LEDs and Arduino used 0.25 A at 5.1 V.
+Each seed LED uses about 3.5 mA when displaying white at 25% brightness. When
+displaying red, they use 1.5 mA. At 100% brightness, for white they use 12.5
+mA, and for red they use 5 mA.
+
+Similar to v1, I just used a USB battery pack. With 298 LEDs displaying white
+at 100% brightness, this would require 3.7 A. This is much lower than the LED
+strip version. The biggest USB battery pack I found can only output 2 A at 5 V,
+so I'll still need to run it dimmed, or use FastLED's feature that limits
+brightness to some max current.
+
+Wiring
+------
+
+I wanted to use multiple strands, each connected to their own data line, so
+that if one fails, the rest will still work. I weaved the LED strands through
+the sqaure holes in the mesh canvas. I wanted to attach power to both ends of
+the strand, both to reduce voltage drop, and to have a backup if the first
+connection comes loose. I had the the Arduino on the left front side of the
+vest, so all of the strands had to start there. This made planning a bit
+complex: for the other side of the vest, I had to run a strand across the back
+to the other side, then back again. I wanted each pass to be used in the final
+lighting, so this required some planning so I didn't end up with too little
+space, or wasted LEDs. I suggest laying things out, double checking, and
+planning carefully.
+
+Threading the strips through is extremely tedious and slow. For each 5 mm LED,
+I would go under one thread and then back over. I had to pull the full strand
+through after each over/under loop. When I had to reverse direction and go back
+down the next row or column, because there's 5 mm per LED, there's not enough
+strand to move over and continue without "wasting" an LED. I would leave one
+unused LED on the end. I found that going down 2 squares, then diagonally 1,
+then over 4 and back up would use the correct amount of strand to line up well.
+
+I strongly recommend making small marks on the mesh where each LED should go.
+It's really easy to be off by one, and threading these is so tedious and slow
+that you won't want to redo it. I would also count the number of LEDs needed
+for a strand, find the middle point in the mesh, count that number of LEDs from
+the roll (plus 5 for each end for safety), mark the middle LED from that
+strand, and then start threading it from those two middles. This really reduces
+the amount of time you're pulling strand.
+
+For power distribution, I used a small protoboard with the positive and
+negative ends wired in parallel.
+
+Programming
+-----------
+
+Because I have 5 different strands that are woven all over the place, trying to
+map each X,Y coordinate to a strand and offset was a pain. I wrote a quick
+sketch using the excellent [http://remotexy.com/](RemoteXY) to help. RemoteXY
+is a web interface that lets you design GUIs that can be controlled from your
+smart phone over Bluetooth or WiFi. I can't recommend it enough - it's so quick
+and easy to make an app with a couple sliders, text input, and buttons that
+seamlessly connect wireless using your phone.
+
+The first app I wrote would turn on one LED at a time. It would let you select
+which strand and LED offset to turn on. It had a text input for the offset, and
+a button to go to the next LED. I counted the LEDs came up with a quick format
+that would specify runs in a row or column and skipped LEDs. Then I wrote a
+Python program that would convert these into lookup tables in C.
+
+Once I had those lookup tables, I modified my RemoteXY program to turn on one
+row and column of the LEDs at a time. Two buttons would move to the next row or
+column. This worked well enough that I could find when I messed up my
+specification and go back, fix it, recompile and retest.
+
+Version 1
+=========
+
 Parts
 -----
 
@@ -15,15 +132,9 @@ Parts
 - LED strip, 5m 30 LED/m WS2812B 5V white PCB IP65, BTF-Lighting: $22
 - Arduino-compatible controller board. A couple good choices:
   - PJRC Teensy 4.1, comes with a MicroSD reader: $27
-  - Adafruit Circuit 
+  - Adafruit Circuit
   - Adafruit Trinket M0: $9
   - Uno probably won't work, probably doesn't have enough memory
-- Wire
-- Soldering iron and solder
-- Hot glue gun
-- Capacitor, 500-1000 uF at 6.3V or higher
-- Resistor, 300-500 ohm
-- Sewing machine, thread, and hand needle
 
 Sewing
 ------
@@ -69,7 +180,7 @@ Lighting
 
 My original plan was this:
 
-- 95cm wide, center is 30cm wide, 65cm tall 
+- 95cm wide, center is 30cm wide, 65cm tall
 - 300 WS2812B LEDs, 30/m, 5m, so each LED is 3.33cm apart
 - Strips I want to do:
   - 50 * 5, 35 * 2, 40 * 4 = 500, 11 strips = 1 per 8.6cm

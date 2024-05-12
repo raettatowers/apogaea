@@ -3,6 +3,14 @@ import math
 import sys
 
 
+debug = False
+
+def debug_print(s: str) -> None:
+    global debug
+    if debug:
+        print(s)
+
+
 def print_luts() -> None:
     """Print the lookup tables."""
     # Stage right goes from x:[0-10] and y:[4-14]
@@ -65,34 +73,47 @@ def print_luts() -> None:
             assert coordinate not in grid
 
     def fill_grid() -> None:
+        total_led_count = 0
+        total_active_led_count = 0
+
         for color, format_str in formats.items():
-            #print(f"Processing {color}")
+            debug_print(f"Processing {color}")
             parts = format_str.replace(" ", "").split(",")
-            led_count = 0
+            strand_led_count = 0
+            active_led_count = 0
             started = False
             for part in parts:
                 if part == "n":
-                    led_count += 1
+                    strand_led_count += 1
                 else:
                     # Sanity check
                     if not started:
-                        assert(led_count == expected_skips[color])
+                        assert(strand_led_count == expected_skips[color])
                     started = True
 
                     xs, ys = part[1:-1].split(":")
                     if "-" in xs:
                         start, end = xs.split("-")
                         for x in get_range(start, end):
-                            add_entry(x, ys, color, led_count)
-                            led_count += 1
+                            add_entry(x, ys, color, strand_led_count)
+                            active_led_count += 1
+                            strand_led_count += 1
                     elif "-" in ys:
                         start, end = ys.split("-")
                         for y in get_range(start, end):
-                            add_entry(xs, y, color, led_count)
-                            led_count += 1
+                            add_entry(xs, y, color, strand_led_count)
+                            active_led_count += 1
+                            strand_led_count += 1
                     else:
-                        add_entry(xs, ys, color, led_count)
-                        led_count += 1
+                        add_entry(xs, ys, color, strand_led_count)
+                        active_led_count += 1
+                        strand_led_count += 1
+
+            debug_print(f"Processed {color}, had {strand_led_count} LEDs, {active_led_count} active")
+            total_active_led_count += active_led_count
+            total_led_count += strand_led_count
+
+        debug_print(f"{total_active_led_count} active LEDs of {total_led_count} total")
 
     fill_grid()
     min_x = min(coordinate[0] for coordinate in grid)
@@ -103,7 +124,7 @@ def print_luts() -> None:
     assert max_y == max_expected_y
     assert min_x == 0
     assert min_y == 0
-    #print(f"{min_x=} {max_x=} {min_y=} {max_y=}")
+    debug_print(f"{min_x=} {max_x=} {min_y=} {max_y=}")
 
     array = []
     for y in range(max_x + 1):
@@ -121,6 +142,9 @@ def print_luts() -> None:
         "green": 3,
         "black": 4,
     }
+
+    if debug:
+        return
 
     unused = "-1"
     print(f"""
@@ -150,5 +174,13 @@ const int LED_ROW_COUNT = {max_y + 1};
     print("};")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    global debug
+    if len(sys.argv) > 1:
+        debug = True
+
     print_luts()
+
+
+if __name__ == "__main__":
+    main()
