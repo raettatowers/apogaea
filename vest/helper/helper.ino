@@ -37,15 +37,17 @@
 
 // RemoteXY GUI configuration
 #pragma pack(push, 1)
-uint8_t RemoteXY_CONF[] =   // 147 bytes
-{ 255, 8, 0, 0, 0, 140, 0, 17, 0, 0, 0, 24, 1, 106, 200, 1, 1, 11, 0, 3,
-  10, 9, 12, 56, 5, 2, 26, 129, 27, 10, 41, 10, 17, 87, 104, 105, 116, 101, 32, 49,
-  55, 0, 129, 27, 21, 35, 10, 17, 66, 108, 117, 101, 32, 50, 49, 0, 129, 27, 33, 27,
-  10, 17, 82, 101, 100, 32, 52, 0, 129, 27, 44, 36, 10, 17, 71, 114, 101, 101, 110, 32,
-  48, 0, 129, 27, 55, 40, 10, 17, 66, 108, 97, 99, 107, 32, 49, 53, 0, 6, 36, 114,
-  40, 40, 2, 26, 1, 14, 77, 24, 24, 0, 2, 31, 0, 7, 50, 84, 40, 10, 52, 2,
-  26, 2, 4, 14, 180, 80, 10, 128, 2, 26, 129, 23, 163, 60, 12, 17, 66, 114, 105, 103,
-  104, 116, 110, 101, 115, 115, 0
+uint8_t RemoteXY_CONF[] =   // 188 bytes
+{ 255, 10, 0, 0, 0, 181, 0, 17, 0, 0, 0, 24, 1, 106, 200, 1, 1, 15, 0, 3,
+  24, 4, 10, 44, 5, 2, 26, 129, 38, 6, 29, 7, 17, 87, 104, 105, 116, 101, 32, 49,
+  55, 0, 129, 38, 15, 25, 7, 17, 66, 108, 117, 101, 32, 50, 49, 0, 129, 38, 23, 19,
+  7, 17, 82, 101, 100, 32, 52, 0, 129, 38, 32, 25, 7, 17, 71, 114, 101, 101, 110, 32,
+  48, 0, 129, 38, 41, 28, 7, 17, 66, 108, 97, 99, 107, 32, 49, 53, 0, 6, 37, 78,
+  31, 31, 2, 26, 1, 14, 53, 24, 24, 0, 2, 31, 0, 7, 50, 61, 40, 10, 52, 2,
+  26, 2, 4, 13, 125, 80, 10, 128, 2, 26, 129, 33, 114, 40, 8, 17, 66, 114, 105, 103,
+  104, 116, 110, 101, 115, 115, 0, 1, 12, 166, 24, 24, 0, 2, 31, 0, 1, 70, 166, 24,
+  24, 0, 2, 31, 0, 129, 12, 150, 24, 12, 17, 82, 111, 119, 0, 129, 59, 150, 43, 12,
+  17, 67, 111, 108, 117, 109, 110, 0
 };
 
 // this structure defines all the variables and events of your control interface
@@ -59,6 +61,8 @@ struct {
   uint8_t next_button; // =1 if button pressed, else =0
   int16_t led_number_field; // -32768 .. +32767
   int8_t brightness_slider; // from 0 to 100
+  uint8_t row_button; // =1 if button pressed, else =0
+  uint8_t column_button; // =1 if button pressed, else =0
 
   // other variable
   uint8_t connect_flag;  // =1 if wire connected, else =0
@@ -71,6 +75,7 @@ struct {
 /////////////////////////////////////////////
 
 #include <FastLED.h>
+#include "offsets.hpp"
 
 // How many leds in your strip?
 const int LED_COUNT = 120;
@@ -79,7 +84,7 @@ CRGB leds[5][LED_COUNT];
 void setup() {
   RemoteXY_Init();
   RemoteXY.pin_select = 0;
-  RemoteXY.brightness_slider = 50;
+  RemoteXY.brightness_slider = 25;
 
   Serial.begin(115200);
   Serial.println("resetting");
@@ -101,12 +106,19 @@ void loop() {
 
   static int previousButton = 0;
   static int previousPinSelect = 0;
+  static int previousRowButton = 0;
+  static int previousColumnButton = 0;
+  static int row = 0;
+  static int column = 0;
 
   FastLED.clear();
+
+  const auto color = CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b);
 
   // This will only give us a range from 0-200 instead of 0-255, but that's fine for testing
   FastLED.setBrightness(RemoteXY.brightness_slider * 2);
 
+  // Manual stuff
   if (RemoteXY.next_button != previousButton) {
     Serial.printf("button:%d previous:%d\n", RemoteXY.next_button, previousButton);
   }
@@ -119,6 +131,28 @@ void loop() {
   }
   previousPinSelect = RemoteXY.pin_select;
   previousButton = RemoteXY.next_button;
-  leds[RemoteXY.pin_select][RemoteXY.led_number_field] = CRGB(RemoteXY.rgb_r, RemoteXY.rgb_g, RemoteXY.rgb_b);
+  leds[RemoteXY.pin_select][RemoteXY.led_number_field] = color;
+
+  // Row and column stuff
+  if (RemoteXY.row_button) {
+    row = (row + 1) % LED_ROW_COUNT;
+    RemoteXY.row_button = 0;
+  }
+  if (RemoteXY.column_button) {
+    column = (column + 1) % LED_COLUMN_COUNT;
+    RemoteXY.column_button = 0;
+  }
+
+  for (int r = 0; r < LED_ROW_COUNT; ++r) {
+    const uint8_t strip = xyToStrip[column][r];
+    const uint8_t offset = xyToOffset[column][r];
+    leds[strip][offset] = color;
+  }
+  for (int c = 0; c < LED_COLUMN_COUNT; ++c) {
+    const uint8_t strip = xyToStrip[c][row];
+    const uint8_t offset = xyToOffset[c][row];
+    leds[strip][offset] = color;
+  }
+
   FastLED.show();
 }
