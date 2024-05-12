@@ -2,71 +2,125 @@
 import math
 import sys
 
-led_counts = [6, 7, 10, 11, 12, 12, 6, 6, 7, 11, 11, 11, 11, 11]
 
-def print_offsets() -> None:
-    """Generates C code for the array offsets."""
+def print_luts() -> None:
+    """Print the lookup tables."""
+    # Stage right goes from x:[0-10] and y:[4-14]
+    # Central goes from x:[11-23] and y:[0-14]
+    # Stage left goes from x:[24-31] and y:[4-14]
+    # White GPIO17 central upper stage left
+    # Blue GPIO21 stage right
+    # Red GPIO4 central upper stage right
+    # Green GPIO0 central lower
+    # Black GPIO15 stage left
+    # Formatting here: n for skip, then x,y pairs with an optional inclusive range for one of x or y
+    max_expected_x = 31
+    max_expected_y = 14
+    formats = {
+        "white": "n, n, n, n, n, (23-17:8), n, (17:9-14), n, (18:14-9), n, (19:9-14), n, (20:14-9), n, (21:9-14), n, (22:14-9),(23:9)",
+        "blue": "n, n, (23-11:4), n, (10-0:3), (0:4-9), n, (1:9-5), n, (2:5-11), n, (3:11-5), n, (4:5-14), n, (5:14-5), n, (6:4-6), n, (7:6-5), (8-23:5)",
+        "red": "n, n, n, n, (23-11:6), (11:7-8), n, (12:8-7), n, (13:7-14), n, (14:14-7), n, (15:7-14), n, (16:14-7), (17-23:7)",
+        "green": "n, n, n, n, n, (23-12:3), n, (12-22:2), n, (22-12:1), n, (12-23:0), (23:1-2)",
+        "black": "n, (24:5-7), n, (25:7-5), n, (26:5-14), n, (27:14-5), n, (28:5-11), (29:11-5), n, (30:5-9), n, (31:9-4), (30-25:4)",
+    }
+    expected_skips = {
+        "white": 5,
+        "blue": 2,
+        "red": 4,
+        "green": 5,
+        "black": 1,
+    }
+    expected_ends = {
+        "white": 52,
+        "blue": 101,
+        "red": 64,
+        "green": 53,
+        "black": 63,
+    }
+
+    # Map of (x,y) to (color,LED)
+    def get_range(start: str | int, end: str | int):
+        start = int(start)
+        end = int(end)
+        if start < end:
+            return range(start, end + 1)
+        else:
+            return range(start, end - 1, -1)
+
+    grid = {}
+    def add_entry(x: str | int, y: str | int, color: str, led_count: int) -> None:
+        x = int(x)
+        y = int(y)
+        value = (color,led_count)
+        coordinate = (x, y)
+
+        if not (0 <= x <= max_expected_x and 0 <= y <= max_expected_y):
+            print(f"Tried to add {coordinate} for {value} LED count {led_count} but out of range")
+            assert 0 <= x <= max_expected_x and 0 <= y <= max_expected_y
+        if coordinate not in grid:
+            grid[coordinate] = value
+            led_count += 1
+        else:
+            print(f"coordinate {coordinate} for {value } already in grid {grid[coordinate]} LED count {led_count}")
+            assert coordinate not in grid
+
+    def fill_grid() -> None:
+        for color, format_str in formats.items():
+            #print(f"Processing {color}")
+            parts = format_str.replace(" ", "").split(",")
+            led_count = 0
+            started = False
+            for part in parts:
+                if part == "n":
+                    led_count += 1
+                else:
+                    # Sanity check
+                    if not started:
+                        assert(led_count == expected_skips[color])
+                    started = True
+
+                    xs, ys = part[1:-1].split(":")
+                    if "-" in xs:
+                        start, end = xs.split("-")
+                        for x in get_range(start, end):
+                            add_entry(x, ys, color, led_count)
+                            led_count += 1
+                    elif "-" in ys:
+                        start, end = ys.split("-")
+                        for y in get_range(start, end):
+                            add_entry(xs, y, color, led_count)
+                            led_count += 1
+                    else:
+                        add_entry(xs, ys, color, led_count)
+                        led_count += 1
+
+    fill_grid()
+    min_x = min(coordinate[0] for coordinate in grid)
+    max_x = max(coordinate[0] for coordinate in grid)
+    min_y = min(coordinate[1] for coordinate in grid)
+    max_y = max(coordinate[1] for coordinate in grid)
+    assert max_x == max_expected_x
+    assert max_y == max_expected_y
+    assert min_x == 0
+    assert min_y == 0
+    #print(f"{min_x=} {max_x=} {min_y=} {max_y=}")
+
+    color_to_strip = {
+        "white": 0,
+        "blue": 1,
+        "red": 2,
+        "green": 3,
+        "black": 4,
+    }
     array = []
-    count = 0
-    for x in range(len(led_counts)):
-        array.append([])
-        for y in range(led_counts[x]):
-            array[-1].append(str(count))
-            count += 1
-        if len(array) % 2 == 0:
-            array[-1] = list(reversed(array[-1]))
-        for y in range(led_counts[x], max(led_counts)):
-            array[-1].append("UL")
+    for y in range(max_x + 1):
+        array.append([None] * (max_y + 1))
 
-    for x in range(len(led_counts) - 1, -1, -1):
-        array.append([])
-        for y in range(led_counts[x]):
-            array[-1].append(str(count))
-            count += 1
-        if len(array) % 2 == 0:
-            array[-1] = list(reversed(array[-1]))
-        for y in range(led_counts[x], max(led_counts)):
-            array[-1].append("UL")
-
-    print("const int UNUSED_LED = -1;")
-    print("#define UL UNUSED_LED")
-    print(f"const int LED_COUNT = {sum(led_counts) * 2};")
-    print("""
-#ifdef NRF52840_XXAA
-#include "FastLED/src/platforms/arm/nrf52/clockless_arm_nrf52.h"
-static_assert(FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING >= LED_COUNT, "You need to edit clockless_arm_nrf52.h and increase FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING");
-#endif
-""")
-    print(f"const int LED_COLUMN_COUNT = 2 * {len(led_counts)};")
-    print(f"const int LED_ROW_COUNT = {max(led_counts)};")
-    print("// x first then y, starting at lower left corner")
-    print("const int16_t LED_STRIPS[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
-    for x in range(len(array)):
-        items = ["{0:>3}".format(array[x][y]) for y in range(len(array[x]))]
-        print(f"    {{{', '.join(items)}}},")
-    print("};")
-    print("#undef UL")
-
-
-def print_precomputed_bidoulle_v3() -> None:
-    """Prints the precomputed Bidoulle v3 values."""
-    LED_COLUMN_COUNT = 2 * len(led_counts)
-    LED_ROW_COUNT = max(led_counts)
-
-    print("const uint8_t bidoulleV3rings[LED_COLUMN_COUNT * 2][LED_ROW_COUNT * 2] = {")
-
-    for x in range(-LED_COLUMN_COUNT // 2, 3 * LED_COLUMN_COUNT // 2):
-        sys.stdout.write("  {")
-        values = []
-        for y in range(-LED_ROW_COUNT // 2, 3 * LED_ROW_COUNT // 2):
-            xSqr = (x - LED_COLUMN_COUNT // 2) ** 2
-            ySqr = (y - LED_ROW_COUNT // 2) ** 2
-            value = round((math.sin(math.sqrt(0.1 * (xSqr + ySqr) + 1.0)) + 1.0) * 127)
-            values.append(value)
-        print(f"{', '.join((str(v) for v in values))}}},")
-    print("};");
+    for key, value in grid.items():
+        x, y = key
+        assert array[x][y] is None
+        array[x][y] = value
 
 
 if __name__ == "__main__":
-    print_offsets()
-    print_precomputed_bidoulle_v3()
+    print_luts()

@@ -39,17 +39,11 @@ My vest v2
     - LED 63 is the last used
 - Total size is 30 width x 15 height
 - Mappings, considering that 0, 0 is lower stage left?
-  - Central goes from x:[11-22] and y:[0-14]
-  - Stage right goes from x:[0-10] and y:[0-13]
-  - Stage left goes from x:[23-30] and y:[0-14]
+  - Stage right goes from x:[0-10] and y:[4-14]
+  - Central goes from x:[11-23] and y:[0-14]
+  - Stage left goes from x:[24-31] and y:[4-14]
   - Doing numbering in x,y coordinates with runs specified as start..end inclusive
-  - Skipped LEDs represented by n
-  - White
-    - `[n, n, n, n, n, (22..16,8), n, (16,9..14), n, (17,14..9), n, (18,9..14), n, (19,14..9), n, (20,9..14), n, (21,14..9), (22,9)]`
-  - Blue
-    - `[n, n, (22..16,4), n, (10..0,3), (0,4..9), n, (1,9..4), (2,4..11), n, (3,11..4), n, (4,4..13), n, (5,13..4), n, (6,4..6), n, (7,6..5), (7..22,5)]`
-  - Red
-    - `[`
+  - See offsets.py
 
 My vest v1
 ----------
