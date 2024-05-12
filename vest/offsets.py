@@ -17,8 +17,8 @@ def print_luts() -> None:
     max_expected_x = 31
     max_expected_y = 14
     formats = {
-        "white": "n, n, n, n, n, (23-17:8), n, (17:9-14), n, (18:14-9), n, (19:9-14), n, (20:14-9), n, (21:9-14), n, (22:14-9),(23:9)",
-        "blue": "n, n, (23-11:4), (10-0:3), (0:4-9), n, (1:9-5), n, (2:5-11), n, (3:11-5), n, (4:5-14), n, (5:14-5), n, (6:4-6), n, (7:6-5), (8-23:5)",
+        "white": "n, n, n, n, n, (23-17:8), (17:9-14), n, (18:14-9), n, (19:9-14), n, (20:14-9), n, (21:9-14), n, (22:14-9),(23:9)",
+        "blue": "n, n, (23-11:4), (10-0:3), (0:4-9), n, (1:9-4), n, (2:4-11), n, (3:11-4), n, (4:4-13), n, (5:13-4), n, (6:4-6), n, (7:6-5), (8-23:5)",
         "red": "n, n, n, n, (23-11:6), (11:7-8), n, (12:8-7), n, (13:7-14), n, (14:14-7), n, (15:7-14), n, (16:14-7), (17-23:7)",
         "green": "n, n, n, n, n, (23-12:3), n, (12-22:2), n, (22-12:1), n, (12-23:0), (23:1-2)",
         "black": "n, (24:5-7), n, (25:7-5), n, (26:5-14), n, (27:14-5), n, (28:5-11), (29:11-5), n, (30:5-9), n, (31:9-4), (30-25:4)",
@@ -137,7 +137,7 @@ const int LED_ROW_COUNT = {max_y + 1};
 // x first then y, starting at lower left corner
 """)
 
-    print("const int8_t xyToStripLED_COLUMN_COUNT[][LED_ROW_COUNT] = {")
+    print("const int8_t xyToStrip[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
     for x in range(max_x + 1):
         joined = ", ".join((unused if i is None else str(color_to_strip[i[0]]) for i in array[x]))
         print(f"    {{{joined}}},")
