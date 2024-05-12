@@ -21,9 +21,10 @@ My vest v1
 My vest v2
 ----------
 
+- 5 seed strands
 - Wires:
   - White: IO17/GPIO17
   - Blue: IO21/GPIO21
   - Red: IO4/GPIO4
   - Green: IO0/GPIO0
-  - Black: SD1/GPIO8 (Doesn't work for LEDs, ugh)
+  - Black: TD0/GPIO15
