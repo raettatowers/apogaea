@@ -144,14 +144,18 @@ void loop() {
   }
 
   for (int r = 0; r < LED_ROW_COUNT; ++r) {
-    const uint8_t strip = xyToStrip[column][r];
-    const uint8_t offset = xyToOffset[column][r];
-    leds[strip][offset] = color;
+    const uint8_t strip = XY_TO_STRIP[column][r];
+    const uint8_t offset = XY_TO_OFFSET[column][r];
+    if (strip != UNUSED_LED && offset != UNUSED_LED) {
+      leds[strip][offset] = color;
+    }
   }
   for (int c = 0; c < LED_COLUMN_COUNT; ++c) {
-    const uint8_t strip = xyToStrip[c][row];
-    const uint8_t offset = xyToOffset[c][row];
-    leds[strip][offset] = color;
+    const uint8_t strip = XY_TO_STRIP[c][row];
+    const uint8_t offset = XY_TO_OFFSET[c][row];
+    if (strip != UNUSED_LED && offset != UNUSED_LED) {
+      leds[strip][offset] = color;
+    }
   }
 
   FastLED.show();

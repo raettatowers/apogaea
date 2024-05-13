@@ -38,13 +38,6 @@ def print_luts() -> None:
         "green": 5,
         "black": 1,
     }
-    expected_ends = {
-        "white": 52,
-        "blue": 101,
-        "red": 64,
-        "green": 53,
-        "black": 63,
-    }
 
     # Map of (x,y) to (color,LED)
     def get_range(start: str | int, end: str | int):
@@ -72,8 +65,9 @@ def print_luts() -> None:
             print(f"coordinate {coordinate} for {value} already in grid {grid[coordinate]} LED count {led_count}")
             assert coordinate not in grid
 
+    color_to_count = {}
+    total_led_count = 0
     def fill_grid() -> None:
-        total_led_count = 0
         total_active_led_count = 0
 
         for color, format_str in formats.items():
@@ -110,7 +104,9 @@ def print_luts() -> None:
                         strand_led_count += 1
 
             debug_print(f"Processed {color}, had {strand_led_count} LEDs, {active_led_count} active")
+            color_to_count[color] = strand_led_count
             total_active_led_count += active_led_count
+            nonlocal total_led_count
             total_led_count += strand_led_count
 
         debug_print(f"{total_active_led_count} active LEDs of {total_led_count} total")
@@ -146,9 +142,14 @@ def print_luts() -> None:
     if debug:
         return
 
-    unused = "-1"
+    unused = "255"
+    led_count_per_strand = [
+        color_to_count[i[1]] for i in
+            sorted([(v, k) for k, v in color_to_strip.items()])
+    ]
     print(f"""
-const int UNUSED_LED = {unused};
+#include <stdint.h>
+const uint8_t UNUSED_LED = {unused};
 
 #ifdef NRF52840_XXAA
 #include "FastLED/src/platforms/arm/nrf52/clockless_arm_nrf52.h"
@@ -157,17 +158,20 @@ static_assert(FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING >= LED_COUNT, "You need to
 
 const int LED_COLUMN_COUNT = {max_x + 1};
 const int LED_ROW_COUNT = {max_y + 1};
+constexpr int STRAND_TO_LED_COUNT[] = {{ {", ".join((str(i) for i in led_count_per_strand))} }};
+const int LED_COUNT = {total_led_count};
+const int STRAND_COUNT = {len(formats)};
 
 // x first then y, starting at lower left corner
 """)
 
-    print("const int8_t xyToStrip[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
+    print("const uint8_t XY_TO_STRIP[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
     for x in range(max_x + 1):
         joined = ", ".join((unused if i is None else str(color_to_strip[i[0]]) for i in array[x]))
         print(f"    {{{joined}}},")
     print("};")
 
-    print(f"const int8_t xyToOffset[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{")
+    print(f"const uint8_t XY_TO_OFFSET[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{")
     for x in range(max_x + 1):
         joined = ", ".join((unused if i is None else str(i[1]) for i in array[x]))
         print(f"    {{{joined}}},")

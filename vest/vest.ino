@@ -59,26 +59,42 @@ struct {
 } RemoteXY;
 #pragma pack(pop)
 
-CRGB leds[LED_COUNT];
-const int LED_PIN = 0;
+CRGB _leds[LED_COUNT];
+CRGB* leds[] = {
+  &_leds[0],
+  &_leds[STRAND_TO_LED_COUNT[0]],
+  &_leds[STRAND_TO_LED_COUNT[1]],
+  &_leds[STRAND_TO_LED_COUNT[2]],
+  &_leds[STRAND_TO_LED_COUNT[3]],
+};
 
 void setup() {
+  Serial.begin(115200);
+  Serial.println("setup");
+
   SPI.begin();
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
-  pinMode(LED_PIN, OUTPUT);
   pinMode(SD_PIN, OUTPUT);
-
-  Serial.begin(115200);
 
   RemoteXY_Init();
   RemoteXY.slider_max_power = 50;
   RemoteXY.slider_brightness = 25;
 
-  FastLED.addLeds<WS2812B, LED_PIN, GRB>(&leds[0], COUNT_OF(leds)).setCorrection(TypicalLEDStrip);
+  constexpr int pins[] = {17, 21, 4, 0, 15};
+  for (const auto pin : pins) {
+    pinMode(pin, OUTPUT);
+  }
+  FastLED.addLeds<WS2812, pins[0], GRB>(leds[0], STRAND_TO_LED_COUNT[0]);
+  FastLED.addLeds<WS2812, pins[1], GRB>(leds[1], STRAND_TO_LED_COUNT[1]);
+  FastLED.addLeds<WS2812, pins[2], GRB>(leds[2], STRAND_TO_LED_COUNT[2]);
+  FastLED.addLeds<WS2812, pins[3], GRB>(leds[3], STRAND_TO_LED_COUNT[3]);
+  FastLED.addLeds<WS2812, pins[4], GRB>(leds[4], STRAND_TO_LED_COUNT[4]);
   // Brightness and max power will be set below
   FastLED.clear();
   FastLED.show();
+
+  Serial.println("exiting setup");
 }
 
 static uint8_t hue = 0;
@@ -95,31 +111,33 @@ static NeonGenerator neonGenerator;
 static ChangingGenerator changingGenerator;
 static ChristmasGenerator christmasGenerator;
 
-static Snake snake(10, 2);
+static Snake snake(10);
 static HorizontalSnake horizontalSnake;
 static Count count;
 static CountXY countXY;
 static Shine shine;
 static Blobs blobs(4);
+/*
 static PlasmaBidoulleFast bidoulleChristmas(christmasGenerator);
 static PlasmaBidoulleFast bidoulleNeon(neonGenerator);
 static PlasmaBidoulleFast bidoulleRedGreen(redGreenGenerator);
 static PlasmaBidoulleFast bidoullePastel(pastelGenerator);
 static PlasmaBidoulleFast bidoulleChanging(changingGenerator);
+*/
 static Plasma3 plasma3(hueGenerator);
 static BasicSpiral spiral(hueGenerator);
 static MoviePlayer moviePlayer;
 
 static SpectrumAnalyzer1 spectrumAnalyzer1(soundFunction);
 
-static constexpr Animation* animations[] = { &plasma3, &bidoullePastel, &bidoulleNeon, &bidoulleChanging, &horizontalSnake, &snake, &spiral, &shine, &blobs, &spectrumAnalyzer1 };
-//static constexpr Animation* const* animations[] = { &snake };
+//static constexpr Animation* animations[] = { &plasma3, &horizontalSnake, &snake, &spiral, &shine, &blobs };
+//static constexpr Animation* animations[] = { &plasma3, &bidoullePastel, &bidoulleNeon, &bidoulleChanging, &horizontalSnake, &snake, &spiral, &shine, &blobs, &spectrumAnalyzer1 };
+static constexpr Animation* const* animations[] = { &snake };
 
 void loop() {
   const int hueDuration_ms = 50;
 
   unsigned long hueStart_ms = millis();
-  long animationStart_ms = millis();
   while (true) {
     if (millis() > hueStart_ms + hueDuration_ms) {
       hueStart_ms = millis();

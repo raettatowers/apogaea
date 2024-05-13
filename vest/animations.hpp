@@ -86,19 +86,19 @@ class CountXY : public Animation {
     ~CountXY() = default;
     int animate(uint8_t hue) override;
   private:
-    int index;
+    uint8_t strand;
+    uint8_t offset;
 };
 
 class Snake : public Animation {
   public:
-    Snake(int length, int count);
+    Snake(int length);
     ~Snake();
     int animate(uint8_t hue) override;
   private:
     const int length;
-    const int count;
-    int* startIndexes;
-    int* endIndexes;
+    uint8_t offset;
+    uint8_t strand;
 };
 
 class HorizontalSnake : public Animation {
@@ -188,6 +188,9 @@ class PlasmaBidoulle : public Animation {
 };
 
 
+/*
+// Going to comment this out for now because it uses some pre-computed values, but I'm not sure how
+// to do that with the v2 vest strand-offset layout
 // A (partial) implementation of Bidoulle's animation, using fast 16-bit math
 class PlasmaBidoulleFast : public Animation {
   public:
@@ -198,6 +201,7 @@ class PlasmaBidoulleFast : public Animation {
     ColorGenerator& colorGenerator;
     uint32_t time;
 };
+*/
 
 class Plasma1 : public Animation {
   public:

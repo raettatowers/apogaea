@@ -5,7 +5,8 @@
 #include "animations.hpp"
 #include "constants.hpp"
 
-extern CRGB leds[LED_COUNT];
+extern CRGB* leds[];
+extern CRGB _leds[];
 
 CRGB ColorGenerator::getColor(const uint8_t v) {
   return CHSV(v, 255, 255);
@@ -68,16 +69,27 @@ CRGB ChristmasGenerator::getColor(const uint16_t v) {
 void Animation::setLed(int x, int y, const CRGB &color) {
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {
-      const int index = LED_STRIPS[x][y];
-      if (index != UNUSED_LED) {
-        leds[LED_STRIPS[x][y]] = color;
+      const uint8_t strand = XY_TO_STRIP[x][y];
+      const uint8_t offset = XY_TO_OFFSET[x][y];
+      if (strand != UNUSED_LED && offset != UNUSED_LED) {
+        leds[strand][offset] = color;
       }
     }
   }
 }
 
 void Animation::setLed(int index, const CRGB &color) {
-  leds[index] = color;
+  uint8_t strand = 0;
+  for (int i = 0; i < STRAND_COUNT; ++i) {
+    if (index >= STRAND_TO_LED_COUNT[i]) {
+      index -= STRAND_TO_LED_COUNT[i];
+      ++strand;
+    } else {
+      break;
+    }
+  }
+  // This will set the skipped LEDs too
+  leds[strand][index] = color;
 }
 
 Count::Count() : index(0) {}
@@ -86,15 +98,14 @@ int Count::animate(const uint8_t hue) {
   const int millisPerIteration = 500;
 
   FastLED.clear();
-  leds[index] = CHSV(hue, 255, 255);
-  ++index;
+  setLed(index, CHSV(hue, 255, 255));
   if (index == LED_COUNT) {
     index = 0;
   }
   return millisPerIteration;
 }
 
-CountXY::CountXY() : index(0) {}
+CountXY::CountXY() : strand(0), offset(0) {}
 
 int CountXY::animate(uint8_t) {
   const int millisPerIteration = 500;
@@ -102,26 +113,33 @@ int CountXY::animate(uint8_t) {
 
   // Highlight the top and bottom of each column
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
-    if (LED_STRIPS[x][0] != UNUSED_LED) {
+    if (XY_TO_OFFSET[x][0] != UNUSED_LED) {
       setLed(x, 0, CRGB::Yellow);
     }
 
     int y;
     for (y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] == UNUSED_LED) {
+      if (XY_TO_OFFSET[x][y] == UNUSED_LED) {
         break;
       }
     }
     if (y > 0) {
       --y;
     }
-    if (LED_STRIPS[x][y] != UNUSED_LED) {
+    if (XY_TO_OFFSET[x][y] != UNUSED_LED) {
       setLed(x, y, CRGB::Aquamarine);
     }
   }
 
-  index = (index + 1) % LED_COUNT;
-  leds[index] = CRGB::Red;
+  ++offset;
+  if (offset >= STRAND_TO_LED_COUNT[strand]) {
+    offset = 0;
+    ++strand;
+    if (strand >= STRAND_COUNT) {
+      strand = 0;
+    }
+  }
+  leds[strand][offset] = CRGB::Red;
 
   return millisPerIteration;
 }
@@ -155,49 +173,25 @@ int HorizontalSnake::animate(const uint8_t hue) {
   return 250;
 }
 
-Snake::Snake(int length_, int count_)
-  : length(length_), count(count_), startIndexes(new int[count_]),
-    endIndexes(new int[count_]) {
-  for (int i = 0; i < count; ++i) {
-    startIndexes[i] =
-      static_cast<int>(static_cast<float>(LED_COUNT) / count * i);
-    // Force all the snakes to start entirely on the vest
-    endIndexes[i] = LED_COUNT;
-  }
-}
+Snake::Snake(int length_) : length(length_), offset(0) {}
 
 int Snake::animate(const uint8_t originalHue) {
   const unsigned millisPerIteration = 20;
 
   FastLED.clear();
 
-  for (int i = 0; i < count; ++i) {
-    // Make the hues cycle faster
-    const uint8_t hue = originalHue * 4 + (255 / count) * i;
-
-    // Snake just entering
-    if (endIndexes[i] < length) {
-      fill_rainbow(&leds[0], endIndexes[i], hue);
-      ++endIndexes[i];
-    } else {
-      // Snake in the middle or exiting
-      const int endLength = min(length, LED_COUNT - startIndexes[i]);
-      fill_rainbow(&leds[startIndexes[i]], endLength, hue);
-
-      ++startIndexes[i];
-      if (startIndexes[i] >= COUNT_OF(leds)) {
-        startIndexes[i] = 0;
-        endIndexes[i] = 1;
-      }
-    }
+  if (offset < length) {
+    fill_rainbow(&_leds[0], offset, originalHue);
+  } else if (offset + length >= LED_COUNT) {
+    // I don't know if -1 is needed, but I don't want off by ones, so just be safe
+    fill_rainbow(&_leds[offset], LED_COUNT - offset - 1, originalHue);
+  } else {
+    fill_rainbow(&_leds[offset], length, originalHue);
   }
   return millisPerIteration;
 }
 
-Snake::~Snake() {
-  delete[] startIndexes;
-  delete[] endIndexes;
-}
+Snake::~Snake() {}
 
 Shine::Shine() : increasing(), amount() {
   static_assert(COUNT_OF(increasing) == LED_COUNT);
@@ -313,18 +307,20 @@ int Blobs::animate(const uint8_t hue) {
     const uint8_t hueOffset = 256 / count * i;
     for (int xIter = startX; xIter < endX; ++xIter) {
       for (int yIter = startY; yIter < endY; ++yIter) {
-        const auto index = LED_STRIPS[xIter][yIter];
-        if (index == UNUSED_LED) {
+        const auto offset = XY_TO_OFFSET[xIter][yIter];
+        if (offset == UNUSED_LED) {
           continue;
         }
+        const auto strip = XY_TO_STRIP[xIter][yIter];
         const float distance2 = static_cast<float>(
                                   (xIter - x[i]) * (xIter - x[i]) + (yIter - y[i]) * (yIter - y[i]));
         const float ratio = sqrtf((radius2 - distance2) / radius2);
         if (ratio > 0.0f) {
           const int brightness = static_cast<int>(255 * ratio);
           const CHSV color = CHSV(hue + hueOffset, 255, brightness);
-          if (leds[index]) {
-            const CRGB blended = blend(color, leds[index], 128);
+          // TODO(bskari) What does this do? Does this mean it's unset? Ugh
+          if (leds[strip][offset]) {
+            const CRGB blended = blend(color, leds[strip][offset], 128);
             setLed(xIter, yIter, blended);
           } else {
             setLed(xIter, yIter, color);
@@ -379,7 +375,7 @@ int PlasmaBidoulle::animate(uint8_t) {
     const float v1 = sinf(multiplier * x + time);
     const float cx = sinf(x + 0.5 * sinf(time * 0.2f));
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] != UNUSED_LED) {
+      if (XY_TO_OFFSET[x][y] != UNUSED_LED) {
         const float v2 = sinf(multiplier * (x * sinf(time * 0.5f) +
                                             y * cosf(time * (1.0f / 3.0f))) +
                               time);
@@ -400,6 +396,7 @@ int PlasmaBidoulle::animate(uint8_t) {
   return 0;
 }
 
+/*
 PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
@@ -424,7 +421,7 @@ int PlasmaBidoulleFast::animate(uint8_t) {
     const int16_t v1 = sin16(multiplier * x + time); // good
     // const int16_t cx = sin16(multiplier * x + sin16(time / 5) / 2);  // bad
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      if (LED_STRIPS[x][y] != UNUSED_LED) {
+      if (XY_TO_OFFSET[x][y] != UNUSED_LED) {
         const int16_t v2 = sin16(
                              (multiplier * (x * sin16(time / 4) / 2 + y * cos16(time / 3)) +
                               time) /
@@ -441,6 +438,7 @@ int PlasmaBidoulleFast::animate(uint8_t) {
   }
   return 20;
 }
+*/
 
 Plasma1::Plasma1(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
@@ -448,7 +446,7 @@ Plasma1::Plasma1(ColorGenerator &colorGenerator_)
 int Plasma1::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const auto index = LED_STRIPS[x][y];
+      const auto index = XY_TO_OFFSET[x][y];
       if (index != UNUSED_LED) {
         const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 4) + time / 4)) / 256;
         const uint8_t p2 = 128 + (sin16(y * (PI_16_1_0 / 4) + time / 4)) / 256;
@@ -471,7 +469,7 @@ Plasma2::Plasma2(ColorGenerator &colorGenerator_)
 int Plasma2::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const auto index = LED_STRIPS[x][y];
+      const auto index = XY_TO_OFFSET[x][y];
       if (index != UNUSED_LED) {
         const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
         const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 +
@@ -502,7 +500,7 @@ Plasma3::Plasma3(ColorGenerator &colorGenerator_)
 int Plasma3::animate(uint8_t) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const auto index = LED_STRIPS[x][y];
+      const auto index = XY_TO_OFFSET[x][y];
       if (index != UNUSED_LED) {
         const uint8_t p1 = 128 + (sin16(x * (PI_16_1_0 / 8) + time / 4)) / 256;
         const uint8_t p2 = 128 + sin16(10 * (x * sin16(time / 2) / 256 +
