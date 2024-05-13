@@ -159,7 +159,7 @@ static_assert(FASTLED_NRF52_MAXIMUM_PIXELS_PER_STRING >= LED_COUNT, "You need to
 const int LED_COLUMN_COUNT = {max_x + 1};
 const int LED_ROW_COUNT = {max_y + 1};
 constexpr int STRAND_TO_LED_COUNT[] = {{ {", ".join((str(i) for i in led_count_per_strand))} }};
-constexpr int STRAND_INDEXES[] = {{ {", ".join(str(sum(led_count_per_strand[:i])) for i in range(0, len(led_count_per_strand)))} }};
+constexpr int LINEAR_LED_INDEXES[] = {{ {", ".join(str(sum(led_count_per_strand[:i])) for i in range(0, len(led_count_per_strand)))} }};
 const int LED_COUNT = {total_led_count};
 const int STRAND_COUNT = {len(formats)};
 

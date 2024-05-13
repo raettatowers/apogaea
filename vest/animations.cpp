@@ -6,7 +6,7 @@
 #include "constants.hpp"
 
 extern CRGB* leds[];
-extern CRGB _leds[];
+extern CRGB linearLeds[];
 
 CRGB ColorGenerator::getColor(const uint8_t v) {
   return CHSV(v, 255, 255);
@@ -79,17 +79,7 @@ void Animation::setLed(int x, int y, const CRGB &color) {
 }
 
 void Animation::setLed(int index, const CRGB &color) {
-  uint8_t strand = 0;
-  for (int i = 0; i < STRAND_COUNT; ++i) {
-    if (index >= STRAND_TO_LED_COUNT[i]) {
-      index -= STRAND_TO_LED_COUNT[i];
-      ++strand;
-    } else {
-      break;
-    }
-  }
-  // This will set the skipped LEDs too
-  leds[strand][index] = color;
+  linearLeds[index] = color;
 }
 
 Count::Count() : index(0) {}
@@ -182,12 +172,12 @@ int Snake::animate(const uint8_t originalHue) {
   FastLED.clear();
 
   if (offset < length) {
-    fill_rainbow(&_leds[0], offset, originalHue);
+    fill_rainbow(&linearLeds[0], offset, originalHue);
   } else if (offset + length >= LED_COUNT) {
     // I don't know if -1 is needed, but I don't want off by ones, so just be safe
-    fill_rainbow(&_leds[offset], LED_COUNT - offset - 1, originalHue);
+    fill_rainbow(&linearLeds[offset], LED_COUNT - offset - 1, originalHue);
   } else {
-    fill_rainbow(&_leds[offset], length, originalHue);
+    fill_rainbow(&linearLeds[offset], length, originalHue);
   }
   return millisPerIteration;
 }

@@ -59,13 +59,13 @@ struct {
 } RemoteXY;
 #pragma pack(pop)
 
-CRGB _leds[LED_COUNT];
+CRGB linearLeds[LED_COUNT];
 CRGB* leds[] = {
-  &_leds[STRAND_INDEXES[0]],
-  &_leds[STRAND_INDEXES[1]],
-  &_leds[STRAND_INDEXES[2]],
-  &_leds[STRAND_INDEXES[3]],
-  &_leds[STRAND_INDEXES[4]],
+  &linearLeds[LINEAR_LED_INDEXES[0]],
+  &linearLeds[LINEAR_LED_INDEXES[1]],
+  &linearLeds[LINEAR_LED_INDEXES[2]],
+  &linearLeds[LINEAR_LED_INDEXES[3]],
+  &linearLeds[LINEAR_LED_INDEXES[4]],
 };
 
 
