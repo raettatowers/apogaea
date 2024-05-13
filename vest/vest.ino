@@ -61,12 +61,13 @@ struct {
 
 CRGB _leds[LED_COUNT];
 CRGB* leds[] = {
-  &_leds[0],
-  &_leds[STRAND_TO_LED_COUNT[0]],
-  &_leds[STRAND_TO_LED_COUNT[1]],
-  &_leds[STRAND_TO_LED_COUNT[2]],
-  &_leds[STRAND_TO_LED_COUNT[3]],
+  &_leds[STRAND_INDEXES[0]],
+  &_leds[STRAND_INDEXES[1]],
+  &_leds[STRAND_INDEXES[2]],
+  &_leds[STRAND_INDEXES[3]],
+  &_leds[STRAND_INDEXES[4]],
 };
+
 
 void setup() {
   Serial.begin(115200);

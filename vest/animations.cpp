@@ -99,6 +99,7 @@ int Count::animate(const uint8_t hue) {
 
   FastLED.clear();
   setLed(index, CHSV(hue, 255, 255));
+  ++index;
   if (index == LED_COUNT) {
     index = 0;
   }
