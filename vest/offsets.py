@@ -12,7 +12,7 @@ def debug_print(s: str) -> None:
 
 
 def print_luts() -> None:
-    """Print the lookup tables."""
+    """Print the lookup tables. Returns """
     # Stage right goes from x:[0-10] and y:[4-14]
     # Central goes from x:[11-23] and y:[0-14]
     # Stage left goes from x:[24-31] and y:[4-14]
@@ -178,13 +178,32 @@ const int STRAND_COUNT = {len(formats)};
         print(f"    {{{joined}}},")
     print("};")
 
+    return max_y, max_x
+
+
+def print_precomputed_bidoulle_v3(row_count: int, column_count: int) -> None:
+    """Prints the precomputed Bidoulle v3 values."""
+    print("const uint8_t bidoulleV3rings[LED_COLUMN_COUNT * 2][LED_ROW_COUNT * 2] = {")
+
+    for x in range(-column_count // 2, 3 * column_count // 2):
+        sys.stdout.write("  {")
+        for y in range(-row_count // 2, 3 * row_count // 2):
+            xSqr = (x - column_count // 2) ** 2
+            ySqr = (y - row_count // 2) ** 2
+            value = round((math.sin(math.sqrt(0.1 * (xSqr + ySqr) + 1.0)) + 1.0) * 127)
+            sys.stdout.write(f"{value}, ")
+        print("},")
+    print("};")
+
 
 def main() -> None:
     global debug
     if len(sys.argv) > 1:
         debug = True
 
-    print_luts()
+    row_count, column_count = print_luts()
+    if not debug:
+        print_precomputed_bidoulle_v3(row_count, column_count)
 
 
 if __name__ == "__main__":

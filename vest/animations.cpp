@@ -160,8 +160,15 @@ int HorizontalSnake::animate(const uint8_t hue) {
       }
     }
   }
-  setLed(x, y, CHSV(hue, 255, 255));
-  return 250;
+  const int direction = xIncreasing ? 1 : -1;
+  int tempX = x;
+  for (int i = 0; i < 10; ++i) {
+    if (0 <= tempX && tempX < LED_COLUMN_COUNT) {
+      setLed(tempX, y, CHSV(hue, 255, 255));
+    }
+    tempX += direction;
+  }
+  return 20;
 }
 
 Snake::Snake(int length_) : length(length_), offset(0) {}
@@ -171,6 +178,7 @@ int Snake::animate(const uint8_t originalHue) {
 
   FastLED.clear();
 
+  offset = (offset + 1) % LED_COUNT;
   if (offset < length) {
     fill_rainbow(&linearLeds[0], offset, originalHue);
   } else if (offset + length >= LED_COUNT) {
@@ -387,7 +395,6 @@ int PlasmaBidoulle::animate(uint8_t) {
   return 0;
 }
 
-/*
 PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
@@ -429,7 +436,6 @@ int PlasmaBidoulleFast::animate(uint8_t) {
   }
   return 20;
 }
-*/
 
 Plasma1::Plasma1(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}

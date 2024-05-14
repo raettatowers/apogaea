@@ -97,8 +97,7 @@ class Snake : public Animation {
     int animate(uint8_t hue) override;
   private:
     const int length;
-    uint8_t offset;
-    uint8_t strand;
+    int offset;
 };
 
 class HorizontalSnake : public Animation {
@@ -188,9 +187,6 @@ class PlasmaBidoulle : public Animation {
 };
 
 
-/*
-// Going to comment this out for now because it uses some pre-computed values, but I'm not sure how
-// to do that with the v2 vest strand-offset layout
 // A (partial) implementation of Bidoulle's animation, using fast 16-bit math
 class PlasmaBidoulleFast : public Animation {
   public:
@@ -201,7 +197,6 @@ class PlasmaBidoulleFast : public Animation {
     ColorGenerator& colorGenerator;
     uint32_t time;
 };
-*/
 
 class Plasma1 : public Animation {
   public:
