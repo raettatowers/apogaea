@@ -10,7 +10,7 @@
 
 #include "../constants.hpp"
 
-const int WIDTH = 720;
+const int WIDTH = 800;
 const int HEIGHT = 480;
 
 static SDL_Renderer *renderer = nullptr;
@@ -1100,7 +1100,7 @@ void setLed(const int index, uint32_t color, SDL_Renderer *const renderer) {
   const int multiplier = 25;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      const int ind = LED_STRIPS[x][y];
+      const int ind = XY_TO_OFFSET[x][y];
       if (ind == index) {
         rectangle.x = x * multiplier;
         rectangle.y = y * multiplier;
@@ -1123,7 +1123,7 @@ void setLed(const int x, const int y, const uint8_t red, const uint8_t green,
   const int multiplier = 25;
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {
-      const int index = LED_STRIPS[x][y];
+      const int index = XY_TO_OFFSET[x][y];
       if (fullVest || index != UNUSED_LED) {
         // The ys are inverted
         rectangle.x = x * multiplier;
