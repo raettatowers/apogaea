@@ -53,8 +53,8 @@ uint8_t lodevP3(const int time, const int x, const int y) {
 }
 
 uint8_t lodevP4(const int time, const int x, const int y) {
-  const int x2 = x - LED_COLUMN_COUNT / 2;
-  const int y2 = y - LED_ROW_COUNT / 2;
+  const int x2 = x - X_CENTER;
+  const int y2 = y - Y_CENTER;
   return 128 + (sin16(sqrt16(x2 * x2 + y2 * y2) * 1000 + time)) / 256;
 }
 
@@ -173,8 +173,8 @@ void p4onlyFloat(int time_, setLed_t setLed, SDL_Renderer *const renderer) {
   float time = static_cast<float>(time_) / 10000;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      float cx = 0.5 * (x - LED_COLUMN_COUNT / 2) + 0.5 * sinf(time / 5);
-      float cy = 0.5 * (y - LED_ROW_COUNT / 2) + 0.5 * cosf(time / 3);
+      float cx = 0.5 * (x - X_CENTER) + 0.5 * sinf(time / 5);
+      float cy = 0.5 * (y - Y_CENTER) + 0.5 * cosf(time / 3);
       float v = sinf(sqrtf(1 * (cx * cx + cy * cy) + 1) + time);
       const uint8_t hue = (v + 1) * 127;
       setLed(x, y, hue, renderer);
@@ -231,8 +231,8 @@ void floatSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   for (float distance = 0.0f; distance < 15.0f; distance += 0.5f) {
     for (float theta = 0.0f; theta < 2 * M_PI_F; theta += M_PI_F * 0.01f) {
       const float x =
-          sinf(theta + timeOffset) * distance + LED_COLUMN_COUNT / 2;
-      const float y = cosf(theta + timeOffset) * distance + LED_ROW_COUNT / 2;
+          sinf(theta + timeOffset) * distance + X_CENTER;
+      const float y = cosf(theta + timeOffset) * distance + Y_CENTER;
       const uint8_t hue =
           (theta + distance * distanceMultiplier) / (2.0f * M_PI_F) * 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
@@ -262,10 +262,10 @@ void basicSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
          theta += thetaStep) {
       const int16_t x =
           static_cast<int>(sin16(theta + time)) * distance / divisor +
-          LED_COLUMN_COUNT / 2;
+          X_CENTER;
       const int16_t y =
           static_cast<int>(cos16(theta + time)) * distance / divisor +
-          LED_ROW_COUNT / 2;
+          Y_CENTER;
       const uint8_t hue = (theta + distance * distanceMultiplier) / 255;
       setLed(x, y, hue, renderer);
     }
@@ -300,10 +300,10 @@ void throbbingSpiral(int time, setLed_t setLed, SDL_Renderer *const renderer) {
          theta += thetaStep) {
       const int16_t x =
           static_cast<int>(sin16(theta + time)) * distance / divisor +
-          LED_COLUMN_COUNT / 2;
+          X_CENTER;
       const int16_t y =
           static_cast<int>(cos16(theta + time)) * distance / divisor +
-          LED_ROW_COUNT / 2;
+          Y_CENTER;
       const uint8_t hue = (theta + distance * sin16(time) / throbDivisor) / 255;
       setLed(static_cast<int>(x), static_cast<int>(y), hue, renderer);
     }
@@ -619,8 +619,8 @@ const char *plasmaBidoulleFast(int time, SDL_Renderer *const renderer) {
           sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
                  time) /
                 16384); // bad values, but looks good?
-      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const int adjustedX = x + xOffset + X_CENTER;
+      const int adjustedY = y + yOffset + Y_CENTER + 1;
       const uint16_t blend1 =
           bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
       const uint16_t blend2 =
@@ -657,8 +657,8 @@ const char *plasmaBidoulleFastChristmas(int time,
           sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
                  time) /
                 16384); // bad values, but looks good?
-      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const int adjustedX = x + xOffset + X_CENTER;
+      const int adjustedY = y + yOffset + Y_CENTER + 1;
       const uint16_t blend1 =
           bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
       const uint16_t blend2 =
@@ -705,8 +705,8 @@ const char *plasmaBidoulleFastChangingColors(int time,
           sin16((multiplier * (x * sin16(time / 2) / 2 + y * cos16(time / 3)) +
                  time) /
                 16384); // bad values, but looks good?
-      const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-      const int adjustedY = y + yOffset + LED_ROW_COUNT / 2 + 1;
+      const int adjustedX = x + xOffset + X_CENTER;
+      const int adjustedY = y + yOffset + Y_CENTER + 1;
       const uint16_t blend1 =
           bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
       const uint16_t blend2 =
@@ -732,8 +732,8 @@ void diamondColors(int time, setLed_t setLed, SDL_Renderer *const renderer) {
   uint8_t timeOffset = sin16(time >> 2) >> 10;
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
-      uint8_t offset = start + abs(LED_COLUMN_COUNT / 2 - x) * 4 +
-                       abs(LED_ROW_COUNT / 2 - y) * 2 + timeOffset;
+      uint8_t offset = start + abs(X_CENTER - x) * 4 +
+                       abs(Y_CENTER - y) * 2 + timeOffset;
       setLed(x, y, offset, renderer);
     }
   }
@@ -755,7 +755,7 @@ void pointyColors(setLed_t setLed, SDL_Renderer *const renderer) {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       uint8_t offset =
-          start + (abs(LED_COLUMN_COUNT / 2 - x) - abs(y - LED_ROW_COUNT)) * 4;
+          start + (abs(X_CENTER - x) - abs(y - LED_ROW_COUNT)) * 4;
       setLed(x, y, offset, renderer);
     }
   }

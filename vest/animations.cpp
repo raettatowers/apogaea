@@ -424,8 +424,8 @@ int PlasmaBidoulleFast::animate(uint8_t) {
                              (multiplier * (x * sin16(time / 4) / 2 + y * cos16(time / 3)) +
                               time) /
                              16384); // bad values, but looks good?
-        const int adjustedX = x + xOffset + LED_COLUMN_COUNT / 2;
-        const int adjustedY = y + yOffset + LED_ROW_COUNT / 2;
+        const int adjustedX = x + xOffset + X_CENTER;
+        const int adjustedY = y + yOffset + Y_CENTER;
         const uint16_t blend1 = bidoulleV3rings[adjustedX][adjustedY] * (blend - xRemainder) / blend;
         const uint16_t blend2 = bidoulleV3rings[adjustedX + 1][adjustedY] * xRemainder / blend;
         const uint16_t v3 = (blend1 + blend2) / 2 * 256;
@@ -745,8 +745,8 @@ int BasicSpiral::animate(uint8_t) {
 
   for (int distance = 0; distance < maxDistance; ++distance) {
     for (uint16_t theta = 0; theta < std::numeric_limits<decltype(theta)>::max() - 2 * thetaStep; theta += thetaStep) {
-      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + LED_COLUMN_COUNT / 2;
-      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + LED_ROW_COUNT / 2;
+      const int16_t x = static_cast<int>(sin16(theta + time)) * distance / divisor + X_CENTER;
+      const int16_t y = static_cast<int>(cos16(theta + time)) * distance / divisor + Y_CENTER;
       const uint8_t v = (theta + distance * distanceMultiplier) / 255;
       setLed(x, y, colorGenerator.getColor(v));
     }
