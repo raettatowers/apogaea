@@ -50,7 +50,7 @@ def print_luts() -> None:
             return range(start, end - 1, -1)
 
     grid = {}
-    def add_entry(x: str | int, y: str | int, color: str, led_count: int) -> None:
+    def add_entry(x: typing.Union[str, int], y: typing.Union[str, int], color: str, led_count: int) -> None:
         x = int(x)
         y = int(y)
         value = (color, led_count)
