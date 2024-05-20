@@ -1,6 +1,7 @@
 """Generates C code for various things."""
 import math
 import sys
+import typing
 
 
 debug = False
@@ -40,7 +41,7 @@ def print_luts() -> None:
     }
 
     # Map of (x,y) to (color,LED)
-    def get_range(start: str | int, end: str | int):
+    def get_range(start: typing.Union[str, int], end: typing.Union[str, int]):
         start = int(start)
         end = int(end)
         if start < end:
