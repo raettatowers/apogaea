@@ -1,10 +1,11 @@
 #define COUNT_OF(x) (sizeof(x) / sizeof(0[x]))
 
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
+
 const int LEDS_PER_STRIP = 100;
 const int STRIP_COUNT = 5;
-
-const int BUTTON_PIN = 34;
-const int MICROPHONE_ANALOG_PIN = 26;
 
 const int c4Note = 15;
 

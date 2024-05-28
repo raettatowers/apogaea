@@ -2,11 +2,15 @@
 #include <arduinoFFT.h>
 #include <stdint.h>
 #include <FastLED.h>
+#include <driver/i2s.h>
 
 #include "constants.hpp"
 
+extern void blink(const int delay_ms);
+
+static const int I2S_SAMPLE_RATE_HZ = 16000; // Sample rate of the I2S microphone
+
 static const int SAMPLE_COUNT = 512;
-static const float SAMPLING_FREQUENCY_HZ = 41000 / 8;
 static const int MINIMUM_THRESHOLD = 20;
 // Generated from python3 steps.py 512 5125
 static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117, 131, 139, 156, 175, 197, 209, 234};
@@ -20,7 +24,7 @@ int additionalTrebleRange = 0;
 
 FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
-static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, SAMPLING_FREQUENCY_HZ);
+static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 // We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
@@ -36,7 +40,7 @@ static void renderFft();
 static void slideDown();
 static FftType maxVRealForNote(int note);
 static void normalizeSamplesTo0_1(FftType samples[], int length);
-//static void logNotes(const FftType noteValues[NOTE_COUNT]);
+static void logNotes(const FftType noteValues[NOTE_COUNT]);
 
 // TODO: Should this start at 2?
 #define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
@@ -79,7 +83,8 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
 
-  //logNotes(noteValues);
+  logNotes(noteValues);
+  return;
 
   // Do treble first
   for (int i = 0; i < STRIP_COUNT * 2; ++i) {
@@ -134,27 +139,25 @@ static void renderFft() {
 }
 
 static void collectSamples() {
-  static const uint32_t samplingPeriod_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY_HZ));
-  static_assert(sizeof(micros()) == 4);
-  // micros() returns an unsigned 4 byte number, so we can only run for 4.3B / 1M = 4.3K seconds or
-  // 71 minutes. We definitely need to worry about overflow.
+  static int16_t data[SAMPLE_COUNT];
 
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    const auto start_us = micros();
-    vReal[i] = analogRead(MICROPHONE_ANALOG_PIN);
-    // This should handle overflow, or at least not lock up
-    const auto limit_us = start_us + samplingPeriod_us;
-    while (micros() < limit_us) {
-      // Busy wait
-    }
+  size_t bytesRead;
+  i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY);
+  for (int i = 0; i < COUNT_OF(data); ++i) {
+    vImaginary[i] = data[i];
   }
 
-  // and reset vImaginary
+  // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
+
+  for (const auto sample : data) {
+    Serial.printf("%ld\n", sample);
+  }
 }
 
 void spectrumAnalyzer() {
   collectSamples();
+  return;
   computeFft();
   renderFft();
 }
@@ -171,6 +174,45 @@ static void slideDown() {
 }
 
 void setupSpectrumAnalyzer() {
+  Serial.println("setupSpectrumAnalyzer");
+  const auto I2S_BITS_PER_SAMPLE = I2S_BITS_PER_SAMPLE_16BIT; // 16-bit audio samples
+  const int SCK_PIN = 26;
+  const int WS_PIN = 22;
+  const int SD_PIN = 25;
+
+  i2s_config_t i2sConfig = {
+    .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),  // I2S receive mode
+    .sample_rate = I2S_SAMPLE_RATE_HZ,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // Mono channel
+    .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S_MSB),
+    .intr_alloc_flags = 0, // Default interrupt allocation
+    .dma_buf_count = 8, // Number of DMA buffers
+    .dma_buf_len = SAMPLE_COUNT, // Size of each DMA buffer. TODO Not sure what this should be?
+    .use_apll = false // Use the internal APLL (Audio PLL)
+  };
+
+  // Install and configure the I2S driver
+  Serial.println("i2s_driver_install");
+  i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
+  Serial.println("done i2s_driver_install");
+
+  // Set pins for I2S
+  i2s_pin_config_t pin_config = {
+    .bck_io_num = SCK_PIN,
+    .ws_io_num = WS_PIN,
+    .data_out_num = I2S_PIN_NO_CHANGE,
+    .data_in_num = SD_PIN
+  };
+  Serial.println("i2s_set_pin");
+  i2s_set_pin(I2S_NUM_0, &pin_config);
+  Serial.println("done i2s_set_pin");
+
+  // Configure I2S input format
+  Serial.println("i2s_set_clk");
+  i2s_set_clk(I2S_NUM_0, I2S_SAMPLE_RATE_HZ, I2S_BITS_PER_SAMPLE, I2S_CHANNEL_MONO);
+  Serial.println("done i2s_set_clk");
+  Serial.println("exiting setupSpectrumAnalyzer");
 }
 
 /**
@@ -213,17 +255,16 @@ static void normalizeSamplesTo0_1(FftType samples[], const int length) {
   }
 }
 
-/*
 static void logNotes(const FftType noteValues[NOTE_COUNT]) {
-  static decltype(millis()) nextDisplayTime = 1000;
-  if (millis() < nextDisplayTime) {
+  const int interval_ms = 5000;
+  static decltype(millis()) nextDisplayTime_ms = interval_ms;
+  if (millis() < nextDisplayTime_ms) {
     return;
   }
-  nextDisplayTime = millis() + 1000;
+  nextDisplayTime_ms = millis() + interval_ms;
 
   for (int i = 0; i < NOTE_COUNT; ++i) {
     Serial.printf("%02d:%d\n", i, static_cast<int>(noteValues[i] * 255));
   }
   Serial.println();
 }
-*/

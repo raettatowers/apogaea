@@ -1,2 +1,2 @@
 #!/bin/sh
-arduino-cli compile --fqbn esp32:esp32:esp32doit-devkit-v1 piddle.ino $@ --warnings all
+arduino-cli compile --fqbn esp32:esp32:esp32da piddle.ino $@ #--warnings all
