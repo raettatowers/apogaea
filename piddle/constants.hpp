@@ -5,9 +5,9 @@
 #endif
 
 const int LEDS_PER_STRIP = 100;
-const int STRIP_COUNT = 5;
+const int STRIP_COUNT = 6;
 
-const int c4Note = 15;
+const int c4Index = 11;
 
-constexpr int LED_PINS[] = {23, 19, 18, 15, 4};
+constexpr int LED_PINS[] = {14, 18, 19, 23, 33, 34};
 static_assert(COUNT_OF(LED_PINS) == STRIP_COUNT);

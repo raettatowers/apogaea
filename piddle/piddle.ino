@@ -65,11 +65,18 @@ void setup() {
   Serial.begin(115200);
   #warning "Serial is enabled"
 
-  // This has to be done first for some reason
+  // This had to be done first, but I think I fixed the bug that was causing problems? I don't want
+  // to test if it's fixed, so I'm leaving it first now
   setupSpectrumAnalyzer();
 
   //analogReference(AR_DEFAULT); // Not on ESP32?
   pinMode(LED_BUILTIN, OUTPUT);
+
+  RemoteXY_Init();
+  RemoteXY.trebleSlider = 50;
+  RemoteXY.brightnessSlider = 64;
+  RemoteXY.sensitivitySlider = 50;
+  RemoteXY.trebleRangeSelect = 1;
 
   FastLED.addLeds<WS2812B, LED_PINS[0], GRB>(leds[0], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[1], GRB>(leds[1], LEDS_PER_STRIP);
@@ -82,12 +89,6 @@ void setup() {
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
-
-  RemoteXY_Init();
-  RemoteXY.trebleSlider = 50;
-  RemoteXY.brightnessSlider = 64;
-  RemoteXY.sensitivitySlider = 50;
-  RemoteXY.trebleRangeSelect = 1;
 
   for (int i = 0; i < 3; ++i) {
     blink(100);
@@ -105,7 +106,7 @@ void loop() {
   constexpr int high = 20500;
   constexpr int mid = (low + high) / 2;
   minimumDivisor = mid + (-RemoteXY.sensitivitySlider + 50) * (high - low) / 100; 
-  startTrebleNote = c4Note + (RemoteXY.trebleSlider - 50) / 10;
+  startTrebleNote = c4Index + (RemoteXY.trebleSlider - 50) / 10;
   additionalTrebleRange = RemoteXY.trebleRangeSelect;
 
   if (RemoteXY.buttonTest) {

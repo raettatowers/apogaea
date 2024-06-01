@@ -8,17 +8,19 @@
 
 extern void blink(const int delay_ms);
 
-static const int I2S_SAMPLE_RATE_HZ = 16000; // Sample rate of the I2S microphone
+static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 
-static const int SAMPLE_COUNT = 512;
+static const int SAMPLE_COUNT = 2048;
 static const int MINIMUM_THRESHOLD = 20;
-// Generated from python3 steps.py 512 5125
-static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 17, 19, 21, 24, 26, 29, 32, 34, 39, 43, 49, 52, 58, 65, 69, 78, 87, 98, 104, 117, 131, 139, 156, 175, 197, 209, 234};
+// Generated from python3 steps.py 2048 44100
+static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 32, 36, 40, 45, 48, 54, 61, 64, 72, 81, 91, 97, 109, 122, 129, 145, 163, 183
+};
 static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
 static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
 // These values can be changed in RemoteXY
-int startTrebleNote = c4Note;
+int startTrebleNote = c4Index;
 float minimumDivisor = 1000;
 int additionalTrebleRange = 0;
 
@@ -47,8 +49,7 @@ static void logNotes(const FftType noteValues[NOTE_COUNT]);
 
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
-  // For music, FFT_WIN_TYP_HAMMING seemed to do best, but FFT_WIN_TYP_TRIANGLE
-  // seemed best for the sine wave. HANN and TRIANGLE also did well.
+  // For music, HAMMING seemed to do best, but WELCH and TRIANGLE seem to work best for sine wave.
   fft.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
   fft.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
   fft.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
@@ -60,6 +61,19 @@ static void computeFft() {
   for (int i = 0; i < NOTE_TO_VREAL_INDEX[startTrebleNote]; ++i) {
     vReal[i] *= 0.5;
   }
+
+#if false
+  // Debug logging
+  const int interval_ms = 5000;
+  static decltype(millis()) nextDisplayTime_ms = interval_ms;
+  if (millis() < nextDisplayTime_ms) {
+    return;
+  }
+  nextDisplayTime_ms = millis() + interval_ms;
+  for (int i = 0; i < COUNT_OF(vReal) / 2; ++i) {
+    Serial.printf("%03d:%f\n", i, vReal[i]);
+  }
+#endif
 }
 
 static uint8_t hueOffset = 0;
@@ -83,81 +97,72 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
 
+  #if false
+  FastLED.clear();
+  for (int i = 0; i < COUNT_OF(noteValues); ++i) {
+    leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
+  }
+  FastLED.show();
   logNotes(noteValues);
-  return;
+  #endif
 
-  // Do treble first
-  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
-    // Let's do max of trebleRange notes
-    FftType maxValueOfRange = noteValues[startTrebleNote + i];
-    for (int j = 0; j < additionalTrebleRange; ++j) {
-      const int nextNote = startTrebleNote + i + (STRIP_COUNT * 2 * (j + 1));
-      if (nextNote < NOTE_COUNT) {
-        maxValueOfRange = max(maxValueOfRange, noteValues[nextNote]);
-      }
-    }
-
-    // 254 to avoid rounding problems
-    const uint8_t value = maxValueOfRange * 254;
-    auto color = CHSV(0, 0, 0);  // Black
-    if (value > MINIMUM_THRESHOLD) {
-      const uint8_t hue = hueOffset + i * (256 / (STRIP_COUNT * 2));
-      color = CHSV(hue, 255, value);
-    }
-
-    if (i % 2 == 0) {
-      leds[i / 2][0] = color;
-    } else {
-      leds[i / 2][LEDS_PER_STRIP - 1] = color;
-    }
+  // Let's just do the top half of the strips at first
+  int strip = 0;
+  const int offset = c4Index - 7;
+  for (int strip = 0; strip < STRIP_COUNT; ++strip) {
+    const float red_f = noteValues[offset + 0 + strip];
+    const float green_f = noteValues[offset + 7 + strip];
+    const float blue_f = noteValues[offset + 14 * strip];
+    const uint8_t red = static_cast<uint8_t>(red_f * 254);
+    const uint8_t green = static_cast<uint8_t>(green_f * 254);
+    const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
+    leds[strip][0] = CRGB(red, green, blue);
   }
-  ++hueOffset;
-
-  // Then bass line
-  // But first, save the copy of the LEDs
-  for (int i = 0; i < STRIP_COUNT; ++i) {
-    memcpy(ledsBackup[i], leds[i], sizeof(leds[0]));
-  }
-
-  return;
-  //static_assert(startTrebleNote - STRIP_COUNT * 2 > 2);
-  const auto bassColor = CHSV(0, 255, 128);  // Dim red
-  for (int i = 0; i < STRIP_COUNT * 2; ++i) {
-    const auto value = NOTE_TO_VREAL_INDEX[startTrebleNote + i - STRIP_COUNT * 2];
-    if (value < MINIMUM_THRESHOLD) {
-      continue;
-    }
-
-    const int length = min(value / 4, LEDS_PER_STRIP);
-    // TODO: I might need to reverse these two?
-    if (i % 2 == 0) {
-      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2], length, bassColor);
-    } else {
-      fill_solid(&leds[i / 2][LEDS_PER_STRIP / 2 - length], length, bassColor);
-    }
-  }
+  FastLED.show();
 }
 
 static void collectSamples() {
   static int16_t data[SAMPLE_COUNT];
+  const int maxI2sSize = 1024 / sizeof(data[0]);
+  const int usPerSample = 1_000_000 / I2S_SAMPLE_RATE_HZ;
+  int16_t* ptr;
 
   size_t bytesRead;
-  i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY);
+  if (SAMPLE_COUNT <= maxI2sSize) {
+    i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY);
+  } else {
+    ptr = &data[0];
+    int size = SAMPLE_COUNT;
+    while (size > maxI2sSize) {
+      i2s_read(I2S_NUM_0, ptr, maxI2sSize * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+      const auto start_us = micros();
+      size -= maxI2sSize;
+      ptr += size;
+      const auto diff_us = micros() - start_us;
+      if (diff_us > usPerSample) {
+        delayMicroseconds(usPerSample - diff_us);
+      }
+    }
+    i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+  }
+  static_assert(COUNT_OF(data) == COUNT_OF(vReal));
   for (int i = 0; i < COUNT_OF(data); ++i) {
-    vImaginary[i] = data[i];
+    vReal[i] = data[i];
   }
 
   // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
 
-  for (const auto sample : data) {
-    Serial.printf("%ld\n", sample);
+/*
+  // Testing
+  for (const auto sample: data) {
+    Serial.println(sample);
   }
+*/
 }
 
 void spectrumAnalyzer() {
   collectSamples();
-  return;
   computeFft();
   renderFft();
 }
@@ -174,7 +179,6 @@ static void slideDown() {
 }
 
 void setupSpectrumAnalyzer() {
-  Serial.println("setupSpectrumAnalyzer");
   const auto I2S_BITS_PER_SAMPLE = I2S_BITS_PER_SAMPLE_16BIT; // 16-bit audio samples
   const int SCK_PIN = 26;
   const int WS_PIN = 22;
@@ -193,9 +197,7 @@ void setupSpectrumAnalyzer() {
   };
 
   // Install and configure the I2S driver
-  Serial.println("i2s_driver_install");
   i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
-  Serial.println("done i2s_driver_install");
 
   // Set pins for I2S
   i2s_pin_config_t pin_config = {
@@ -204,20 +206,15 @@ void setupSpectrumAnalyzer() {
     .data_out_num = I2S_PIN_NO_CHANGE,
     .data_in_num = SD_PIN
   };
-  Serial.println("i2s_set_pin");
   i2s_set_pin(I2S_NUM_0, &pin_config);
-  Serial.println("done i2s_set_pin");
 
   // Configure I2S input format
-  Serial.println("i2s_set_clk");
   i2s_set_clk(I2S_NUM_0, I2S_SAMPLE_RATE_HZ, I2S_BITS_PER_SAMPLE, I2S_CHANNEL_MONO);
-  Serial.println("done i2s_set_clk");
-  Serial.println("exiting setupSpectrumAnalyzer");
 }
 
 /**
- * Returns the max vReal value in a particular note. For example, if NOTE_TO_VREAL_INDEX[c4Note] =
- * 39 and NOTE_TO_VREAL_INDEX[c4Note] = 43, it will look in vReal[39:43] and return the largest value.
+ * Returns the max vReal value in a particular note. For example, if NOTE_TO_VREAL_INDEX[c4Index] =
+ * 39 and NOTE_TO_VREAL_INDEX[c4Index] = 43, it will look in vReal[39:43] and return the largest value.
  */
 static FftType maxVRealForNote(const int note) {
   if (note >= COUNT_OF(NOTE_TO_VREAL_INDEX) - 1) {
