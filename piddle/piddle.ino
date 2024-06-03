@@ -7,6 +7,9 @@
 #include <arduinoFFT.h>
 #include <FastLED.h>
 
+#define USE_REMOTE_XY false
+
+#if USE_REMOTE_XY
 // RemoteXY select connection mode and include library
 #define REMOTEXY_MODE__ESP32CORE_BLE
 #include <BLEDevice.h>
@@ -27,6 +30,7 @@ uint8_t RemoteXY_CONF[] = // 136 bytes
   2,26,4,128,6,43,52,5,2,26,3,3,46,54,8,22,2,26,129,0,
   8,62,35,6,17,84,114,101,98,108,101,32,114,97,110,103,101,0,1,0,
   26,82,12,12,2,31,0,67,4,4,73,53,6,2,26,21 };
+#endif  // USE_REMOTE_XY
 
 // this structure defines all the variables and events of your control interface
 struct {
@@ -72,11 +76,15 @@ void setup() {
   //analogReference(AR_DEFAULT); // Not on ESP32?
   pinMode(LED_BUILTIN, OUTPUT);
 
+#if USE_REMOTE_XY
   RemoteXY_Init();
+#endif
   RemoteXY.trebleSlider = 50;
   RemoteXY.brightnessSlider = 64;
   RemoteXY.sensitivitySlider = 50;
   RemoteXY.trebleRangeSelect = 1;
+  RemoteXY.trebleRangeSelect = 0;
+  RemoteXY.buttonTest = 0;
 
   FastLED.addLeds<WS2812B, LED_PINS[0], GRB>(leds[0], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[1], GRB>(leds[1], LEDS_PER_STRIP);
@@ -100,7 +108,9 @@ extern int startTrebleNote;
 extern int additionalTrebleRange;
 extern float vReal[];
 void loop() {
+#if USE_REMOTE_XY
   RemoteXY_Handler();
+#endif
   FastLED.setBrightness(RemoteXY.brightnessSlider);
   constexpr int low = 500;
   constexpr int high = 20500;
