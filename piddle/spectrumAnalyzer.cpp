@@ -9,6 +9,7 @@
 extern void blink(const int delay_ms);
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
+static const int MAX_I2S_BUFFER_LENGTH = 512;
 
 static const int SAMPLE_COUNT = 2048;
 static const int MINIMUM_THRESHOLD = 20;
@@ -123,27 +124,28 @@ static void renderFft() {
 
 static void collectSamples() {
   static int16_t data[SAMPLE_COUNT];
-  const int maxI2sSize = 1024 / sizeof(data[0]);
   const int usPerSample = 1000 * 1000 / I2S_SAMPLE_RATE_HZ;
   int16_t* ptr;
 
   size_t bytesRead;
-  if (SAMPLE_COUNT <= maxI2sSize) {
+  if (SAMPLE_COUNT <= MAX_I2S_BUFFER_LENGTH) {
     i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY);
   } else {
     ptr = &data[0];
     int size = SAMPLE_COUNT;
-    while (size > maxI2sSize) {
-      i2s_read(I2S_NUM_0, ptr, maxI2sSize * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+    while (size > MAX_I2S_BUFFER_LENGTH) {
+      i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH* sizeof(data[0]), &bytesRead, portMAX_DELAY);
       const auto start_us = micros();
-      size -= maxI2sSize;
+      size -= MAX_I2S_BUFFER_LENGTH;
       ptr += size;
       const auto diff_us = micros() - start_us;
       if (diff_us > usPerSample) {
         delayMicroseconds(usPerSample - diff_us);
       }
     }
-    i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+    if (size > 0) {
+      i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+    }
   }
   static_assert(COUNT_OF(data) == COUNT_OF(vReal));
   for (int i = 0; i < COUNT_OF(data); ++i) {
@@ -184,6 +186,7 @@ void setupSpectrumAnalyzer() {
   const int WS_PIN = 22;
   const int SD_PIN = 21;
 
+  const int length = min(SAMPLE_COUNT, MAX_I2S_BUFFER_LENGTH);
   i2s_config_t i2sConfig = {
     .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),  // I2S receive mode
     .sample_rate = I2S_SAMPLE_RATE_HZ,
@@ -192,7 +195,7 @@ void setupSpectrumAnalyzer() {
     .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S_MSB),
     .intr_alloc_flags = 0, // Default interrupt allocation
     .dma_buf_count = 8, // Number of DMA buffers
-    .dma_buf_len = SAMPLE_COUNT, // Size of each DMA buffer. TODO Not sure what this should be?
+    .dma_buf_len = length, // Size of each DMA buffer
     .use_apll = false // Use the internal APLL (Audio PLL)
   };
 
