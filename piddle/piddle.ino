@@ -80,8 +80,8 @@ void setup() {
   RemoteXY_Init();
 #endif
   RemoteXY.trebleSlider = 50;
-  RemoteXY.brightnessSlider = 64;
-  RemoteXY.sensitivitySlider = 50;
+  RemoteXY.brightnessSlider = 32;
+  RemoteXY.sensitivitySlider = 20;
   RemoteXY.trebleRangeSelect = 1;
   RemoteXY.trebleRangeSelect = 0;
   RemoteXY.buttonTest = 0;
@@ -112,8 +112,9 @@ void loop() {
   RemoteXY_Handler();
 #endif
   FastLED.setBrightness(RemoteXY.brightnessSlider);
-  constexpr int low = 500;
-  constexpr int high = 20500;
+  constexpr int low = 8000;
+  //constexpr int high = 20500;
+  constexpr int high = 40000;
   constexpr int mid = (low + high) / 2;
   minimumDivisor = mid + (-RemoteXY.sensitivitySlider + 50) * (high - low) / 100; 
   startTrebleNote = c4Index + (RemoteXY.trebleSlider - 50) / 10;

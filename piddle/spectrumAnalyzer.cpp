@@ -88,9 +88,10 @@ static void renderFft() {
   // on the outside edge, going up, and the other notes to trickle down from the center.
 
   // First, restore the copy of the LEDs
-  for (int i = 0; i < STRIP_COUNT; ++i) {
-    memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
-  }
+  // I was initially doing this when I wanted to do the bass line at the bottom, but not doing it for now
+  //for (int i = 0; i < STRIP_COUNT; ++i) {
+  //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
+  //}
   slideDown();
 
   FftType noteValues[NOTE_COUNT];
@@ -105,19 +106,32 @@ static void renderFft() {
   }
   FastLED.show();
   logNotes(noteValues);
+  return;
   #endif
 
-  // Let's just do the top half of the strips at first
   int strip = 0;
-  const int offset = c4Index - 7;
-  for (int strip = 0; strip < STRIP_COUNT; ++strip) {
-    const float red_f = noteValues[offset + 0 + strip];
-    const float green_f = noteValues[offset + 7 + strip];
-    const float blue_f = noteValues[offset + 14 * strip];
-    const uint8_t red = static_cast<uint8_t>(red_f * 254);
-    const uint8_t green = static_cast<uint8_t>(green_f * 254);
-    const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
-    leds[strip][0] = CRGB(red, green, blue);
+  const int offset = c4Index;  // I used to have c4Index - 7 here
+  for (int physical = 0; physical < STRIP_COUNT; ++physical) {
+    // Top half
+    {
+      const float red_f = noteValues[offset + 0 + physical * 2];
+      const float green_f = noteValues[offset + 7 + physical * 2];
+      const float blue_f = noteValues[offset + 14 + physical * 2];
+      const uint8_t red = static_cast<uint8_t>(red_f * 254);
+      const uint8_t green = static_cast<uint8_t>(green_f * 254);
+      const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
+      leds[physical][0] = CRGB(red, green, blue);
+    }
+    // Bottom half
+    {
+      const float red_f = noteValues[offset + 0 + physical * 2 + 1];
+      const float green_f = noteValues[offset + 7 + physical * 2 + 1];
+      const float blue_f = noteValues[offset + 14 + physical * 2 + 1];
+      const uint8_t red = static_cast<uint8_t>(red_f * 254);
+      const uint8_t green = static_cast<uint8_t>(green_f * 254);
+      const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
+      leds[physical][LEDS_PER_STRIP - 1] = CRGB(red, green, blue);
+    }
   }
   FastLED.show();
 }
@@ -170,6 +184,7 @@ void spectrumAnalyzer() {
 }
 
 static void slideDown() {
+  // TODO: use memmove
   for (int i = 0; i < STRIP_COUNT; ++i) {
     for (int j = LEDS_PER_STRIP / 2 - 1; j >= 1; --j) {
       leds[i][j] = leds[i][j - 1];

@@ -4,7 +4,7 @@
 #define LED_BUILTIN 2
 #endif
 
-const int LEDS_PER_STRIP = 150;
+const int LEDS_PER_STRIP = 300;
 const int STRIP_COUNT = 6;
 
 const int c4Index = 11;
