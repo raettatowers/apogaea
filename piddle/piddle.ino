@@ -7,7 +7,7 @@
 #include <arduinoFFT.h>
 #include <FastLED.h>
 
-#define USE_REMOTE_XY false
+#define USE_REMOTE_XY true
 
 #if USE_REMOTE_XY
 // RemoteXY select connection mode and include library

@@ -40,7 +40,7 @@ void spectrumAnalyzer();
 static void collectSamples();
 static void computeFft();
 static void renderFft();
-static void slideDown();
+static void slideDown(int count);
 static FftType maxVRealForNote(int note);
 static void normalizeSamplesTo0_1(FftType samples[], int length);
 static void logNotes(const FftType noteValues[NOTE_COUNT]);
@@ -90,8 +90,7 @@ static void renderFft() {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
   // Slide down twice to make it move faster
-  slideDown();
-  slideDown();
+  slideDown(2);
 
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
@@ -192,15 +191,20 @@ void spectrumAnalyzer() {
   }
 }
 
-static void slideDown() {
+static void slideDown(const int count) {
   // TODO: use memmove
+  const int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
   for (int i = 0; i < STRIP_COUNT; ++i) {
-    for (int j = LEDS_PER_STRIP / 2 - 1; j >= 1; --j) {
-      leds[i][j] = leds[i][j - 1];
-    }
-    for (int j = LEDS_PER_STRIP / 2 - 1; j < LEDS_PER_STRIP - 1; ++j) {
-      leds[i][j] = leds[i][j + 1];
-    }
+    memmove(
+      &leds[i][count],
+      &leds[i][0],
+      byteCount
+    );
+    memmove(
+      &leds[i][LEDS_PER_STRIP / 2],
+      &leds[i][LEDS_PER_STRIP / 2 + count],
+      byteCount
+    );
   }
 }
 
