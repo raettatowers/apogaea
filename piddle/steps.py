@@ -1,6 +1,42 @@
 import sys
 
-def main():
+
+def main() -> None:
+    notes = get_notes()
+    print_buckets(notes)
+
+
+def get_notes():
+    # From https://pages.mtu.edu/~suits/notefreqs.html
+    # Some examples
+    # (41.20, "E1"),  # This is the lowest note with a 4-string bass guitar
+    # (1174.66, "D6"),  # This is the highest a trumpet goes
+    # (2093.00, "C7"),  # This is the highest a flute goes
+    name_formats = ("A", "A+", "B", "C", "C+", "D", "E", "E+", "F", "F+", "G", "G+")
+    assert(len(name_formats) == 12)
+    start = -41
+
+    def frequency(semitones):
+        # Semitones above or below a4
+        a4 = 440
+        return 2 ** (semitones / 12) * a4
+
+    # Start at E1
+    assert(41 < frequency(start) < 42)
+    index = start
+    notes = []
+    while index < 40:
+        # Start at E1
+        note_index = (index + 6 - start + (10 * len(name_formats))) % len(name_formats)
+        note_count = (index + 6 - start + len(name_formats)) // len(name_formats)
+        note = f"{name_formats[note_index]}{note_count}"
+        notes.append((frequency(index), note))
+        index += 1
+    assert(notes[0][1] == "E1")
+    return notes
+
+
+def print_buckets(notes) -> None:
     if "-h" in sys.argv or len(sys.argv) != 3:
         print(f"Usage: {sys.argv[0]} <bucket_count> <frequency>")
         sys.exit()
@@ -43,73 +79,6 @@ def main():
     print(f"const int c4Index = {skips.index(c4)};")
     print(f"Length = {len(skips)}")
 
-# From https://pages.mtu.edu/~suits/notefreqs.html
-notes = (
-    # Skip these because they are so low
-    #(16.35, "C0"),
-    #(18.35, "D0"),
-    #(20.60, "E0"),
-    #(21.83, "F0"),
-    #(24.50, "G0"),
-    #(27.50, "A0"),
-    #(30.87, "B0"),
-    #(32.70, "C1"),
-    #(36.71, "D1"),
-    (41.20, "E1"),  # This is the lowest note with a 4-string bass guitar
-    (43.65, "F1"),
-    (49.00, "G1"),
-    (55.00, "A1"),
-    (61.74, "B1"),
-    (65.41, "C2"),
-    (73.42, "D2"),
-    (82.41, "E2"),
-    (87.31, "F2"),
-    (98.00, "G2"),
-    (110.00, "A2"),
-    (123.47, "B2"),
-    (130.81, "C3"),
-    (146.83, "D3"),
-    (164.81, "E3"),
-    (174.61, "F3"),
-    (196.00, "G3"),
-    (220.00, "A3"),
-    (246.94, "B3"),
-    (261.63, "C4"),
-    (293.66, "D4"),
-    (329.63, "E4"),
-    (349.23, "F4"),
-    (392.00, "G4"),
-    (440.00, "A4"),
-    (493.88, "B4"),
-    (523.25, "C5"),
-    (587.33, "D5"),
-    (659.25, "E5"),
-    (698.46, "F5"),
-    (783.99, "G5"),
-    (880.00, "A5"),
-    (987.77, "B5"),
-    (1046.50, "C6"),
-    (1174.66, "D6"),  # This is the highest a trumpet goes
-    (1318.51, "E6"),
-    (1396.91, "F6"),
-    (1567.98, "G6"),
-    (1760.00, "A6"),
-    (1975.53, "B6"),
-    (2093.00, "C7"),  # This is the highest a flute goes
-    (2349.32, "D7"),
-    (2637.02, "E7"),
-    (2793.83, "F7"),
-    (3135.96, "G7"),
-    (3520.00, "A7"),
-    (3951.07, "B7"),
-    #(4186.01, "C8"),
-    #(4698.63, "D8"),
-    #(5274.04, "E8"),
-    #(5587.65, "F8"),
-    #(6271.93, "G8"),
-    #(7040.00, "A8"),
-    #(7902.13, "B8"),
-)
 
 if __name__ == "__main__":
     main()
