@@ -124,7 +124,7 @@ static void renderFft() {
 static void collectSamples() {
   static int16_t data[SAMPLE_COUNT];
   const int maxI2sSize = 1024 / sizeof(data[0]);
-  const int usPerSample = 1_000_000 / I2S_SAMPLE_RATE_HZ;
+  const int usPerSample = 1000 * 1000 / I2S_SAMPLE_RATE_HZ;
   int16_t* ptr;
 
   size_t bytesRead;
@@ -153,12 +153,12 @@ static void collectSamples() {
   // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
 
-/*
+#if false
   // Testing
   for (const auto sample: data) {
     Serial.println(sample);
   }
-*/
+#endif
 }
 
 void spectrumAnalyzer() {
