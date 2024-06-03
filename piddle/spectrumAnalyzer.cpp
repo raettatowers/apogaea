@@ -45,9 +45,6 @@ static FftType maxVRealForNote(int note);
 static void normalizeSamplesTo0_1(FftType samples[], int length);
 static void logNotes(const FftType noteValues[NOTE_COUNT]);
 
-// TODO: Should this start at 2?
-#define FOR_VREAL for (int i = 0; i < COUNT_OF(vReal) / 2; ++i)
-
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
   // For music, HAMMING seemed to do best, but WELCH and TRIANGLE seem to work best for sine wave.
@@ -92,6 +89,8 @@ static void renderFft() {
   //for (int i = 0; i < STRIP_COUNT; ++i) {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
+  // Slide down twice to make it move faster
+  slideDown();
   slideDown();
 
   FftType noteValues[NOTE_COUNT];
@@ -121,6 +120,7 @@ static void renderFft() {
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
       leds[physical][0] = CRGB(red, green, blue);
+      leds[physical][1] = CRGB(red, green, blue);
     }
     // Bottom half
     {
@@ -131,6 +131,7 @@ static void renderFft() {
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
       leds[physical][LEDS_PER_STRIP - 1] = CRGB(red, green, blue);
+      leds[physical][LEDS_PER_STRIP - 2] = CRGB(red, green, blue);
     }
   }
   FastLED.show();
@@ -178,9 +179,17 @@ static void collectSamples() {
 }
 
 void spectrumAnalyzer() {
+  static auto start = millis();
+  static int count = 0;
   collectSamples();
   computeFft();
   renderFft();
+  ++count;
+  if (start + 10000 < millis()) {
+    Serial.printf("%f FPS\n", static_cast<float>(count) / 10);
+    start = millis();
+    count = 0;
+  }
 }
 
 static void slideDown() {
