@@ -180,9 +180,9 @@ static void slideDown() {
 
 void setupSpectrumAnalyzer() {
   const auto I2S_BITS_PER_SAMPLE = I2S_BITS_PER_SAMPLE_16BIT; // 16-bit audio samples
-  const int SCK_PIN = 26;
+  const int SCK_PIN = 19;
   const int WS_PIN = 22;
-  const int SD_PIN = 25;
+  const int SD_PIN = 21;
 
   i2s_config_t i2sConfig = {
     .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),  // I2S receive mode
