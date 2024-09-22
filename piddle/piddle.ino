@@ -60,6 +60,7 @@ void testLeds();
 void blink(const int delay_ms = 500);
 
 CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
+bool logDebug = false;
 
 void buttonInterrupt() {
   // This space intentionally left blank. Kept for further expansion.
@@ -128,6 +129,13 @@ void loop() {
   }
 
   spectrumAnalyzer();
+
+  if (Serial.available() > 0) {
+    logDebug = true;
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+  }
 }
 
 void blink(const int delay_ms) {

@@ -7,6 +7,7 @@
 #include "constants.hpp"
 
 extern void blink(const int delay_ms);
+extern bool logDebug;
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
@@ -97,15 +98,15 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
 
-  #if false
-  FastLED.clear();
-  for (int i = 0; i < COUNT_OF(noteValues); ++i) {
-    leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
+  if (logDebug) {
+    FastLED.clear();
+    for (int i = 0; i < COUNT_OF(noteValues); ++i) {
+      leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
+    }
+    FastLED.show();
+    logNotes(noteValues);
+    logDebug = false;
   }
-  FastLED.show();
-  logNotes(noteValues);
-  return;
-  #endif
 
   int strip = 0;
   const int offset = c4Index;  // I used to have c4Index - 7 here
@@ -284,13 +285,6 @@ static void normalizeSamplesTo0_1(FftType samples[], const int length) {
 }
 
 static void logNotes(const FftType noteValues[NOTE_COUNT]) {
-  const int interval_ms = 5000;
-  static decltype(millis()) nextDisplayTime_ms = interval_ms;
-  if (millis() < nextDisplayTime_ms) {
-    return;
-  }
-  nextDisplayTime_ms = millis() + interval_ms;
-
   for (int i = 0; i < NOTE_COUNT; ++i) {
     Serial.printf("%02d:%d\n", i, static_cast<int>(noteValues[i] * 255));
   }
