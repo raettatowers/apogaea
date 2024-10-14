@@ -15,7 +15,7 @@ class MoviePlayer : public Animation {
     void togglePlay();
     operator bool() const;
 
-    int animate(uint8_t) override;
+    int animate() override;
     void reset() override;
 
   private:

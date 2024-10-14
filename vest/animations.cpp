@@ -8,6 +8,8 @@
 extern CRGB* leds[];
 extern CRGB linearLeds[];
 
+using std::fill;
+
 CRGB ColorGenerator::getColor(const uint8_t v) {
   return CHSV(v, 255, 255);
 }
@@ -82,13 +84,14 @@ void Animation::setLed(int index, const CRGB &color) {
   linearLeds[index] = color;
 }
 
-Count::Count() : index(0) {}
+Count::Count() : index(0), hue(0) {}
 
-int Count::animate(const uint8_t hue) {
+int Count::animate() {
   const int millisPerIteration = 500;
 
   FastLED.clear();
   setLed(index, CHSV(hue, 255, 255));
+  ++hue;
   ++index;
   if (index == LED_COUNT) {
     index = 0;
@@ -98,7 +101,7 @@ int Count::animate(const uint8_t hue) {
 
 CountXY::CountXY() : strand(0), offset(0) {}
 
-int CountXY::animate(uint8_t) {
+int CountXY::animate() {
   const int millisPerIteration = 500;
   FastLED.clear();
 
@@ -135,9 +138,9 @@ int CountXY::animate(uint8_t) {
   return millisPerIteration;
 }
 
-HorizontalSnake::HorizontalSnake() : x(0), y(0), xIncreasing(true) {}
+HorizontalSnake::HorizontalSnake() : x(0), y(0), hue(0), xIncreasing(true) {}
 
-int HorizontalSnake::animate(const uint8_t hue) {
+int HorizontalSnake::animate() {
   FastLED.clear();
   if (xIncreasing) {
     ++x;
@@ -168,49 +171,48 @@ int HorizontalSnake::animate(const uint8_t hue) {
     }
     tempX += direction;
   }
+  ++hue;
   return 20;
 }
 
-Snake::Snake(int length_) : length(length_), offset(0) {}
+Snake::Snake(int length_) : length(length_), offset(0), hue(0) {}
 
-int Snake::animate(const uint8_t originalHue) {
+int Snake::animate() {
   const unsigned millisPerIteration = 20;
 
   FastLED.clear();
 
   offset = (offset + 1) % LED_COUNT;
   if (offset < length) {
-    fill_rainbow(&linearLeds[0], offset, originalHue);
+    fill_rainbow(&linearLeds[0], offset, hue);
   } else if (offset + length >= LED_COUNT) {
     // I don't know if -1 is needed, but I don't want off by ones, so just be safe
-    fill_rainbow(&linearLeds[offset], LED_COUNT - offset - 1, originalHue);
+    fill_rainbow(&linearLeds[offset], LED_COUNT - offset - 1, hue);
   } else {
-    fill_rainbow(&linearLeds[offset], length, originalHue);
+    fill_rainbow(&linearLeds[offset], length, hue);
   }
   return millisPerIteration;
 }
 
 Snake::~Snake() {}
 
-Shine::Shine() : increasing(), amount() {
+Shine::Shine() : hue(0), increasing(), amount(), hues() {
   static_assert(COUNT_OF(increasing) == LED_COUNT);
   static_assert(COUNT_OF(increasing) == COUNT_OF(amount));
   static_assert(COUNT_OF(amount) == COUNT_OF(hues));
 
-  for (int i = 0; i < LED_COUNT; ++i) {
-    increasing[i] = 0;
-    amount[i] = 0;
-    hues[i] = 0;
-  }
+  fill(increasing, increasing + LED_COUNT, 0);
+  fill(amount, amount + LED_COUNT, 0);
+  fill(hues, hues + LED_COUNT, 0);
 }
 
-int Shine::animate(uint8_t hue) {
+int Shine::animate() {
   const int millisPerIteration = 100;
   const int maxAmount = 240;
   const int changeAmount = 15;
   static_assert(maxAmount % changeAmount == 0);
 
-  hue *= 4; // Make it cycle faster
+  hue += 4; // Make it cycle faster
   FastLED.clear();
 
   // Randomly start increasing an LED
@@ -239,7 +241,7 @@ int Shine::animate(uint8_t hue) {
 }
 
 Blobs::Blobs(const int count_)
-  : count(count_), targetX(new float[count_]), targetY(new float[count_]),
+  : hue(0), count(count_), targetX(new float[count_]), targetY(new float[count_]),
     x(new float[count_]), y(new float[count_]), xSpeed(new float[count_]),
     ySpeed(new float[count_]) {
   for (int i = 0; i < count; ++i) {
@@ -252,7 +254,7 @@ Blobs::Blobs(const int count_)
   }
 }
 
-int Blobs::animate(const uint8_t hue) {
+int Blobs::animate() {
   const int millisPerIteration = 50;
   const float speedChange = 0.05f;
   const float maxSpeed = 3 * speedChange;
@@ -360,7 +362,7 @@ uint8_t PlasmaBidoulle::convert(const float f) {
   return static_cast<uint8_t>((f + 1.0f) * 0.5f * 255.0f);
 }
 
-int PlasmaBidoulle::animate(uint8_t) {
+int PlasmaBidoulle::animate() {
   // Adapted from https://www.bidouille.org/prog/plasma
   const float M_PI_F = static_cast<float>(M_PI);
 
@@ -398,7 +400,7 @@ int PlasmaBidoulle::animate(uint8_t) {
 PlasmaBidoulleFast::PlasmaBidoulleFast(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
-int PlasmaBidoulleFast::animate(uint8_t) {
+int PlasmaBidoulleFast::animate() {
   // Partially adapted from https://www.bidouille.org/prog/plasma, using fast
   // integer math.
   const uint16_t multiplier = 0.15f * PI_16_1_0;
@@ -440,7 +442,7 @@ int PlasmaBidoulleFast::animate(uint8_t) {
 Plasma1::Plasma1(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
-int Plasma1::animate(uint8_t) {
+int Plasma1::animate() {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       const auto index = XY_TO_OFFSET[x][y];
@@ -463,7 +465,7 @@ int Plasma1::animate(uint8_t) {
 Plasma2::Plasma2(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
-int Plasma2::animate(uint8_t) {
+int Plasma2::animate() {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       const auto index = XY_TO_OFFSET[x][y];
@@ -494,7 +496,7 @@ int Plasma2::animate(uint8_t) {
 Plasma3::Plasma3(ColorGenerator &colorGenerator_)
   : colorGenerator(colorGenerator_), time(0) {}
 
-int Plasma3::animate(uint8_t) {
+int Plasma3::animate() {
   for (int x = 0; x < LED_COLUMN_COUNT; ++x) {
     for (int y = 0; y < LED_ROW_COUNT; ++y) {
       const auto index = XY_TO_OFFSET[x][y];
@@ -533,7 +535,7 @@ CenteredVideo::CenteredVideo(
 {
 }
 
-int CenteredVideo::animate(uint8_t) {
+int CenteredVideo::animate() {
   const int height = 11;
   const int width = 12;
   const int startColumn = 8;
@@ -559,7 +561,7 @@ int CenteredVideo::animate(uint8_t) {
 SpectrumAnalyzer1::SpectrumAnalyzer1(int (*sf)(void)) : soundFunction(sf) {
 }
 
-int SpectrumAnalyzer1::animate(const uint8_t) {
+int SpectrumAnalyzer1::animate() {
   return 0;
 }
 
@@ -591,7 +593,7 @@ void SnakeGame::reset() {
   nextUpdate = millis() + MILLIS_PER_TICK;
 }
 
-int SnakeGame::animate(uint8_t) {
+int SnakeGame::animate() {
   tickGraphics();
   draw();
   if (millis() > nextUpdate) {
@@ -726,7 +728,7 @@ void SnakeGame::draw() const {
 
 BasicSpiral::BasicSpiral(ColorGenerator& colorGenerator_) : colorGenerator(colorGenerator_), time(0) {}
 
-int BasicSpiral::animate(uint8_t) {
+int BasicSpiral::animate() {
   time += 2000;
   // From guess and check, 250 is about as large as this can get before I start
   // seeing unset LEDs. If I didn't clear the LEDs between each iteration, then

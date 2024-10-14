@@ -61,9 +61,11 @@ class ChristmasGenerator : public ColorGenerator {
 
 class Animation {
   public:
-    // Runs a tick of the animation, and returns the number of milliseconds until
-    // the next time it should be called
-    virtual int animate(const uint8_t hue) = 0;
+    /**
+     * Runs a tick of the animation, and returns the number of milliseconds until the next time it
+     * should be called
+     */
+    virtual int animate() = 0;
     virtual ~Animation() = default;
     virtual void reset() {}
 
@@ -75,16 +77,17 @@ class Count : public Animation {
   public:
     Count();
     ~Count() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     int index;
+    uint8_t hue;
 };
 
 class CountXY : public Animation {
   public:
     CountXY();
     ~CountXY() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     uint8_t strand;
     uint8_t offset;
@@ -94,20 +97,22 @@ class Snake : public Animation {
   public:
     Snake(int length);
     ~Snake();
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     const int length;
     int offset;
+    uint8_t hue;
 };
 
 class HorizontalSnake : public Animation {
   public:
     HorizontalSnake();
     ~HorizontalSnake() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     int x;
     int y;
+    uint8_t hue;
     bool xIncreasing;
 };
 
@@ -115,7 +120,7 @@ class Fire : public Animation {
   public:
     Fire();
     ~Fire() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     uint32_t colors[LED_COUNT];
     uint8_t heights[10];
@@ -125,8 +130,9 @@ class Shine : public Animation {
   public:
     Shine();
     ~Shine() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
+    uint8_t hue;
     bool increasing[LED_COUNT];
     int amount[LED_COUNT];
     uint8_t hues[LED_COUNT];
@@ -136,7 +142,7 @@ class SpectrumAnalyzer1 : public Animation {
   public:
     SpectrumAnalyzer1(int (*soundFunction)(void));
     ~SpectrumAnalyzer1() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     int (*soundFunction)(void);
 };
@@ -145,8 +151,9 @@ class Blobs : public Animation {
   public:
     Blobs(int count_);
     ~Blobs();
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
+    uint8_t hue;
     const int count;
     float* targetX;
     float* targetY;
@@ -171,7 +178,7 @@ class PlasmaBidoulle : public Animation {
       float blueOffset
     );
     ~PlasmaBidoulle() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     float time;
     const float multiplier;
@@ -192,7 +199,7 @@ class PlasmaBidoulleFast : public Animation {
   public:
     PlasmaBidoulleFast(ColorGenerator& colorGenerator);
     ~PlasmaBidoulleFast() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     ColorGenerator& colorGenerator;
     uint32_t time;
@@ -202,7 +209,7 @@ class Plasma1 : public Animation {
   public:
     Plasma1(ColorGenerator& colorGenerator);
     ~Plasma1() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -212,7 +219,7 @@ class Plasma2 : public Animation {
   public:
     Plasma2(ColorGenerator& colorGenerator);
     ~Plasma2() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -222,7 +229,7 @@ class Plasma3 : public Animation {
   public:
     Plasma3(ColorGenerator& colorGenerator);
     ~Plasma3() = default;
-    int animate(uint8_t hue) override;
+    int animate() override;
   private:
     ColorGenerator& colorGenerator;
     int time;
@@ -238,7 +245,7 @@ class CenteredVideo : public Animation {
       uint16_t millisPerFrame
     );
     ~CenteredVideo() = default;
-    int animate(uint8_t) override;
+    int animate() override;
   private:
     uint32_t (*getColor)(int, int);
     const uint32_t frameCount;
@@ -250,7 +257,7 @@ class SnakeGame : public Animation {
   public:
     SnakeGame();
     ~SnakeGame() = default;
-    int animate(uint8_t) override;
+    int animate() override;
   private:
     static const int HEIGHT = 11;
     static const int WIDTH = 10;
@@ -279,7 +286,7 @@ class BasicSpiral : public Animation {
   public:
     BasicSpiral(ColorGenerator &colorGenerator);
     ~BasicSpiral() = default;
-    int animate(uint8_t) override;
+    int animate() override;
   private:
     ColorGenerator& colorGenerator;
     int time;

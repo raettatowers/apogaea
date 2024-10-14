@@ -114,7 +114,6 @@ void setup() {
   delay(100);
 }
 
-static uint8_t hue = 0;
 static bool playingMovie = false;
 
 static int soundFunction() {
@@ -150,16 +149,9 @@ static constexpr Animation* animations[] = { &plasma3, &snake, &bidoulleChanging
 //static constexpr Animation* const* animations[] = { &snake };
 
 void loop() {
-  const int hueDuration_ms = 50;
 
-  unsigned long hueStart_ms = millis();
   while (true) {
-    if (millis() > hueStart_ms + hueDuration_ms) {
-      hueStart_ms = millis();
-      ++hue;
-    }
-
-    const int delay_ms = playingMovie ? moviePlayer.animate(0) : animations[RemoteXY.animation]->animate(hue);
+    const int delay_ms = playingMovie ? moviePlayer.animate() : animations[RemoteXY.animation]->animate();
     FastLED.show();
     delayAndHandleRemoteXy(delay_ms);
   }

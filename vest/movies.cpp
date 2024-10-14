@@ -82,7 +82,7 @@ MoviePlayer::operator bool() const {
   return static_cast<bool>(_file);
 }
 
-int MoviePlayer::animate(uint8_t) {
+int MoviePlayer::animate() {
   //const int HEADER_OFFSET = 2;
   if (!_playing) {
     return 100;
