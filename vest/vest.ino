@@ -162,13 +162,10 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
 
   // TODO: Make this a slider too?
   const int animationDuration_ms = 30000;
-  const decltype(millis()) start = millis();
 
   static decltype(millis()) animationStart_ms = millis();
 
-  do {
-    RemoteXY_Handler();
-  } while (millis() < start + delay_ms);
+  RemoteXY_delay(delay_ms);
 
   if (previousSwitchCycle != RemoteXY.switch_cycle) {
     animationStart_ms = millis();
