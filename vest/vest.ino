@@ -173,7 +173,12 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
   static AnimationState state = AnimationState::Playing;
   static decltype(millis()) nextState_ms = millis() + animationDuration_ms;
 
-  RemoteXY_delay(delay_ms);
+  const int start_ms = millis();
+  do {
+    // Do this delay manually, to keep both RemoteXY and FastLED brightness dithering
+    RemoteXY_Handler();
+    FastLED.show();
+  } while (millis() < start_ms + delay_ms);
 
   if (previousSwitchCycle != RemoteXY.switch_cycle) {
     nextState_ms = millis() + animationDuration_ms;
