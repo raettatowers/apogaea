@@ -94,7 +94,7 @@ void setup() {
   delay(100);
   RemoteXY_Init();
   RemoteXY.slider_max_power = 25;
-  RemoteXY.slider_brightness = 25;
+  RemoteXY.slider_brightness = 50;
   RemoteXY.switch_cycle = 1;  // Start off cycling
 
   Serial.println("FastLED");
@@ -115,7 +115,7 @@ void setup() {
 }
 
 static bool playingMovie = false;
-static uint8_t maxBrightness;
+static uint8_t configuredBrightness; // out of 255
 
 static int soundFunction() {
   return 0;
@@ -171,7 +171,7 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
     FadeIn,
   };
   static AnimationState state = AnimationState::Playing;
-  static decltype(millis()) nextState_ms = millis();
+  static decltype(millis()) nextState_ms = millis() + animationDuration_ms;
 
   RemoteXY_delay(delay_ms);
 
@@ -207,25 +207,6 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
   if (RemoteXY.switch_cycle) {
     const auto now_ms = millis();
 
-    switch (state) {
-      case AnimationState::Playing:
-        break;
-      case AnimationState::FadeOut: {
-          const auto diff_ms = nextState_ms - now_ms;
-          const float ratio = static_cast<float>(diff_ms) / fade_ms;
-          const int brightness = ratio * maxBrightness;
-          FastLED.setBrightness(constrain(brightness, 0, 255));
-          break;
-        }
-      case AnimationState::FadeIn: {
-          const auto diff_ms = nextState_ms - now_ms;
-          const float ratio = 1.0f - (static_cast<float>(diff_ms) / fade_ms);
-          const int brightness = ratio * maxBrightness;
-          FastLED.setBrightness(constrain(brightness, 0, 255));
-          break;
-        }
-    }
-
     if (now_ms >= nextState_ms) {
       switch (state) {
         case AnimationState::Playing:
@@ -247,10 +228,32 @@ static void delayAndHandleRemoteXy(const int delay_ms) {
           break;
       }
     }
+
+    switch (state) {
+      case AnimationState::Playing:
+        FastLED.setBrightness(gamma8[configuredBrightness]);
+        break;
+      case AnimationState::FadeOut: {
+          const auto diff_ms = nextState_ms - now_ms;
+          const float ratio = static_cast<float>(diff_ms) / fade_ms;
+          const uint8_t brightness = constrain(ratio * configuredBrightness, 0, 255);
+          const uint8_t corrected = gamma8[brightness];
+          FastLED.setBrightness(corrected);
+          break;
+        }
+      case AnimationState::FadeIn: {
+          const auto diff_ms = nextState_ms - now_ms;
+          const float ratio = 1.0f - (static_cast<float>(diff_ms) / fade_ms);
+          const uint8_t brightness = constrain(ratio * configuredBrightness, 0, 255);
+          const uint8_t corrected = gamma8[brightness];
+          FastLED.setBrightness(corrected);
+          break;
+        }
+    }
   }
 
   // Set max milliamps between 500 and 2000
   FastLED.setMaxPowerInVoltsAndMilliamps(5, RemoteXY.slider_max_power * (1500 / 100) + 500);
 
-  maxBrightness = max(RemoteXY.slider_brightness * 255 / 100, 5);
+  configuredBrightness = max(RemoteXY.slider_brightness * 255 / 100, 5);
 }

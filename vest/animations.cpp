@@ -191,6 +191,7 @@ int Snake::animate() {
   } else {
     fill_rainbow(&linearLeds[offset], length, hue);
   }
+  ++hue;
   return millisPerIteration;
 }
 
