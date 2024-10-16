@@ -3,9 +3,8 @@
 from typing import List, Optional
 import argparse
 import cv2
-import path
+import pathlib
 import re
-import sys
 
 # TODO: Import these instead of copy/paste
 led_counts = [6, 7, 10, 11, 12, 12, 6, 6, 7, 11, 11, 11, 11, 11]
@@ -39,7 +38,7 @@ def process(arguments: argparse.Namespace) -> None:
         value = (sample[2] << 16) + (sample[1] << 8) + sample[0]
         return value
 
-    output_name = path.Path(re.sub("\.[^.]+$", ".anim", arguments.video_file))
+    output_name = pathlib.Path(re.sub("\.[^.]+$", ".anim", arguments.video_file))
     if output_name.exists():
         print(f"{output_name} already exists")
         return
