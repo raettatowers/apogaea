@@ -5,8 +5,7 @@
 #include "animations.hpp"
 #include "constants.hpp"
 
-extern CRGB* leds[];
-extern CRGB linearLeds[];
+extern CRGB leds[];
 
 using std::fill;
 
@@ -71,17 +70,16 @@ CRGB ChristmasGenerator::getColor(const uint16_t v) {
 void Animation::setLed(int x, int y, const CRGB &color) {
   if (x >= 0 && x < LED_COLUMN_COUNT) {
     if (y >= 0 && y < LED_ROW_COUNT) {
-      const uint8_t strand = XY_TO_STRIP[x][y];
-      const uint8_t offset = XY_TO_OFFSET[x][y];
-      if (strand != UNUSED_LED && offset != UNUSED_LED) {
-        leds[strand][offset] = color;
+      const auto offset = XY_TO_OFFSET[x][y];
+      if (offset != UNUSED_LED) {
+        leds[offset] = color;
       }
     }
   }
 }
 
 void Animation::setLed(int index, const CRGB &color) {
-  linearLeds[index] = color;
+  leds[index] = color;
 }
 
 Count::Count() : index(0), hue(0) {}
@@ -99,7 +97,7 @@ int Count::animate() {
   return millisPerIteration;
 }
 
-CountXY::CountXY() : strand(0), offset(0) {}
+CountXY::CountXY() : offset(0) {}
 
 int CountXY::animate() {
   const int millisPerIteration = 500;
@@ -126,14 +124,10 @@ int CountXY::animate() {
   }
 
   ++offset;
-  if (offset >= STRAND_TO_LED_COUNT[strand]) {
+  if (offset >= LED_COUNT) {
     offset = 0;
-    ++strand;
-    if (strand >= STRAND_COUNT) {
-      strand = 0;
-    }
   }
-  leds[strand][offset] = CRGB::Red;
+  leds[offset] = CRGB::Red;
 
   return millisPerIteration;
 }
@@ -184,12 +178,12 @@ int Snake::animate() {
 
   offset = (offset + 1) % LED_COUNT;
   if (offset < length) {
-    fill_rainbow(&linearLeds[0], offset, hue);
+    fill_rainbow(&leds[0], offset, hue);
   } else if (offset + length >= LED_COUNT) {
     // I don't know if -1 is needed, but I don't want off by ones, so just be safe
-    fill_rainbow(&linearLeds[offset], LED_COUNT - offset - 1, hue);
+    fill_rainbow(&leds[offset], LED_COUNT - offset - 1, hue);
   } else {
-    fill_rainbow(&linearLeds[offset], length, hue);
+    fill_rainbow(&leds[offset], length, hue);
   }
   ++hue;
   return millisPerIteration;
@@ -313,7 +307,6 @@ int Blobs::animate() {
         if (offset == UNUSED_LED) {
           continue;
         }
-        const auto strip = XY_TO_STRIP[xIter][yIter];
         const float distance2 = static_cast<float>(
                                   (xIter - x[i]) * (xIter - x[i]) + (yIter - y[i]) * (yIter - y[i]));
         const float ratio = sqrtf((radius2 - distance2) / radius2);
@@ -321,8 +314,8 @@ int Blobs::animate() {
           const int brightness = static_cast<int>(255 * ratio);
           const CHSV color = CHSV(hue + hueOffset, 255, brightness);
           // TODO(bskari) What does this do? Does this mean it's unset? Ugh
-          if (leds[strip][offset]) {
-            const CRGB blended = blend(color, leds[strip][offset], 128);
+          if (leds[offset]) {
+            const CRGB blended = blend(color, leds[offset], 128);
             setLed(xIter, yIter, blended);
           } else {
             setLed(xIter, yIter, color);

@@ -60,15 +60,7 @@ struct {
 } RemoteXY;   
 #pragma pack(pop)
 
-CRGB linearLeds[LED_COUNT];
-CRGB* leds[] = {
-  &linearLeds[LINEAR_LED_INDEXES[0]],
-  &linearLeds[LINEAR_LED_INDEXES[1]],
-  &linearLeds[LINEAR_LED_INDEXES[2]],
-  &linearLeds[LINEAR_LED_INDEXES[3]],
-  &linearLeds[LINEAR_LED_INDEXES[4]],
-};
-
+CRGB leds[LED_COUNT];
 
 void setup() {
   Serial.begin(115200);
@@ -100,11 +92,11 @@ void setup() {
   Serial.println("FastLED");
   Serial.flush();
   delay(100);
-  FastLED.addLeds<WS2812, pins[0], GRB>(leds[0], STRAND_TO_LED_COUNT[0]);
-  FastLED.addLeds<WS2812, pins[1], GRB>(leds[1], STRAND_TO_LED_COUNT[1]);
-  FastLED.addLeds<WS2812, pins[2], GRB>(leds[2], STRAND_TO_LED_COUNT[2]);
-  FastLED.addLeds<WS2812, pins[3], GRB>(leds[3], STRAND_TO_LED_COUNT[3]);
-  FastLED.addLeds<WS2812, pins[4], GRB>(leds[4], STRAND_TO_LED_COUNT[4]);
+  FastLED.addLeds<WS2812, pins[0], GRB>(&leds[LINEAR_LED_INDEXES[0]], STRAND_TO_LED_COUNT[0]);
+  FastLED.addLeds<WS2812, pins[1], GRB>(&leds[LINEAR_LED_INDEXES[1]], STRAND_TO_LED_COUNT[1]);
+  FastLED.addLeds<WS2812, pins[2], GRB>(&leds[LINEAR_LED_INDEXES[2]], STRAND_TO_LED_COUNT[2]);
+  FastLED.addLeds<WS2812, pins[3], GRB>(&leds[LINEAR_LED_INDEXES[3]], STRAND_TO_LED_COUNT[3]);
+  FastLED.addLeds<WS2812, pins[4], GRB>(&leds[LINEAR_LED_INDEXES[4]], STRAND_TO_LED_COUNT[4]);
   // Brightness and max power will be set below
   FastLED.clear();
   FastLED.show();

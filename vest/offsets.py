@@ -1,7 +1,15 @@
 """Generates C code for various things."""
+import dataclasses
 import math
 import sys
 import typing
+
+
+@dataclasses.dataclass
+class PixelInfo:
+    strand_color: str
+    strand_offset: str
+    total_offset: str
 
 
 debug = False
@@ -50,20 +58,31 @@ def print_luts() -> None:
             return range(start, end - 1, -1)
 
     grid = {}
-    def add_entry(x: typing.Union[str, int], y: typing.Union[str, int], color: str, led_count: int) -> None:
+    def add_entry(
+        x: typing.Union[str, int],
+        y: typing.Union[str, int],
+        color: str,  # Strand pin color
+        strand_led_count: int,
+        total_led_count: int,
+    ) -> None:
         x = int(x)
         y = int(y)
-        value = (color, led_count)
+        # total_offset will be filled in later
+        value = PixelInfo(
+            strand_color=color,
+            strand_offset=strand_led_count,
+            total_offset=total_led_count,
+        )
         coordinate = (x, y)
 
         if not (0 <= x <= max_expected_x and 0 <= y <= max_expected_y):
-            print(f"Tried to add {coordinate} for {value} LED count {led_count} but out of range")
+            print(f"Tried to add {coordinate} for {value} LED count {strand_led_count} but out of range")
             assert 0 <= x <= max_expected_x and 0 <= y <= max_expected_y
         if coordinate not in grid:
             grid[coordinate] = value
-            led_count += 1
+            strand_led_count += 1
         else:
-            print(f"coordinate {coordinate} for {value} already in grid {grid[coordinate]} LED count {led_count}")
+            print(f"coordinate {coordinate} for {value} already in grid {grid[coordinate]} LED count {strand_led_count}")
             assert coordinate not in grid
 
     color_to_count = {}
@@ -77,9 +96,11 @@ def print_luts() -> None:
             strand_led_count = 0
             active_led_count = 0
             started = False
+            nonlocal total_led_count
             for part in parts:
                 if part == "n":
                     strand_led_count += 1
+                    total_led_count += 1
                 else:
                     # Sanity check
                     if not started:
@@ -90,25 +111,26 @@ def print_luts() -> None:
                     if "-" in xs:
                         start, end = xs.split("-")
                         for x in get_range(start, end):
-                            add_entry(x, ys, color, strand_led_count)
+                            add_entry(x, ys, color, strand_led_count, total_led_count)
                             active_led_count += 1
                             strand_led_count += 1
+                            total_led_count += 1
                     elif "-" in ys:
                         start, end = ys.split("-")
                         for y in get_range(start, end):
-                            add_entry(xs, y, color, strand_led_count)
+                            add_entry(xs, y, color, strand_led_count, total_led_count)
                             active_led_count += 1
                             strand_led_count += 1
+                            total_led_count += 1
                     else:
-                        add_entry(xs, ys, color, strand_led_count)
+                        add_entry(xs, ys, color, strand_led_count, total_led_count)
                         active_led_count += 1
                         strand_led_count += 1
+                        total_led_count += 1
 
             debug_print(f"Processed {color}, had {strand_led_count} LEDs, {active_led_count} active")
             color_to_count[color] = strand_led_count
             total_active_led_count += active_led_count
-            nonlocal total_led_count
-            total_led_count += strand_led_count
 
         debug_print(f"{total_active_led_count} active LEDs of {total_led_count} total")
 
@@ -123,7 +145,7 @@ def print_luts() -> None:
     assert min_y == 0
     debug_print(f"{min_x=} {max_x=} {min_y=} {max_y=}")
 
-    array = []
+    array: typing.List[typing.List[typing.Union[PixelInfo, None]]] = []
     for y in range(max_x + 1):
         array.append([None] * (max_y + 1))
 
@@ -143,14 +165,14 @@ def print_luts() -> None:
     if debug:
         return
 
-    unused = "255"
+    unused = "65535"
     led_count_per_strand = [
         color_to_count[i[1]] for i in
             sorted([(v, k) for k, v in color_to_strip.items()])
     ]
     print(f"""
 #include <stdint.h>
-const uint8_t UNUSED_LED = {unused};
+const uint16_t UNUSED_LED = {unused};
 
 #ifdef NRF52840_XXAA
 #include "FastLED/src/platforms/arm/nrf52/clockless_arm_nrf52.h"
@@ -167,15 +189,9 @@ const int STRAND_COUNT = {len(formats)};
 // x first then y, starting at lower left corner
 """)
 
-    print("const uint8_t XY_TO_STRIP[LED_COLUMN_COUNT][LED_ROW_COUNT] = {")
+    print(f"const uint16_t XY_TO_OFFSET[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{")
     for x in range(max_x + 1):
-        joined = ", ".join((unused if i is None else str(color_to_strip[i[0]]) for i in array[x]))
-        print(f"    {{{joined}}},")
-    print("};")
-
-    print(f"const uint8_t XY_TO_OFFSET[LED_COLUMN_COUNT][LED_ROW_COUNT] = {{")
-    for x in range(max_x + 1):
-        joined = ", ".join((unused if i is None else str(i[1]) for i in array[x]))
+        joined = ", ".join((unused if i is None else str(i.total_offset) for i in array[x]))
         print(f"    {{{joined}}},")
     print("};")
 
@@ -202,8 +218,10 @@ def main() -> None:
     if len(sys.argv) > 1:
         debug = True
 
-    row_count, column_count = print_luts()
-    if not debug:
+    if debug:
+        print_luts()
+    else:
+        row_count, column_count = print_luts()
         print_precomputed_bidoulle_v3(row_count, column_count)
 
 

@@ -89,8 +89,7 @@ class CountXY : public Animation {
     ~CountXY() = default;
     int animate() override;
   private:
-    uint8_t strand;
-    uint8_t offset;
+    uint16_t offset;
 };
 
 class Snake : public Animation {
