@@ -23,12 +23,8 @@ python3_builder = Builder(action="python3 $SOURCE > $TARGET")
 env.Append(BUILDERS={"Python3": python3_builder})
 env.Python3("../offsets.hpp", "../offsets.py")
 
-demo = env.Program(
-    target="demo",
-    source=sources,
-    CPPPATH=includes,
-    LIBPATH=lib_path,
-)
+demo = env.Program(target="demo", source=sources)
+movie = env.Program(target="movie", source=["movie.cpp"])
 env.Append(LIBS=libs)
 env.Append(CCFLAGS="-DDEMO -std=c++11 -g -Wall -Wextra -Weffc++")
 

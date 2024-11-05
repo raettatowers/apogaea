@@ -121,6 +121,15 @@ row and column of the LEDs at a time. Two buttons would move to the next row or
 column. This worked well enough that I could find when I messed up my
 specification and go back, fix it, recompile and retest.
 
+Movies
+------
+
+I wanted to be able to play movies and animations on the vest. You'll need to run my Python
+formatter on a video file, then put the resulting file in a folder named "animations" on the root of
+the SD card. The first byte is the width, then the next byte is the height, then the next 2 bytes
+are the milliseconds per frame little endian, then the rest is GRB uint32s, arranged row by row? I
+don't know yet.
+
 Version 1
 =========
 
