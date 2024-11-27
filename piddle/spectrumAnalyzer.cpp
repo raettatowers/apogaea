@@ -30,6 +30,8 @@ FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
+static float weightingConstants[SAMPLE_COUNT];
+
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 // We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
 // of trickling down with the rest of the LEDs
@@ -45,6 +47,7 @@ static void slideDown(int count);
 static FftType maxVRealForNote(int note);
 static void normalizeSamplesTo0_1(FftType samples[], int length);
 static void logNotes(const FftType noteValues[NOTE_COUNT]);
+static float aWeightingMultiplier(const float frequency);
 
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
@@ -56,10 +59,6 @@ static void computeFft() {
   vReal[0] = 0.0;
   vReal[1] = 0.0;
   vReal[SAMPLE_COUNT - 1] = 0.0;
-  // Bass lines have more energy than higher samples, so just reduce them a smidge
-  for (int i = 0; i < NOTE_TO_VREAL_INDEX[startTrebleNote]; ++i) {
-    vReal[i] *= 0.5;
-  }
 
 #if false
   // Debug logging
@@ -77,10 +76,12 @@ static void computeFft() {
 
 static uint8_t hueOffset = 0;
 static void renderFft() {
-  // Normalize the bass and treble separately
-  const int startTrebleVRealIndex = NOTE_TO_VREAL_INDEX[startTrebleNote];
-  normalizeSamplesTo0_1(vReal, startTrebleVRealIndex);
-  normalizeSamplesTo0_1(&vReal[startTrebleVRealIndex], SAMPLE_COUNT / 2 - startTrebleVRealIndex);
+  // Bass lines have more energy than higher samples, so reduce them
+  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+    vReal[i] = weightingConstants[i];
+  }
+
+  normalizeSamplesTo0_1(vReal, SAMPLE_COUNT);
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the outside edge, going up, and the other notes to trickle down from the center.
@@ -258,6 +259,33 @@ void setupSpectrumAnalyzer() {
 
   // Configure I2S input format
   i2s_set_clk(I2S_NUM_0, I2S_SAMPLE_RATE_HZ, I2S_BITS_PER_SAMPLE, I2S_CHANNEL_MONO);
+
+  // Bass notes have higher percieved energy, because the human ear is weird. To compensate, we'll
+  // do A weighting.
+  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+    const float freq = static_cast<float>(I2S_SAMPLE_RATE_HZ) / SAMPLE_COUNT * (i + 1);
+    weightingConstants[i] = aWeightingMultiplier(freq);
+  }
+}
+
+constexpr float square(const float f) {
+  return f * f;
+}
+
+/**
+ * Returns the A weighting multiplier for a frequency, see https://en.wikipedia.org/wiki/A-weighting
+ */
+static float aWeightingMultiplier(const float frequency) {
+  const float freq_2 = square(frequency);
+  const float denom1 = freq_2 + square(20.6f);
+  const float denom2 = sqrtf((freq_2 + square(107.7f)) * (freq_2 + square(737.9f)));
+  const float denom3 = freq_2 + square(12194.0f);
+  const float denom = denom1 * denom2 * denom3;
+  const float enumer = (square(freq_2) * square(12194.0f));
+  const float ra = enumer / denom;
+  const float aWeighting_db = 2.0f + 20.0f * logf(ra) / logf(10.0f);
+  const float multiplier = powf(10.0f, aWeighting_db / 10.0f);
+  return multiplier;
 }
 
 /**
