@@ -54,7 +54,7 @@ struct {
 
 #include "constants.hpp"
 
-void spectrumAnalyzer();
+void displaySpectrumAnalyzer();
 void setupSpectrumAnalyzer();
 void testLeds();
 void blink(const int delay_ms = 500);
@@ -124,11 +124,9 @@ void loop() {
   if (RemoteXY.buttonTest) {
     testLeds();
   } else {
-    spectrumAnalyzer();
-    FastLED.show();
+    displaySpectrumAnalyzer();
   }
-
-  spectrumAnalyzer();
+  FastLED.show();
 
   if (Serial.available() > 0) {
     logDebug = true;

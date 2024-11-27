@@ -36,7 +36,7 @@ extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
 
 void setupSpectrumAnalyzer();
-void spectrumAnalyzer();
+void displaySpectrumAnalyzer();
 
 static void collectSamples();
 static void computeFft();
@@ -178,22 +178,38 @@ static void collectSamples() {
 #endif
 }
 
-void spectrumAnalyzer() {
-  static auto start = millis();
+void displaySpectrumAnalyzer() {
+  static auto start_ms = millis();
+  static int samples_ms = 0;
+  static int compute_ms = 0;
+  static int render_ms = 0;
   static int count = 0;
+
+  auto part_ms = millis();
   collectSamples();
+  samples_ms += millis() - part_ms;
+
+  part_ms = millis();
   computeFft();
+  compute_ms += millis() - part_ms;
+
+  part_ms = millis();
   renderFft();
+  render_ms += millis() - part_ms;
+
   ++count;
-  if (start + 10000 < millis()) {
-    Serial.printf("%f FPS\n", static_cast<float>(count) / 10);
-    start = millis();
+  if (start_ms + 10000 < millis()) {
+    Serial.printf("%f FPS\n", static_cast<double>(count) / 10);
+    Serial.printf("samples_ms:%d compute_ms:%d render_ms:%d\n", samples_ms, compute_ms, render_ms);
+    start_ms = millis();
+    samples_ms = 0;
+    compute_ms = 0;
+    render_ms = 0;
     count = 0;
   }
 }
 
 static void slideDown(const int count) {
-  // TODO: use memmove
   const int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
   for (int i = 0; i < STRIP_COUNT; ++i) {
     memmove(
