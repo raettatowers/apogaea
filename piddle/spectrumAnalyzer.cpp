@@ -150,10 +150,10 @@ static void collectSamples() {
     ptr = &data[0];
     int size = SAMPLE_COUNT;
     while (size > MAX_I2S_BUFFER_LENGTH) {
-      i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH* sizeof(data[0]), &bytesRead, portMAX_DELAY);
+      i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH * sizeof(data[0]), &bytesRead, portMAX_DELAY);
       const auto start_us = micros();
       size -= MAX_I2S_BUFFER_LENGTH;
-      ptr += size;
+      ptr += MAX_I2S_BUFFER_LENGTH;
       const auto diff_us = micros() - start_us;
       if (diff_us > usPerSample) {
         delayMicroseconds(usPerSample - diff_us);
