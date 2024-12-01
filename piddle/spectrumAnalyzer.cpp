@@ -77,8 +77,8 @@ static void computeFft() {
 static uint8_t hueOffset = 0;
 static void renderFft() {
   // Bass lines have more energy than higher samples, so reduce them
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
-    vReal[i] = weightingConstants[i];
+  for (int i = 0; i < COUNT_OF(vReal); ++i) {
+    vReal[i] *= weightingConstants[i];
   }
 
   normalizeSamplesTo0_1(vReal, SAMPLE_COUNT);
