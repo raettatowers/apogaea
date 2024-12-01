@@ -91,8 +91,8 @@ static void renderFft() {
   //for (int i = 0; i < STRIP_COUNT; ++i) {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
-  // Slide down twice to make it move faster
-  slideDown(2);
+  // Slide down twice to make it move faster (just 1 for developing)
+  slideDown(1);
 
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
@@ -198,6 +198,10 @@ void displaySpectrumAnalyzer() {
   renderFft();
   render_ms += millis() - part_ms;
 
+  // be029063 2024-12-01
+  // Using ArduinoFFT, memmove, single-core sampling
+  // 21.600000 FPS
+  // samples_ms:5458 compute_ms:3091 render_ms:788
   ++count;
   if (start_ms + 10000 < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(count) / 10);
