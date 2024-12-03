@@ -58,9 +58,10 @@ void loop() {
   //constexpr int high = 20500;
   constexpr int high = 40000;
   constexpr int mid = (low + high) / 2;
-  minimumDivisor = mid + (-20 + 50) * (high - low) / 100; 
+  minimumDivisor = mid + (-20 + 50) * (high - low) / 100;
   startTrebleNote = c4Index + (50 - 50) / 10;
   additionalTrebleRange = 0;
+  displaySpectrumAnalyzer();
 
   FastLED.show();
 
