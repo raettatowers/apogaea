@@ -8,14 +8,19 @@
 #include <FastLED.h>
 
 #include "constants.hpp"
+#include "spectrumAnalyzer.hpp"
 
-void displaySpectrumAnalyzer();
-void setupSpectrumAnalyzer();
 void testLeds();
 void blink(const int delay_ms = 500);
 
+extern float minimumDivisor;
+extern int startTrebleNote;
+extern int additionalTrebleRange;
+
 CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
-bool logDebug = false;
+
+TaskHandle_t collectSamplesTask;
+TaskHandle_t displayLedsTask;
 
 void buttonInterrupt() {
   // This space intentionally left blank. Kept for further expansion.
@@ -44,16 +49,7 @@ void setup() {
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
 
-  for (int i = 0; i < 3; ++i) {
-    blink(100);
-  }
-}
-
-extern float minimumDivisor;
-extern int startTrebleNote;
-extern int additionalTrebleRange;
-extern float vReal[];
-void loop() {
+  // This is all configuration stuff left over from RemoteXY
   constexpr int low = 8000;
   //constexpr int high = 20500;
   constexpr int high = 40000;
@@ -61,15 +57,44 @@ void loop() {
   minimumDivisor = mid + (-20 + 50) * (high - low) / 100;
   startTrebleNote = c4Index + (50 - 50) / 10;
   additionalTrebleRange = 0;
-  displaySpectrumAnalyzer();
 
-  FastLED.show();
+  xTaskCreatePinnedToCore(
+    collectSamplesFunction,
+    "collectSamples",
+    4000, // Stack size in words
+    nullptr, // Task input parameter
+    1, // Priority of the task
+    &collectSamplesTask, // Task handle.
+    1); // Core where the task should run
 
-  if (Serial.available() > 0) {
-    logDebug = true;
-    while (Serial.available() > 0) {
-      Serial.read();
-    }
+  xTaskCreatePinnedToCore(
+    displayLedsFunction,
+    "displayLeds",
+    4000, // Stack size in words
+    nullptr, // Task input parameter
+    1, // Priority of the task
+    &displayLedsTask, // Task handle.
+    0); // Core where the task should run
+
+  for (int i = 0; i < 3; ++i) {
+    blink(100);
+  }
+}
+
+void loop() {
+  delay(10000);
+}
+
+void collectSamplesFunction(void*) {
+  while (1) {
+    collectSamples();
+  }
+}
+
+void displayLedsFunction(void*) {
+  while (1) {
+    displaySpectrumAnalyzer();
+    FastLED.show();
   }
 }
 

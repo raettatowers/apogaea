@@ -5,9 +5,7 @@
 #include <driver/i2s.h>
 
 #include "constants.hpp"
-
-extern void blink(const int delay_ms);
-extern bool logDebug;
+#include "spectrumAnalyzer.hpp"
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
@@ -28,10 +26,9 @@ int additionalTrebleRange = 0;
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
-static int16_t rawSamples[SAMPLE_COUNT + MAX_I2S_BUFFER_LENGTH];
+static int16_t rawSamples[SAMPLE_COUNT];
 // rawSamplesOffset is where the visualization core can start copying data from
 static int16_t rawSamplesOffset = 0;
-TaskHandle_t collectSamplesTask;
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
 static float weightingConstants[SAMPLE_COUNT];
@@ -44,8 +41,6 @@ CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
 void setupSpectrumAnalyzer();
 void displaySpectrumAnalyzer();
 
-static void collectSetOfSamples();
-static void collectSamplesForever();
 static void computeFft();
 static void renderFft();
 static void slideDown(int count);
@@ -104,16 +99,6 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
 
-  if (logDebug) {
-    FastLED.clear();
-    for (int i = 0; i < COUNT_OF(noteValues); ++i) {
-      leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
-    }
-    FastLED.show();
-    logNotes(noteValues);
-    logDebug = false;
-  }
-
   int strip = 0;
   const int offset = c4Index;  // I used to have c4Index - 7 here
   for (int physical = 0; physical < STRIP_COUNT; ++physical) {
@@ -143,44 +128,7 @@ static void renderFft() {
   FastLED.show();
 }
 
-/**
- * Singly collects a bunch of samples.
- */
-static void collectSetOfSamples() {
-  const int usPerSample = 1000 * 1000 / I2S_SAMPLE_RATE_HZ;
-  int16_t* ptr;
-
-  size_t bytesRead;
-  if (SAMPLE_COUNT <= MAX_I2S_BUFFER_LENGTH) {
-    i2s_read(I2S_NUM_0, rawSamples, sizeof(rawSamples), &bytesRead, portMAX_DELAY);
-  } else {
-    ptr = &rawSamples[0];
-    int size = SAMPLE_COUNT;
-    while (size > MAX_I2S_BUFFER_LENGTH) {
-      // This supposedly takes 25 us
-      i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]), &bytesRead, portMAX_DELAY);
-      const auto start_us = micros();
-      size -= MAX_I2S_BUFFER_LENGTH;
-      ptr += MAX_I2S_BUFFER_LENGTH;
-      const auto diff_us = micros() - start_us;
-      if (diff_us > usPerSample) {
-        delayMicroseconds(usPerSample - diff_us);
-      }
-    }
-    if (size > 0) {
-      i2s_read(I2S_NUM_0, ptr, size * sizeof(rawSamples[0]), &bytesRead, portMAX_DELAY);
-    }
-  }
-
-#if false
-  // Testing
-  for (const auto sample: data) {
-    Serial.println(sample);
-  }
-#endif
-}
-
-static void collectSamplesForever(void*) {
+void collectSamples() {
   // This algorithm won't work if either of these are false
   static_assert(SAMPLE_COUNT > MAX_I2S_BUFFER_LENGTH);
   static_assert(SAMPLE_COUNT % MAX_I2S_BUFFER_LENGTH == 0);
@@ -191,7 +139,7 @@ static void collectSamplesForever(void*) {
   while (1) {
     const int oldOffset = rawSamplesOffset;
     // Mark this section as unable to be used
-    if (rawSamplesOffset < COUNT_OF(rawSamples) - MAX_I2S_BUFFER_LENGTH) {
+    if (rawSamplesOffset < COUNT_OF(rawSamples)) {
       rawSamplesOffset += MAX_I2S_BUFFER_LENGTH;
     } else {
       rawSamplesOffset = 0;
@@ -216,16 +164,16 @@ void displaySpectrumAnalyzer() {
   const int startSampleOffset = rawSamplesOffset;
   int sampleOffset = startSampleOffset;
   int copiedSampleCount = 0;
-  while (copiedSampleCount < SAMPLE_COUNT) {
-    for (int i = 0; i < MAX_I2S_BUFFER_LENGTH; ++i) {
-      vReal[copiedSampleCount] = rawSamples[sampleOffset + i];
-      ++copiedSampleCount;
-    }
-    sampleOffset += MAX_I2S_BUFFER_LENGTH;
-    if (sampleOffset > COUNT_OF(rawSamples)) {
-      sampleOffset = 0;
-    }
+  const int length = COUNT_OF(vReal) - startSampleOffset;
+  // Copy the older part of the samples
+  for (int i = 0; i < length; ++i) {
+    vReal[i] = rawSamples[startSampleOffset + i];
   }
+  // Copy the newer part of the samples
+  for (int i = 0; i < startSampleOffset; ++i) {
+    vReal[i + startSampleOffset] = rawSamples[i];
+  }
+
   // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
   const auto samples_ms = millis() - part_ms;
@@ -238,10 +186,6 @@ void displaySpectrumAnalyzer() {
   renderFft();
   const auto render_ms = millis() - part_ms;
 
-  // be029063 2024-12-01
-  // Using ArduinoFFT, memmove, single-core sampling
-  // 21.600000 FPS
-  // samples_ms:27 compute_ms:14 render_ms:3
   ++loopCount;
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
@@ -309,14 +253,6 @@ void setupSpectrumAnalyzer() {
   }
 
   std::fill(rawSamples, rawSamples + COUNT_OF(rawSamples), 0);
-  xTaskCreatePinnedToCore(
-    collectSamplesForever,
-    "collectSamples",
-    10000, // Stack size in words
-    nullptr, // Task input parameter
-    0, // Priority of the task
-    &collectSamplesTask, // Task handle.
-    1); // Core where the task should run
 }
 
 constexpr float square(const float f) {
