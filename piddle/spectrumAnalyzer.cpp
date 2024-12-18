@@ -8,7 +8,7 @@
 #include "constants.hpp"
 
 // For ESP logging
-static const char* TAG = "spectrumAnalyzer";
+static const char* const TAG = "spectrumAnalyzer";
 
 extern bool logDebug;
 
@@ -26,8 +26,6 @@ static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few s
 
 // Slide down twice to make it move faster (just 1 for developing)
 static const int slidesPerIteration = 1;
-
-static const char* const TAG = "spectrumAnalyzer";
 
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
@@ -104,6 +102,15 @@ static void renderFft() {
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
     noteValues[note] = maxVRealForNote(note);
+  }
+  if (logDebug) {
+    FastLED.clear();
+    for (int i = 0; i < COUNT_OF(noteValues); ++i) {
+      leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
+    }
+    FastLED.show();
+    logNotes(noteValues);
+    logDebug = false;
   }
 
   int strip = 0;
@@ -219,14 +226,14 @@ void displaySpectrumAnalyzer() {
   // Using ArduinoFFT, memmove, single-core sampling
   // 21.600000 FPS
   // samples_ms:5458 compute_ms:3091 render_ms:788
-  ++count;
+  ++loopCount;
   if (start_ms + 10000 < millis()) {
-    Serial.printf("%f FPS\n", static_cast<float>(count) / 10);
+    Serial.printf("%f FPS\n", static_cast<float>(loopCount) / 10);
     Serial.printf(
-      "samples_ms:%0.1f compute_ms:%0.1f render_ms:%0.1f\n",
-      samples_ms / static_cast<float>(count),
-      compute_ms / static_cast<float>(count),
-      render_ms / static_cast<float>(count)
+      "samples_ms:%d compute_ms:%d render_ms:%d\n",
+      samples_ms,
+      compute_ms,
+      render_ms
     );
     start_ms = millis();
     loopCount = 0;
