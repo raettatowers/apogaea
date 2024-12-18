@@ -10,7 +10,6 @@
 // For ESP logging
 static const char* TAG = "spectrumAnalyzer";
 
-extern void blink(const int delay_ms);
 extern bool logDebug;
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
@@ -28,13 +27,17 @@ static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few s
 // Slide down twice to make it move faster (just 1 for developing)
 static const int slidesPerIteration = 1;
 
+static const char* const TAG = "spectrumAnalyzer";
+
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
 float minimumDivisor = 1000;
 int additionalTrebleRange = 0;
 
-FftType vReal[SAMPLE_COUNT];
+static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
+static int16_t rawSamples[SAMPLE_COUNT * 2];
+static volatile int rawSamplesOffset = 0;
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
 static float weightingConstants[SAMPLE_COUNT];
@@ -47,7 +50,6 @@ extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 void setupSpectrumAnalyzer();
 void displaySpectrumAnalyzer();
 
-static void collectSamples();
 static void computeFft();
 static void renderFft();
 static void slideDown(int count);
@@ -104,16 +106,6 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
 
-  if (logDebug) {
-    FastLED.clear();
-    for (int i = 0; i < COUNT_OF(noteValues); ++i) {
-      leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
-    }
-    FastLED.show();
-    logNotes(noteValues);
-    logDebug = false;
-  }
-
   int strip = 0;
   const int offset = c4Index;  // I used to have c4Index - 7 here
   for (int physical = 0; physical < STRIP_COUNT; ++physical) {
@@ -143,73 +135,85 @@ static void renderFft() {
   FastLED.show();
 }
 
-static void collectSamples() {
-  static int16_t data[SAMPLE_COUNT];
+void collectSamples() {
+  // This algorithm won't work if either of these are false
+  static_assert(SAMPLE_COUNT > MAX_I2S_BUFFER_LENGTH);
+  static_assert(SAMPLE_COUNT % MAX_I2S_BUFFER_LENGTH == 0);
+
   const int usPerSample = 1000 * 1000 / I2S_SAMPLE_RATE_HZ;
-  int16_t* ptr;
-
+  // We're just going to continually read into rawSamples
   size_t bytesRead;
-  if (SAMPLE_COUNT <= MAX_I2S_BUFFER_LENGTH) {
-    if (i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY) != ESP_OK) {
+  auto start_us = micros();
+  auto diff_us = micros();
+  while (1) {
+    const int oldOffset = rawSamplesOffset;
+    // Mark this section as unable to be used
+    rawSamplesOffset += MAX_I2S_BUFFER_LENGTH;
+    if (rawSamplesOffset >= COUNT_OF(rawSamples)) {
+      rawSamplesOffset = 0;
+    }
+
+    diff_us = micros() - start_us;
+    if (diff_us < usPerSample) {
+      delayMicroseconds(usPerSample - diff_us);
+    }
+    start_us = micros();
+
+    if (i2s_read(
+      I2S_NUM_0,
+      &rawSamples[oldOffset],
+      MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]),
+      &bytesRead,
+      portMAX_DELAY
+    ) != ESP_OK) {
       ESP_LOGE(TAG, "i2s_read failed");
+      Serial.println("i2s_read failed");
     }
-  } else {
-    ptr = &data[0];
-    int size = SAMPLE_COUNT;
-    while (size > MAX_I2S_BUFFER_LENGTH) {
-      if (i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH * sizeof(data[0]), &bytesRead, portMAX_DELAY) != ESP_OK) {
-        ESP_LOGE(TAG, "i2s_read failed");
-        Serial.println("i2s_read failed");
-      }
-      const auto start_us = micros();
-      size -= MAX_I2S_BUFFER_LENGTH;
-      ptr += MAX_I2S_BUFFER_LENGTH;
-      const auto diff_us = micros() - start_us;
-      if (diff_us > usPerSample) {
-        delayMicroseconds(usPerSample - diff_us);
-      }
-    }
-    if (size > 0) {
-      if (i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY) != ESP_OK) {
-        ESP_LOGE(TAG, "i2s_read failed");
-        Serial.println("i2s_read failed");
-      }
+    if (bytesRead != MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0])) {
+      ESP_LOGE(TAG, "wrong number of bytes read");
+      Serial.println("wrong number of bytes read");
     }
   }
-  static_assert(COUNT_OF(data) == COUNT_OF(vReal));
-  for (int i = 0; i < COUNT_OF(data); ++i) {
-    vReal[i] = data[i];
-  }
-
-  // Reset vImaginary
-  std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
-
-#if false
-  // Testing
-  for (const auto sample: data) {
-    Serial.println(sample);
-  }
-#endif
 }
 
 void displaySpectrumAnalyzer() {
   static auto start_ms = millis();
-  static int samples_ms = 0;
-  static int compute_ms = 0;
-  static int render_ms = 0;
-  static int count = 0;
+  const decltype(millis()) logTime_ms = 10000;
+  static int loopCount = 0;
 
   auto part_ms = millis();
-  collectSamples();
-  samples_ms+= millis() - part_ms;
+  // First we need to copy the data from the samples circular buffer
+  // We can't use memcpy because we're converting uint16_t to float
+  const int sampleOffset = rawSamplesOffset;
+  if (sampleOffset + COUNT_OF(vReal) < COUNT_OF(rawSamples)) {
+    for (int i = 0; i < COUNT_OF(vReal); ++i) {
+      vReal[i] = rawSamples[sampleOffset + i];
+    }
+  } else {
+    // Let's say length = 10, offset = 13
+    // Then I need to copy 7 items (2*length-offset) starting at 13
+    const int upper = COUNT_OF(rawSamples) - sampleOffset;
+    for (int i = 0; i < upper; ++i) {
+      vReal[i] = rawSamples[sampleOffset + i];
+    }
+    // Then copy the last 3 items
+    const int lower = COUNT_OF(vReal) - upper;
+    for (int i = 0; i < lower; ++i) {
+      vReal[i + upper] = rawSamples[i];
+    }
+  }
+
+  // Reset vImaginary
+  std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
+  const auto samples_ms = millis() - part_ms;
 
   part_ms = millis();
   computeFft();
-  compute_ms += millis() - part_ms;
+  const auto compute_ms = millis() - part_ms;
 
   part_ms = millis();
   renderFft();
-  render_ms += millis() - part_ms;
+  const auto render_ms = millis() - part_ms;
 
   // be029063 2024-12-01
   // Using ArduinoFFT, memmove, single-core sampling
@@ -225,10 +229,7 @@ void displaySpectrumAnalyzer() {
       render_ms / static_cast<float>(count)
     );
     start_ms = millis();
-    samples_ms = 0;
-    compute_ms = 0;
-    render_ms = 0;
-    count = 0;
+    loopCount = 0;
   }
 }
 
@@ -285,6 +286,8 @@ void setupSpectrumAnalyzer() {
     const float freq = static_cast<float>(I2S_SAMPLE_RATE_HZ) / SAMPLE_COUNT * (i + 1);
     weightingConstants[i] = aWeightingMultiplier(freq);
   }
+
+  std::fill(rawSamples, rawSamples + COUNT_OF(rawSamples), 0);
 }
 
 constexpr float square(const float f) {
