@@ -19,6 +19,8 @@ static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {
 static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
 static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
+static const char* const TAG = "spectrumAnalyzer";
+
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
 float minimumDivisor = 1000;
@@ -26,9 +28,8 @@ int additionalTrebleRange = 0;
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
-static int16_t rawSamples[SAMPLE_COUNT];
-// rawSamplesOffset is where the visualization core can start copying data from
-static int16_t rawSamplesOffset = 0;
+static int16_t rawSamples[SAMPLE_COUNT * 2];
+static volatile int rawSamplesOffset = 0;
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
 static float weightingConstants[SAMPLE_COUNT];
@@ -136,21 +137,36 @@ void collectSamples() {
   const int usPerSample = 1000 * 1000 / I2S_SAMPLE_RATE_HZ;
   // We're just going to continually read into rawSamples
   size_t bytesRead;
+  auto start_us = micros();
+  auto diff_us = micros();
   while (1) {
     const int oldOffset = rawSamplesOffset;
     // Mark this section as unable to be used
-    if (rawSamplesOffset < COUNT_OF(rawSamples)) {
-      rawSamplesOffset += MAX_I2S_BUFFER_LENGTH;
-    } else {
+    rawSamplesOffset += MAX_I2S_BUFFER_LENGTH;
+    if (rawSamplesOffset >= COUNT_OF(rawSamples)) {
       rawSamplesOffset = 0;
     }
-    i2s_read(
+
+    diff_us = micros() - start_us;
+    if (diff_us < usPerSample) {
+      delayMicroseconds(usPerSample - diff_us);
+    }
+    start_us = micros();
+
+    if (i2s_read(
       I2S_NUM_0,
       &rawSamples[oldOffset],
       MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]),
       &bytesRead,
       portMAX_DELAY
-    );
+    ) != ESP_OK) {
+      ESP_LOGE(TAG, "i2s_read failed");
+      Serial.println("i2s_read failed");
+    }
+    if (bytesRead != MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0])) {
+      ESP_LOGE(TAG, "wrong number of bytes read");
+      Serial.println("wrong number of bytes read");
+    }
   }
 }
 
@@ -160,18 +176,25 @@ void displaySpectrumAnalyzer() {
   static int loopCount = 0;
 
   auto part_ms = millis();
-  // Okay,first we need to copy the data from the samples circular buffer
-  const int startSampleOffset = rawSamplesOffset;
-  int sampleOffset = startSampleOffset;
-  int copiedSampleCount = 0;
-  const int length = COUNT_OF(vReal) - startSampleOffset;
-  // Copy the older part of the samples
-  for (int i = 0; i < length; ++i) {
-    vReal[i] = rawSamples[startSampleOffset + i];
-  }
-  // Copy the newer part of the samples
-  for (int i = 0; i < startSampleOffset; ++i) {
-    vReal[i + startSampleOffset] = rawSamples[i];
+  // First we need to copy the data from the samples circular buffer
+  // We can't use memcpy because we're converting uint16_t to float
+  const int sampleOffset = rawSamplesOffset;
+  if (sampleOffset + COUNT_OF(vReal) < COUNT_OF(rawSamples)) {
+    for (int i = 0; i < COUNT_OF(vReal); ++i) {
+      vReal[i] = rawSamples[sampleOffset + i];
+    }
+  } else {
+    // Let's say length = 10, offset = 13
+    // Then I need to copy 7 items (2*length-offset) starting at 13
+    const int upper = COUNT_OF(rawSamples) - sampleOffset;
+    for (int i = 0; i < upper; ++i) {
+      vReal[i] = rawSamples[sampleOffset + i];
+    }
+    // Then copy the last 3 items
+    const int lower = COUNT_OF(vReal) - upper;
+    for (int i = 0; i < lower; ++i) {
+      vReal[i + upper] = rawSamples[i];
+    }
   }
 
   // Reset vImaginary
@@ -190,6 +213,12 @@ void displaySpectrumAnalyzer() {
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf("samples_ms:%d compute_ms:%d render_ms:%d\n", samples_ms, compute_ms, render_ms);
+    Serial.printf("offset:%d\n", rawSamplesOffset);
+    for (int i = 0; i < 10; ++i) {
+      Serial.print(rawSamples[i]);
+      Serial.print(" ");
+    }
+    Serial.println(" ");
     start_ms = millis();
     loopCount = 0;
   }
