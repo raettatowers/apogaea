@@ -3,8 +3,12 @@
 #include <stdint.h>
 #include <FastLED.h>
 #include <driver/i2s.h>
+#include "esp_log.h"
 
 #include "constants.hpp"
+
+// For ESP logging
+static const char* TAG = "spectrumAnalyzer";
 
 extern void blink(const int delay_ms);
 extern bool logDebug;
@@ -21,6 +25,9 @@ static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {
 static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
 static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
+// Slide down twice to make it move faster (just 1 for developing)
+static const int slidesPerIteration = 1;
+
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
 float minimumDivisor = 1000;
@@ -33,9 +40,9 @@ static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 static float weightingConstants[SAMPLE_COUNT];
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
-// We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
-// of trickling down with the rest of the LEDs
-CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
+//// We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
+//// of trickling down with the rest of the LEDs
+//CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
 
 void setupSpectrumAnalyzer();
 void displaySpectrumAnalyzer();
@@ -74,7 +81,6 @@ static void computeFft() {
 #endif
 }
 
-static uint8_t hueOffset = 0;
 static void renderFft() {
   // Bass lines have more energy than higher samples, so reduce them
   for (int i = 0; i < COUNT_OF(vReal); ++i) {
@@ -91,8 +97,7 @@ static void renderFft() {
   //for (int i = 0; i < STRIP_COUNT; ++i) {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
-  // Slide down twice to make it move faster (just 1 for developing)
-  slideDown(1);
+  slideDown(slidesPerIteration);
 
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
@@ -145,12 +150,17 @@ static void collectSamples() {
 
   size_t bytesRead;
   if (SAMPLE_COUNT <= MAX_I2S_BUFFER_LENGTH) {
-    i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY);
+    if (i2s_read(I2S_NUM_0, data, sizeof(data), &bytesRead, portMAX_DELAY) != ESP_OK) {
+      ESP_LOGE(TAG, "i2s_read failed");
+    }
   } else {
     ptr = &data[0];
     int size = SAMPLE_COUNT;
     while (size > MAX_I2S_BUFFER_LENGTH) {
-      i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+      if (i2s_read(I2S_NUM_0, ptr, MAX_I2S_BUFFER_LENGTH * sizeof(data[0]), &bytesRead, portMAX_DELAY) != ESP_OK) {
+        ESP_LOGE(TAG, "i2s_read failed");
+        Serial.println("i2s_read failed");
+      }
       const auto start_us = micros();
       size -= MAX_I2S_BUFFER_LENGTH;
       ptr += MAX_I2S_BUFFER_LENGTH;
@@ -160,7 +170,10 @@ static void collectSamples() {
       }
     }
     if (size > 0) {
-      i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY);
+      if (i2s_read(I2S_NUM_0, ptr, size * sizeof(data[0]), &bytesRead, portMAX_DELAY) != ESP_OK) {
+        ESP_LOGE(TAG, "i2s_read failed");
+        Serial.println("i2s_read failed");
+      }
     }
   }
   static_assert(COUNT_OF(data) == COUNT_OF(vReal));
@@ -188,7 +201,7 @@ void displaySpectrumAnalyzer() {
 
   auto part_ms = millis();
   collectSamples();
-  samples_ms += millis() - part_ms;
+  samples_ms+= millis() - part_ms;
 
   part_ms = millis();
   computeFft();
@@ -204,8 +217,13 @@ void displaySpectrumAnalyzer() {
   // samples_ms:5458 compute_ms:3091 render_ms:788
   ++count;
   if (start_ms + 10000 < millis()) {
-    Serial.printf("%f FPS\n", static_cast<double>(count) / 10);
-    Serial.printf("samples_ms:%d compute_ms:%d render_ms:%d\n", samples_ms, compute_ms, render_ms);
+    Serial.printf("%f FPS\n", static_cast<float>(count) / 10);
+    Serial.printf(
+      "samples_ms:%0.1f compute_ms:%0.1f render_ms:%0.1f\n",
+      samples_ms / static_cast<float>(count),
+      compute_ms / static_cast<float>(count),
+      render_ms / static_cast<float>(count)
+    );
     start_ms = millis();
     samples_ms = 0;
     compute_ms = 0;
@@ -232,9 +250,6 @@ static void slideDown(const int count) {
 
 void setupSpectrumAnalyzer() {
   const auto I2S_BITS_PER_SAMPLE = I2S_BITS_PER_SAMPLE_16BIT; // 16-bit audio samples
-  const int SCK_PIN = 19;
-  const int WS_PIN = 22;
-  const int SD_PIN = 21;
 
   const int length = min(SAMPLE_COUNT, MAX_I2S_BUFFER_LENGTH);
   i2s_config_t i2sConfig = {

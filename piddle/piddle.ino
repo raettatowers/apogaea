@@ -37,8 +37,9 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PINS[2], GRB>(leds[2], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[3], GRB>(leds[3], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[4], GRB>(leds[4], LEDS_PER_STRIP);
+  static_assert(5 == STRIP_COUNT);
   FastLED.setBrightness(32);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 5000);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 10000);
 
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
