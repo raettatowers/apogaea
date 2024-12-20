@@ -6,7 +6,7 @@ Knockoff version of Sound Puddle. Smaller, fewer strips, running on a protoboard
 Wiring
 ------
 
-- LED pins: 32, 33, 25, 26, 27
+- LED pins: see source
 - Microphone
   - SCK: 19
   - WS: 22
@@ -20,4 +20,11 @@ Hardware
 
 - ESP32 WROOM 32
 - I2S microphone
-- 5 WS2812B LED strips
+- 10 WS2812B LED strips
+
+PCB notes
+---------
+Added ground plane - select F. CU (front copper) and then add a filled zone
+Want ground plane everywhere
+Can do vias
+JLC PCB is good, they're fast, but less quality then PCBWay
