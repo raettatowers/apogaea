@@ -6,4 +6,6 @@ vest/helper/offsets.hpp
 vest/video/*.mp4
 vest/video/*.webm
 vest/video/*.hpp
+piddle/pcb/fp-info-cache
+piddle/pcb/piddle-backups
 build

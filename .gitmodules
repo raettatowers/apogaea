@@ -1,0 +1,3 @@
+[submodule "piddle/pcb/inmp441-breakout-kicad"]
+	path = piddle/pcb/inmp441-breakout-kicad
+	url = https://github.com/barafael/inmp441-breakout-kicad
