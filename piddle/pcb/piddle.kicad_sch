@@ -4,6 +4,14 @@
 
   (paper "A4")
 
+  (title_block
+    (title "Phonic Bloom")
+    (date "2024-12-21")
+    (rev "1")
+    (company "Brandon Skari")
+    (comment 1 "https://github.com/bskari/apogaea/piddle/")
+  )
+
   (lib_symbols
     (symbol "Connector:Conn_01x03_Socket" (pin_names (offset 1.016) hide) (in_bom yes) (on_board yes)
       (property "Reference" "J" (at 0 5.08 0)
