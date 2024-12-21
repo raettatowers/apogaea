@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "INMP441")(type "KiCad")(uri "${KIPRJMOD}/inmp441-breakout-kicad/inmp441.pretty")(options "")(descr ""))
+)

@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "INMP441")(type "Legacy")(uri "${KIPRJMOD}/inmp441-breakout-kicad/inmp441.lib")(options "")(descr ""))
+)
