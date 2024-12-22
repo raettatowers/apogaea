@@ -3809,7 +3809,7 @@
   (gr_text "GPIO4" (at 95.61328 157.596343) (layer "F.SilkS") (tstamp 87363dfe-4c72-4b29-9bae-1aade32e8bdb)
     (effects (font (size 1 1) (thickness 0.1)) (justify left bottom))
   )
-  (gr_text "Phonic Bloom v1\nBrandon Skari\ngithub.com/\napogaea/piddle" (at 58.11328 128.596343 324) (layer "F.SilkS") (tstamp 99de151d-4e5a-4a8a-8224-5016d9cd9d7c)
+  (gr_text "Phonic Bloom v1\nBrandon Skari\ngithub.com/\napogaea/piddle" (at 84.11328 104.596343 -90) (layer "F.SilkS") (tstamp 99de151d-4e5a-4a8a-8224-5016d9cd9d7c)
     (effects (font (size 1 1) (thickness 0.1)) (justify left bottom))
   )
   (gr_text "GPIO21" (at 142.61328 82.096343 -72) (layer "F.SilkS") (tstamp a36fb306-fd1a-4683-8e02-a585046cca22)
