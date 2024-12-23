@@ -25,7 +25,7 @@ static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
 static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
 // Slide down twice to make it move faster (just 1 for developing)
-static const int slidesPerIteration = 1;
+const int SLIDE_COUNT = 3;
 
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
@@ -97,7 +97,8 @@ static void renderFft() {
   //for (int i = 0; i < STRIP_COUNT; ++i) {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
-  slideDown(slidesPerIteration);
+  // Slide down more than once to make it move faster (just 1 for developing)
+  slideDown(SLIDE_COUNT);
 
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
@@ -124,8 +125,9 @@ static void renderFft() {
       const uint8_t red = static_cast<uint8_t>(red_f * 254);
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
-      leds[physical][0] = CRGB(red, green, blue);
-      leds[physical][1] = CRGB(red, green, blue);
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[physical][i] = CRGB(red, green, blue);
+      }
     }
     // Bottom half
     {
@@ -135,11 +137,11 @@ static void renderFft() {
       const uint8_t red = static_cast<uint8_t>(red_f * 254);
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
-      leds[physical][LEDS_PER_STRIP - 1] = CRGB(red, green, blue);
-      leds[physical][LEDS_PER_STRIP - 2] = CRGB(red, green, blue);
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[physical][LEDS_PER_STRIP - 1 - i] = CRGB(red, green, blue);
+      }
     }
   }
-  FastLED.show();
 }
 
 void collectSamples() {
@@ -222,22 +224,24 @@ void displaySpectrumAnalyzer() {
   renderFft();
   const auto render_ms = millis() - part_ms;
 
-  // be029063 2024-12-01
-  // Using ArduinoFFT, memmove, single-core sampling
-  // 21.600000 FPS
-  // samples_ms:5458 compute_ms:3091 render_ms:788
+  part_ms = millis();
+  FastLED.show();
+  const auto show_ms = millis() - part_ms;
+
   ++loopCount;
-  if (start_ms + 10000 < millis()) {
-    Serial.printf("%f FPS\n", static_cast<float>(loopCount) / 10);
+  if (start_ms + logTime_ms < millis()) {
+    Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf(
-      "samples_ms:%d compute_ms:%d render_ms:%d\n",
+      "samples_ms:%d compute_ms:%d render_ms:%d show_ms:%d\n",
       samples_ms,
       compute_ms,
-      render_ms
+      render_ms,
+      show_ms
     );
     start_ms = millis();
     loopCount = 0;
   }
+
 }
 
 static void slideDown(const int count) {

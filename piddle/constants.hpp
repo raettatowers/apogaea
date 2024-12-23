@@ -4,7 +4,7 @@
 #define LED_BUILTIN 2
 #endif
 
-const int LEDS_PER_STRIP = 40;
+const int LEDS_PER_STRIP = 300;
 
 const int c4Index = 11;
 
@@ -49,5 +49,5 @@ Special pins:
 */
 // This is the most pins I could get to work with FastLED
 // constexpr int LED_PINS[] = {4, 5, 12, 13, 14, 15, 16, 17, 18, 19, 23, 25, 26, 27, 32, 33};
-constexpr int LED_PINS[] = {27, 26, 25, 33, 32};
+constexpr int LED_PINS[] = {32, 33, 25, 26, 27};
 const int STRIP_COUNT = COUNT_OF(LED_PINS);
