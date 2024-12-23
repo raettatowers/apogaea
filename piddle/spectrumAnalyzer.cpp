@@ -21,6 +21,8 @@ static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few s
 
 static const char* const TAG = "spectrumAnalyzer";
 
+const int SLIDE_COUNT = 3;
+
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
 float minimumDivisor = 1000;
@@ -75,7 +77,6 @@ static void computeFft() {
 #endif
 }
 
-static uint8_t hueOffset = 0;
 static void renderFft() {
   // Bass lines have more energy than higher samples, so reduce them
   for (int i = 0; i < COUNT_OF(vReal); ++i) {
@@ -92,8 +93,8 @@ static void renderFft() {
   //for (int i = 0; i < STRIP_COUNT; ++i) {
   //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
   //}
-  // Slide down twice to make it move faster (just 1 for developing)
-  slideDown(1);
+  // Slide down more than once to make it move faster (just 1 for developing)
+  slideDown(SLIDE_COUNT);
 
   FftType noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
@@ -111,8 +112,9 @@ static void renderFft() {
       const uint8_t red = static_cast<uint8_t>(red_f * 254);
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
-      leds[physical][0] = CRGB(red, green, blue);
-      leds[physical][1] = CRGB(red, green, blue);
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[physical][i] = CRGB(red, green, blue);
+      }
     }
     // Bottom half
     {
@@ -122,11 +124,11 @@ static void renderFft() {
       const uint8_t red = static_cast<uint8_t>(red_f * 254);
       const uint8_t green = static_cast<uint8_t>(green_f * 254);
       const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
-      leds[physical][LEDS_PER_STRIP - 1] = CRGB(red, green, blue);
-      leds[physical][LEDS_PER_STRIP - 2] = CRGB(red, green, blue);
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[physical][LEDS_PER_STRIP - 1 - i] = CRGB(red, green, blue);
+      }
     }
   }
-  FastLED.show();
 }
 
 void collectSamples() {
@@ -209,19 +211,24 @@ void displaySpectrumAnalyzer() {
   renderFft();
   const auto render_ms = millis() - part_ms;
 
+  part_ms = millis();
+  FastLED.show();
+  const auto show_ms = millis() - part_ms;
+
   ++loopCount;
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
-    Serial.printf("samples_ms:%d compute_ms:%d render_ms:%d\n", samples_ms, compute_ms, render_ms);
-    Serial.printf("offset:%d\n", rawSamplesOffset);
-    for (int i = 0; i < 10; ++i) {
-      Serial.print(rawSamples[i]);
-      Serial.print(" ");
-    }
-    Serial.println(" ");
+    Serial.printf(
+      "samples_ms:%d compute_ms:%d render_ms:%d show_ms:%d\n",
+      samples_ms,
+      compute_ms,
+      render_ms,
+      show_ms
+    );
     start_ms = millis();
     loopCount = 0;
   }
+
 }
 
 static void slideDown(const int count) {
