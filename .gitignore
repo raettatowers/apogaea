@@ -8,4 +8,6 @@ vest/video/*.webm
 vest/video/*.hpp
 piddle/pcb/fp-info-cache
 piddle/pcb/piddle-backups
+piddle/pcb/*bck
+piddle/pcb/*lck
 build
