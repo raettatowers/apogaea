@@ -10,4 +10,5 @@ piddle/pcb/fp-info-cache
 piddle/pcb/piddle-backups
 piddle/pcb/*bck
 piddle/pcb/*lck
+piddle/pcb/gerber
 build
