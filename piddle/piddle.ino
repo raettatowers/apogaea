@@ -4,8 +4,19 @@
 // arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:esp32da
 // I don't know how to set frequency and stuff easily, might need to use the Arduino IDE
 
+// 1.2 seems stable when the ESP32 was powered by my computer
+// 1.3 is not stable
+#define FASTLED_LED_OVERCLOCK 1.0
+
 #include <arduinoFFT.h>
 #include <FastLED.h>
+
+// FastLED 3.9.7 causes flickering on some of my strips, so make sure we're on 3.9.6
+static_assert(FASTLED_VERSION == 3009006);
+// The parallel FastLED output only works on updated Espressif
+#ifdef ESP_IDF_VERSION
+static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
+#endif
 
 #include "constants.hpp"
 #include "spectrumAnalyzer.hpp"
@@ -95,13 +106,14 @@ void collectSamplesFunction(void*) {
 void displayLedsFunction(void*) {
   while (1) {
     displaySpectrumAnalyzer();
-    FastLED.show();
     if (Serial.available() > 0) {
       logDebug = true;
       while (Serial.available() > 0) {
         Serial.read();
       }
     }
+    // Keep the watchdog happy
+    taskYIELD();
   }
 }
 

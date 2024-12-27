@@ -25,7 +25,7 @@ static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
 static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
 // Slide down twice to make it move faster (just 1 for developing)
-const int SLIDE_COUNT = 3;
+const int SLIDE_COUNT = 1;
 
 // These values can be changed in RemoteXY
 int startTrebleNote = c4Index;
@@ -168,6 +168,8 @@ void collectSamples() {
     }
     start_us = micros();
 
+    // TODO: Could use i2s_channel_register_event_callback() and change the delay to 0 to make this
+    // async. Then use this core to do more processing.
     if (i2s_read(
       I2S_NUM_0,
       &rawSamples[oldOffset],
@@ -176,11 +178,9 @@ void collectSamples() {
       portMAX_DELAY
     ) != ESP_OK) {
       ESP_LOGE(TAG, "i2s_read failed");
-      Serial.println("i2s_read failed");
     }
     if (bytesRead != MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0])) {
       ESP_LOGE(TAG, "wrong number of bytes read");
-      Serial.println("wrong number of bytes read");
     }
   }
 }
