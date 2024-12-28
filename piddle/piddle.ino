@@ -40,7 +40,6 @@ void buttonInterrupt() {
 
 void setup() {
   Serial.begin(115200);
-  #warning "Serial is enabled"
 
   // This had to be done first, but I think I fixed the bug that was causing problems? I don't want
   // to test if it's fixed, so I'm leaving it first now
@@ -67,8 +66,6 @@ void setup() {
   constexpr int high = 40000;
   constexpr int mid = (low + high) / 2;
   minimumDivisor = mid + (-20 + 50) * (high - low) / 100;
-  startTrebleNote = c4Index + (50 - 50) / 10;
-  additionalTrebleRange = 0;
 
   xTaskCreatePinnedToCore(
     collectSamplesFunction,

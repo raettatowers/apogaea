@@ -2,15 +2,12 @@
 #include <arduinoFFT.h>
 #include <stdint.h>
 #include <FastLED.h>
-#include <driver/i2s.h>
-#include "esp_log.h"
+#include <driver/i2s_std.h>
+#include <esp_log.h>
+#include <esp_check.h>
+#include <assert.h>
 
 #include "constants.hpp"
-
-// For ESP logging
-static const char* const TAG = "spectrumAnalyzer";
-
-extern bool logDebug;
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
@@ -27,26 +24,24 @@ static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few s
 // Slide down twice to make it move faster (just 1 for developing)
 const int SLIDE_COUNT = 1;
 
-// These values can be changed in RemoteXY
-int startTrebleNote = c4Index;
+// This value used to be changeable in RemoteXY
 float minimumDivisor = 1000;
-int additionalTrebleRange = 0;
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
+
+// This probably doesn't need to be souble the SAMPLE_COUNT, SAMPLE_COUNT + MAX_I2S_BUFFER_LENGTH
+// (or maybe + MAX_I2S_BUFFER_LENGTH * 2) would probably cut it. Ah well, this works. If I run low
+// on memory, it's something to consider.
 static int16_t rawSamples[SAMPLE_COUNT * 2];
 static volatile int rawSamplesOffset = 0;
 static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
-
 static float weightingConstants[SAMPLE_COUNT];
 
-extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
-//// We'll save a copy of the LEDs every time we update, so that the bass disappears instantly instead
-//// of trickling down with the rest of the LEDs
-//CRGB ledsBackup[STRIP_COUNT][LEDS_PER_STRIP];
+static i2s_chan_handle_t rxHandle;
 
-void setupSpectrumAnalyzer();
-void displaySpectrumAnalyzer();
+extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
+extern bool logDebug;
 
 static void computeFft();
 static void renderFft();
@@ -114,7 +109,6 @@ static void renderFft() {
     logDebug = false;
   }
 
-  int strip = 0;
   const int offset = c4Index;  // I used to have c4Index - 7 here
   for (int physical = 0; physical < STRIP_COUNT; ++physical) {
     // Top half
@@ -169,19 +163,17 @@ void collectSamples() {
     start_us = micros();
 
     // TODO: Could use i2s_channel_register_event_callback() and change the delay to 0 to make this
-    // async. Then use this core to do more processing.
-    if (i2s_read(
-      I2S_NUM_0,
-      &rawSamples[oldOffset],
-      MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]),
-      &bytesRead,
-      portMAX_DELAY
-    ) != ESP_OK) {
-      ESP_LOGE(TAG, "i2s_read failed");
-    }
-    if (bytesRead != MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0])) {
-      ESP_LOGE(TAG, "wrong number of bytes read");
-    }
+    // async. Then use this core to do more processing
+    ESP_ERROR_CHECK(
+      i2s_channel_read(
+        rxHandle,
+        &rawSamples[oldOffset],
+        MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]),
+        &bytesRead,
+        portMAX_DELAY
+      )
+    );
+    assert(bytesRead == MAX_I2S_BUFFER_LENGTH * sizeof(rawSamples[0]));
   }
 }
 
@@ -232,7 +224,7 @@ void displaySpectrumAnalyzer() {
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf(
-      "samples_ms:%d compute_ms:%d render_ms:%d show_ms:%d\n",
+      "samples_ms:%ld compute_ms:%ld render_ms:%ld show_ms:%ld\n",
       samples_ms,
       compute_ms,
       render_ms,
@@ -261,35 +253,39 @@ static void slideDown(const int count) {
 }
 
 void setupSpectrumAnalyzer() {
-  const auto I2S_BITS_PER_SAMPLE = I2S_BITS_PER_SAMPLE_16BIT; // 16-bit audio samples
+  i2s_chan_config_t channelConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+  // The above macro sets channelConfig to {
+  //  .id = I2S_NUM_AUTO,
+  //  .role = I2S_ROLE_MASTER,
+  //  .dma_desc_num = 6,
+  //  .auto_clear_after_cb = 0,
+  //  .auto_clear_before_cb = 0,
+  //  .intr_priority = 0,
+  // }
 
-  const int length = min(SAMPLE_COUNT, MAX_I2S_BUFFER_LENGTH);
-  i2s_config_t i2sConfig = {
-    .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),  // I2S receive mode
-    .sample_rate = I2S_SAMPLE_RATE_HZ,
-    .bits_per_sample = I2S_BITS_PER_SAMPLE,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // Mono channel
-    .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_I2S_MSB),
-    .intr_alloc_flags = 0, // Default interrupt allocation
-    .dma_buf_count = 8, // Number of DMA buffers
-    .dma_buf_len = length, // Size of each DMA buffer
-    .use_apll = false // Use the internal APLL (Audio PLL)
+  // Send nullptr for the tx handle, we're only receiving
+  ESP_ERROR_CHECK(i2s_new_channel(&channelConfig, nullptr, &rxHandle));
+
+  i2s_std_config_t stdConfig = {
+    .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(I2S_SAMPLE_RATE_HZ),
+    // Slot mode only matters when transmitting
+    .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    .gpio_cfg = {
+      .mclk = I2S_GPIO_UNUSED,
+      .bclk = GPIO_NUM_19,
+      .ws = GPIO_NUM_22,
+      .dout = I2S_GPIO_UNUSED,
+      .din = GPIO_NUM_21,
+      .invert_flags = {
+        .mclk_inv = false,
+        .bclk_inv = false,
+        .ws_inv = false,
+      },
+    },
   };
+  ESP_ERROR_CHECK(i2s_channel_init_std_mode(rxHandle, &stdConfig));
 
-  // Install and configure the I2S driver
-  i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
-
-  // Set pins for I2S
-  i2s_pin_config_t pin_config = {
-    .bck_io_num = SCK_PIN,
-    .ws_io_num = WS_PIN,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num = SD_PIN
-  };
-  i2s_set_pin(I2S_NUM_0, &pin_config);
-
-  // Configure I2S input format
-  i2s_set_clk(I2S_NUM_0, I2S_SAMPLE_RATE_HZ, I2S_BITS_PER_SAMPLE, I2S_CHANNEL_MONO);
+  ESP_ERROR_CHECK(i2s_channel_enable(rxHandle));
 
   // Bass notes have higher percieved energy, because the human ear is weird. To compensate, we'll
   // do A weighting.
