@@ -28,9 +28,7 @@ static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few s
 const int SLIDE_COUNT = 1;
 
 // These values can be changed in RemoteXY
-int startTrebleNote = c4Index;
-float minimumDivisor = 1000;
-int additionalTrebleRange = 0;
+const FftType minimumDivisor = 10000;
 
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
@@ -52,7 +50,7 @@ static void computeFft();
 static void renderFft();
 static void slideDown(int count);
 static FftType maxVRealForNote(int note);
-static void normalizeSamplesTo0_1(FftType samples[], int length);
+static void normalizeTo0_1(FftType samples[], int length);
 static void logNotes(const FftType noteValues[NOTE_COUNT]);
 static float aWeightingMultiplier(const float frequency);
 
@@ -82,13 +80,6 @@ static void computeFft() {
 }
 
 static void renderFft() {
-  // Bass lines have more energy than higher samples, so reduce them
-  for (int i = 0; i < COUNT_OF(vReal); ++i) {
-    vReal[i] *= weightingConstants[i];
-  }
-
-  normalizeSamplesTo0_1(vReal, SAMPLE_COUNT);
-
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the outside edge, going up, and the other notes to trickle down from the center.
 
@@ -114,7 +105,6 @@ static void renderFft() {
     logDebug = false;
   }
 
-  int strip = 0;
   const int offset = c4Index;  // I used to have c4Index - 7 here
   for (int physical = 0; physical < STRIP_COUNT; ++physical) {
     // Top half
@@ -122,9 +112,13 @@ static void renderFft() {
       const float red_f = noteValues[offset + 0 + physical * 2];
       const float green_f = noteValues[offset + 7 + physical * 2];
       const float blue_f = noteValues[offset + 14 + physical * 2];
-      const uint8_t red = static_cast<uint8_t>(red_f * 254);
-      const uint8_t green = static_cast<uint8_t>(green_f * 254);
-      const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
+      const uint8_t red_i = static_cast<uint8_t>(red_f * 254);
+      const uint8_t green_i = static_cast<uint8_t>(green_f * 254);
+      const uint8_t blue_i = static_cast<uint8_t>(blue_f * 254);
+      // Poor man's gamma correction
+      const uint8_t red = red_i * red_i / 256;
+      const uint8_t green = green_i * green_i / 256;
+      const uint8_t blue = blue_i * blue_i / 256;
       for (int i = 0; i < SLIDE_COUNT; ++i) {
         leds[physical][i] = CRGB(red, green, blue);
       }
@@ -134,9 +128,13 @@ static void renderFft() {
       const float red_f = noteValues[offset + 0 + physical * 2 + 1];
       const float green_f = noteValues[offset + 7 + physical * 2 + 1];
       const float blue_f = noteValues[offset + 14 + physical * 2 + 1];
-      const uint8_t red = static_cast<uint8_t>(red_f * 254);
-      const uint8_t green = static_cast<uint8_t>(green_f * 254);
-      const uint8_t blue = static_cast<uint8_t>(blue_f * 254);
+      const uint8_t red_i = static_cast<uint8_t>(red_f * 254);
+      const uint8_t green_i = static_cast<uint8_t>(green_f * 254);
+      const uint8_t blue_i = static_cast<uint8_t>(blue_f * 254);
+      // Poor man's gamma correction
+      const uint8_t red = red_i * red_i / 256;
+      const uint8_t green = green_i * green_i / 256;
+      const uint8_t blue = blue_i * blue_i / 256;
       for (int i = 0; i < SLIDE_COUNT; ++i) {
         leds[physical][LEDS_PER_STRIP - 1 - i] = CRGB(red, green, blue);
       }
@@ -211,13 +209,17 @@ void displaySpectrumAnalyzer() {
       vReal[i + upper] = rawSamples[i];
     }
   }
-
   // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
   const auto samples_ms = millis() - part_ms;
 
   part_ms = millis();
   computeFft();
+  // Bass lines have more energy than higher samples, so reduce them
+  for (int i = 0; i < COUNT_OF(vReal); ++i) {
+    vReal[i] *= weightingConstants[i];
+  }
+  normalizeTo0_1(vReal, SAMPLE_COUNT);
   const auto compute_ms = millis() - part_ms;
 
   part_ms = millis();
@@ -232,7 +234,7 @@ void displaySpectrumAnalyzer() {
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf(
-      "samples_ms:%d compute_ms:%d render_ms:%d show_ms:%d\n",
+      "samples_ms:%lu compute_ms:%lu render_ms:%lu show_ms:%lu\n",
       samples_ms,
       compute_ms,
       render_ms,
@@ -340,22 +342,23 @@ static FftType maxVRealForNote(const int note) {
 /**
  * Normalize the samples to [0..1], or lower if all the samples are low
  */
-static void normalizeSamplesTo0_1(FftType samples[], const int length) {
-  FftType minSample = std::numeric_limits<FftType>::max();
-  for (int i = 0; i < length; ++i) {
+static void normalizeTo0_1(FftType samples[], const int length) {
+  FftType minSample = samples[0];
+  for (int i = 1; i < length; ++i) {
     minSample = min(minSample, samples[i]);
   }
   for (int i = 0; i < length; ++i) {
     samples[i] -= minSample;
   }
-  FftType maxSample = std::numeric_limits<FftType>::min();
-  for (int i = 0; i < length; ++i) {
+  FftType maxSample = samples[0];
+  for (int i = 1; i < length; ++i) {
     maxSample = max(maxSample, samples[i]);
   }
   // Always have some divisor, in case all the values are low
-  maxSample = max(maxSample, static_cast<FftType>(minimumDivisor));
+  const FftType divisor = max(maxSample, minimumDivisor);
+
   // Map them all to 0.0 .. 1.0
-  const FftType multiplier = 1.0 / maxSample;
+  const FftType multiplier = 1.0 / divisor;
   for (int i = 0; i < length; ++i) {
     samples[i] = samples[i] * multiplier;
   }

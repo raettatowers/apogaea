@@ -24,10 +24,6 @@ static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
 void testLeds();
 void blink(const int delay_ms = 500);
 
-extern float minimumDivisor;
-extern int startTrebleNote;
-extern int additionalTrebleRange;
-
 CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
 bool logDebug = false;
 
@@ -60,15 +56,6 @@ void setup() {
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
-
-  // This is all configuration stuff left over from RemoteXY
-  constexpr int low = 8000;
-  //constexpr int high = 20500;
-  constexpr int high = 40000;
-  constexpr int mid = (low + high) / 2;
-  minimumDivisor = mid + (-20 + 50) * (high - low) / 100;
-  startTrebleNote = c4Index + (50 - 50) / 10;
-  additionalTrebleRange = 0;
 
   xTaskCreatePinnedToCore(
     collectSamplesFunction,
