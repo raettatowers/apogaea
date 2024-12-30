@@ -191,7 +191,10 @@ void displaySpectrumAnalyzer() {
   auto part_ms = millis();
   // First we need to copy the data from the samples circular buffer
   // We can't use memcpy because we're converting uint16_t to float
-  const int sampleOffset = rawSamplesOffset;
+  auto sampleOffset = rawSamplesOffset - SAMPLE_COUNT;
+  if (sampleOffset < 0) {
+    sampleOffset += COUNT_OF(rawSamples);
+  }
   if (sampleOffset + COUNT_OF(vReal) < COUNT_OF(rawSamples)) {
     for (int i = 0; i < COUNT_OF(vReal); ++i) {
       vReal[i] = rawSamples[sampleOffset + i];
