@@ -7,6 +7,8 @@
 
 #include "constants.hpp"
 
+typedef float FftType;
+
 // For ESP logging
 static const char* const TAG = "spectrumAnalyzer";
 
@@ -34,7 +36,7 @@ static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
 static int16_t rawSamples[SAMPLE_COUNT * 2];
 static volatile int rawSamplesOffset = 0;
-static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
+static ArduinoFFT<FftType> fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 
 static float weightingConstants[SAMPLE_COUNT];
 
@@ -57,9 +59,9 @@ static float aWeightingMultiplier(const float frequency);
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
   // For music, HAMMING seemed to do best, but WELCH and TRIANGLE seem to work best for sine wave.
-  fft.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  fft.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
-  fft.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
+  fft.windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  fft.compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
+  fft.complexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
   // Samples 0, 1, and SAMPLE_COUNT - 1 are the sample average or something, so just drop them
   vReal[0] = 0.0;
   vReal[1] = 0.0;
