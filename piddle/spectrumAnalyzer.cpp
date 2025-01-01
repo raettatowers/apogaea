@@ -101,48 +101,56 @@ static void renderFft() {
     noteValues[note] = maxVRealForNote(note);
   }
   if (logDebug) {
-    FastLED.clear();
-    for (int i = 0; i < COUNT_OF(noteValues); ++i) {
-      leds[0][i] = CRGB(static_cast<int>(noteValues[i] * 255), 0, 0);
-    }
-    FastLED.show();
     logNotes(noteValues);
     logDebug = false;
   }
 
-  const int offset = c4Index;  // I used to have c4Index - 7 here
-  for (int physical = 0; physical < STRIP_COUNT; ++physical) {
-    // Top half
-    {
-      const float red_f = noteValues[offset + 0 + physical * 2];
-      const float green_f = noteValues[offset + 7 + physical * 2];
-      const float blue_f = noteValues[offset + 14 + physical * 2];
-      const uint8_t red_i = static_cast<uint8_t>(red_f * 254);
-      const uint8_t green_i = static_cast<uint8_t>(green_f * 254);
-      const uint8_t blue_i = static_cast<uint8_t>(blue_f * 254);
-      // Poor man's gamma correction
-      const uint8_t red = red_i * red_i / 256;
-      const uint8_t green = green_i * green_i / 256;
-      const uint8_t blue = blue_i * blue_i / 256;
-      for (int i = 0; i < SLIDE_COUNT; ++i) {
-        leds[physical][i] = CRGB(red, green, blue);
+  int channel = 0;
+  int strip = 0;
+  for (int i = 0; i < STRIP_COUNT; ++i) {
+    for (int j = 0; j < SLIDE_COUNT; ++j) {
+      leds[i][j] = CRGB::Black;
+      leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
+    }
+  }
+  for (int note = c4Index - 7; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
+    float floatValue = noteValues[note];
+    uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
+    for (int i = 0; i < SLIDE_COUNT; ++i) {
+      switch (channel) {
+        case 0:
+          leds[strip][i].r = intValue * intValue / 255;
+          break;
+        case 1:
+          leds[strip][i].g = intValue * intValue / 255;
+          break;
+        case 2:
+          leds[strip][i].b = intValue * intValue / 255;
+          break;
       }
     }
-    // Bottom half
-    {
-      const float red_f = noteValues[offset + 0 + physical * 2 + 1];
-      const float green_f = noteValues[offset + 7 + physical * 2 + 1];
-      const float blue_f = noteValues[offset + 14 + physical * 2 + 1];
-      const uint8_t red_i = static_cast<uint8_t>(red_f * 254);
-      const uint8_t green_i = static_cast<uint8_t>(green_f * 254);
-      const uint8_t blue_i = static_cast<uint8_t>(blue_f * 254);
-      // Poor man's gamma correction
-      const uint8_t red = red_i * red_i / 256;
-      const uint8_t green = green_i * green_i / 256;
-      const uint8_t blue = blue_i * blue_i / 256;
-      for (int i = 0; i < SLIDE_COUNT; ++i) {
-        leds[physical][LEDS_PER_STRIP - 1 - i] = CRGB(red, green, blue);
+    ++note;
+
+    floatValue = noteValues[note];
+    intValue = static_cast<uint8_t>(floatValue * 254);
+    for (int i = 0; i < SLIDE_COUNT; ++i) {
+      switch (channel) {
+        case 0:
+          leds[strip][LEDS_PER_STRIP - 1 - i].r = intValue * intValue / 255;
+          break;
+        case 1:
+          leds[strip][LEDS_PER_STRIP - 1 - i].g = intValue * intValue / 255;
+          break;
+        case 2:
+          leds[strip][LEDS_PER_STRIP - 1 - i].b = intValue * intValue / 255;
+          break;
       }
+    }
+    ++note;
+    ++strip;
+    if (strip >= STRIP_COUNT) {
+      strip = 0;
+      ++channel;
     }
   }
 }
