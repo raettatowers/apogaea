@@ -250,6 +250,7 @@ void displaySpectrumAnalyzer() {
   for (int i = 0; i < COUNT_OF(vReal); ++i) {
     vReal[i] *= weightingConstants[i];
   }
+  // So let's normalize each color band separately
   normalizeTo0_1(vReal, SAMPLE_COUNT);
   const auto compute_ms = millis() - part_ms;
 
@@ -410,11 +411,32 @@ static void normalizeTo0_1(FftType samples[], const int length) {
 
 static void logNotes(const FftType noteValues[NOTE_COUNT]) {
   Serial.println("Notes:");
-  for (int i = 0; i < NOTE_COUNT; ++i) {
-    if (i == c4Index) {
-      Serial.print("c4");
+
+  char note = 'C';
+  int digit = 4;
+
+  // Find start note
+  for (int i = 0; i < c4Index; ++i) {
+    if (note == 'C') {
+      --digit;
+      --note;
+    } else if (note == 'A') {
+      note = 'G';
+    } else {
+      --note;
     }
-    Serial.printf("%02d:%d ", i, static_cast<int>(noteValues[i] * 255));
+  }
+
+  for (int i = 0; i < NOTE_COUNT; ++i) {
+    Serial.printf("%c%d:%d ", note, digit, static_cast<int>(noteValues[i] * 255));
+    if (note == 'B') {
+      ++digit;
+      ++note;
+    } else if (note == 'G') {
+      note = 'A';
+    } else {
+      ++note;
+    }
   }
   Serial.println();
 }
