@@ -197,7 +197,7 @@ void displaySpectrumAnalyzer() {
   // Seeing samples like... 1 2 3 3 2 1 0 32767 32766 32765
   // Screw it, just correct it. I tried to do this in the sample thread, but there's not enough time
   // to do it in between i2s_channel_reads. Maybe if I was calling that async?
-  #define FIX_SAMPLE_SIGN(value) ((value) < 0x4000 ? (value) : -(0x8000 - 1 - (value)));
+  #define FIX_SAMPLE_SIGN(value) ((value) < 0x4000 ? (value) : -(0x8000 - 1 - (value)))
 
   // Copy up to the most recent data
   auto sampleOffset = rawSamplesOffset - SAMPLE_COUNT;
@@ -222,6 +222,16 @@ void displaySpectrumAnalyzer() {
       vReal[i + upper] = FIX_SAMPLE_SIGN(rawSamples[i]);
     }
   }
+
+  if (logDebug) {
+    Serial.println("Samples");
+    // I don't need all 2048 outputs, just get 50
+    for (int i = 0; i < 50; ++i) {
+      Serial.printf("%d ", FIX_SAMPLE_SIGN(rawSamples[(i + sampleOffset) % COUNT_OF(rawSamples)]));
+    }
+    Serial.println();
+  }
+
   // Reset vImaginary
   std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
   const auto samples_ms = millis() - part_ms;
@@ -391,8 +401,12 @@ static void normalizeTo0_1(FftType samples[], const int length) {
 }
 
 static void logNotes(const FftType noteValues[NOTE_COUNT]) {
+  Serial.println("Notes:");
   for (int i = 0; i < NOTE_COUNT; ++i) {
-    Serial.printf("%02d:%d\n", i, static_cast<int>(noteValues[i] * 255));
+    if (i == c4Index) {
+      Serial.print("c4");
+    }
+    Serial.printf("%02d:%d ", i, static_cast<int>(noteValues[i] * 255));
   }
   Serial.println();
 }
