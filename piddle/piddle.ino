@@ -36,7 +36,6 @@ void buttonInterrupt() {
 
 void setup() {
   Serial.begin(115200);
-  #warning "Serial is enabled"
 
   // This had to be done first, but I think I fixed the bug that was causing problems? I don't want
   // to test if it's fixed, so I'm leaving it first now

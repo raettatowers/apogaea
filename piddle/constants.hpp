@@ -1,3 +1,5 @@
+#include <driver/gpio.h>
+
 #define COUNT_OF(x) (sizeof(x) / sizeof(0[x]))
 
 #ifndef LED_BUILTIN
@@ -8,9 +10,9 @@ const int LEDS_PER_STRIP = 300;
 
 const int c4Index = 11;
 
-const int SCK_PIN = 19;
-const int WS_PIN = 22;
-const int SD_PIN = 21;
+const auto SCK_PIN = GPIO_NUM_19;
+const auto WS_PIN = GPIO_NUM_22;
+const auto SD_PIN = GPIO_NUM_21;
 
 /*
 Special pins:
