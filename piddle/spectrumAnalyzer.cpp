@@ -27,6 +27,8 @@ const int SLIDE_COUNT = 1;
 // This value used to be changeable in RemoteXY
 float minimumDivisor = 1000;
 
+typedef float FftType;
+
 static FftType vReal[SAMPLE_COUNT];
 static FftType vImaginary[SAMPLE_COUNT];
 
@@ -35,7 +37,7 @@ static FftType vImaginary[SAMPLE_COUNT];
 // on memory, it's something to consider.
 static int16_t rawSamples[SAMPLE_COUNT * 2];
 static volatile int rawSamplesOffset = 0;
-static arduinoFFT fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
+static ArduinoFFT<float> fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
 static float weightingConstants[SAMPLE_COUNT];
 
 static i2s_chan_handle_t rxHandle;
@@ -54,9 +56,9 @@ static float aWeightingMultiplier(const float frequency);
 static void computeFft() {
   // I tried all the windowing types with music and with a pure sine wave.
   // For music, HAMMING seemed to do best, but WELCH and TRIANGLE seem to work best for sine wave.
-  fft.Windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  fft.Compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
-  fft.ComplexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
+  fft.windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  fft.compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
+  fft.complexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
   // Samples 0, 1, and SAMPLE_COUNT - 1 are the sample average or something, so just drop them
   vReal[0] = 0.0;
   vReal[1] = 0.0;
@@ -160,7 +162,6 @@ void collectSamples() {
     if (diff_us < usPerSample) {
       delayMicroseconds(usPerSample - diff_us);
     }
-    start_us = micros();
 
     // TODO: Could use i2s_channel_register_event_callback() and change the delay to 0 to make this
     // async. Then use this core to do more processing
@@ -184,23 +185,28 @@ void displaySpectrumAnalyzer() {
 
   auto part_ms = millis();
   // First we need to copy the data from the samples circular buffer
-  // We can't use memcpy because we're converting uint16_t to float
+  // We can't use memcpy because we're converting int16_t to float
+  // Also, these are supposed to be coming in as int16_t, but looks like they're coming in as unsigned?
+  // Seeing samples like... 1 2 3 3 2 1 0 32767 32766 32765
+  // Screw it, just correct it. I tried to do this in the sample thread, but there's not enough time
+  // to do it in between i2s_channel_reads. Maybe if I was calling that async?
+  #define FIX_SAMPLE_SIGN(value) ((value) < 0x4000 ? (value) : -(0x8000 - 1 - (value)));
   const int sampleOffset = rawSamplesOffset;
   if (sampleOffset + COUNT_OF(vReal) < COUNT_OF(rawSamples)) {
     for (int i = 0; i < COUNT_OF(vReal); ++i) {
-      vReal[i] = rawSamples[sampleOffset + i];
+      vReal[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
     }
   } else {
     // Let's say length = 10, offset = 13
     // Then I need to copy 7 items (2*length-offset) starting at 13
     const int upper = COUNT_OF(rawSamples) - sampleOffset;
     for (int i = 0; i < upper; ++i) {
-      vReal[i] = rawSamples[sampleOffset + i];
+      vReal[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
     }
     // Then copy the last 3 items
     const int lower = COUNT_OF(vReal) - upper;
     for (int i = 0; i < lower; ++i) {
-      vReal[i + upper] = rawSamples[i];
+      vReal[i + upper] = FIX_SAMPLE_SIGN(rawSamples[i]);
     }
   }
 
@@ -266,10 +272,19 @@ void setupSpectrumAnalyzer() {
   // Send nullptr for the tx handle, we're only receiving
   ESP_ERROR_CHECK(i2s_new_channel(&channelConfig, nullptr, &rxHandle));
 
+  i2s_std_slot_config_t slotConfig = {
+    .data_bit_width = I2S_DATA_BIT_WIDTH_16BIT,
+    .slot_bit_width = I2S_SLOT_BIT_WIDTH_16BIT,
+    .slot_mode = I2S_SLOT_MODE_MONO,
+    .slot_mask = I2S_STD_SLOT_LEFT, // TODO
+    .ws_pol = false,
+    .bit_shift = false,
+    .msb_right = false,
+  };
+
   i2s_std_config_t stdConfig = {
     .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(I2S_SAMPLE_RATE_HZ),
-    // Slot mode only matters when transmitting
-    .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    .slot_cfg = slotConfig,
     .gpio_cfg = {
       .mclk = I2S_GPIO_UNUSED,
       .bclk = GPIO_NUM_19,
