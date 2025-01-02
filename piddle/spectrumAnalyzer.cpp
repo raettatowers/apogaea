@@ -119,16 +119,18 @@ static void renderFft() {
   for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
     float floatValue = noteValues[note];
     uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
+    // Fast and fairly accurate gamma correction
+    uint8_t gammaCorrected = intValue * intValue / 255;
     for (int i = 0; i < SLIDE_COUNT; ++i) {
       switch (channel) {
         case 0:
-          leds[strip][i].r = intValue * intValue / 255;
+          leds[strip][i].r = gammaCorrected;
           break;
         case 1:
-          leds[strip][i].g = intValue * intValue / 255;
+          leds[strip][i].g = gammaCorrected;
           break;
         case 2:
-          leds[strip][i].b = intValue * intValue / 255;
+          leds[strip][i].b = gammaCorrected;
           break;
       }
     }
@@ -136,16 +138,17 @@ static void renderFft() {
 
     floatValue = noteValues[note];
     intValue = static_cast<uint8_t>(floatValue * 254);
+    gammaCorrected = intValue * intValue / 255;
     for (int i = 0; i < SLIDE_COUNT; ++i) {
       switch (channel) {
         case 0:
-          leds[strip][LEDS_PER_STRIP - 1 - i].r = intValue * intValue / 255;
+          leds[strip][LEDS_PER_STRIP - 1 - i].r = gammaCorrected;
           break;
         case 1:
-          leds[strip][LEDS_PER_STRIP - 1 - i].g = intValue * intValue / 255;
+          leds[strip][LEDS_PER_STRIP - 1 - i].g = gammaCorrected;
           break;
         case 2:
-          leds[strip][LEDS_PER_STRIP - 1 - i].b = intValue * intValue / 255;
+          leds[strip][LEDS_PER_STRIP - 1 - i].b = gammaCorrected;
           break;
       }
     }
