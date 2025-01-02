@@ -90,7 +90,7 @@ static void computeFft() {
 }
 
 static void renderFft() {
-  const int startNote = c4Index - 7;
+  const int startNote = c4Index - 4;
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the outside edge, going up, and the other notes to trickle down from the center.
