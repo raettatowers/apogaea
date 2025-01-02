@@ -1,20 +1,14 @@
 #include <Arduino.h>
-#include <arduinoFFT.h>
-#include <stdint.h>
-#include <FastLED.h>
-#include <driver/i2s_std.h>
-#include <esp_log.h>
-#include <esp_check.h>
 #include <assert.h>
+#include <driver/i2s_std.h>
+#include <esp_check.h>
+#include <esp_log.h>
+#include <FastLED.h>
+#include <stdint.h>
+
 
 #include "constants.hpp"
-
-typedef float FftType;
-
-// For ESP logging
-static const char* const TAG = "spectrumAnalyzer";
-
-extern bool logDebug;
+#include "esp32-fft.hpp"
 
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
@@ -22,27 +16,27 @@ static const int MAX_I2S_BUFFER_LENGTH = 512;
 static const int SAMPLE_COUNT = 2048;
 static const int MINIMUM_THRESHOLD = 20;
 // Generated from python3 steps.py 2048 44100
-static constexpr uint16_t NOTE_TO_VREAL_INDEX[] = {
+static constexpr uint16_t NOTE_TO_OUTPUT_INDEX[] = {
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 32, 36, 40, 45, 48, 54, 61, 64, 72, 81, 91, 97, 109, 122, 129, 145, 163, 183
 };
-static const int NOTE_COUNT = COUNT_OF(NOTE_TO_VREAL_INDEX);
-static_assert(NOTE_TO_VREAL_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
+static const int NOTE_COUNT = COUNT_OF(NOTE_TO_OUTPUT_INDEX);
+static_assert(NOTE_TO_OUTPUT_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 
 // Slide down twice to make it move faster (just 1 for developing)
 const int SLIDE_COUNT = 1;
 
 // These values can be changed in RemoteXY
-const FftType minimumDivisor = 10000;
+const float minimumDivisor = 10000;
 
-static FftType vReal[SAMPLE_COUNT];
-static FftType vImaginary[SAMPLE_COUNT];
+static float input[SAMPLE_COUNT];
+static float output[SAMPLE_COUNT];
 
 // This probably doesn't need to be souble the SAMPLE_COUNT, SAMPLE_COUNT + MAX_I2S_BUFFER_LENGTH
 // (or maybe + MAX_I2S_BUFFER_LENGTH * 2) would probably cut it. Ah well, this works. If I run low
 // on memory, it's something to consider.
 static int16_t rawSamples[SAMPLE_COUNT * 2];
 static volatile int rawSamplesOffset = 0;
-static ArduinoFFT<FftType> fft(vReal, vImaginary, SAMPLE_COUNT, I2S_SAMPLE_RATE_HZ);
+fft_config_t* realFftPlan = nullptr;
 
 static float weightingConstants[SAMPLE_COUNT];
 
@@ -54,21 +48,20 @@ extern bool logDebug;
 static void computeFft();
 static void renderFft();
 static void slideDown(int count);
-static FftType maxVRealForNote(int note);
-static void normalizeTo0_1(FftType samples[], int length);
-static void logNotes(const FftType noteValues[NOTE_COUNT]);
+static float maxOutputForNote(int note);
+static void normalizeTo0_1(float samples[], int length);
+static void logOutputNotes();
+static void logNotes(const float noteValues[NOTE_COUNT]);
 static float aWeightingMultiplier(const float frequency);
 
 static void computeFft() {
-  // I tried all the windowing types with music and with a pure sine wave.
-  // For music, HAMMING seemed to do best, but WELCH and TRIANGLE seem to work best for sine wave.
-  fft.windowing(vReal, SAMPLE_COUNT, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
-  fft.compute(vReal, vImaginary, SAMPLE_COUNT, FFT_FORWARD);
-  fft.complexToMagnitude(vReal, vImaginary, SAMPLE_COUNT);
-  // Samples 0, 1, and SAMPLE_COUNT - 1 are the sample average or something, so just drop them
-  vReal[0] = 0.0;
-  vReal[1] = 0.0;
-  vReal[SAMPLE_COUNT - 1] = 0.0;
+  // TODO: Hamming windowing
+  // Call this directly instead of through fft_execute for dead code elimination
+  rfft(input, output, realFftPlan->twiddle_factors, COUNT_OF(input));
+
+  output[0] = 0.0;
+  output[1] = 0.0;
+  output[SAMPLE_COUNT - 1] = 0.0;
 
 #if false
   // Debug logging
@@ -78,29 +71,27 @@ static void computeFft() {
     return;
   }
   nextDisplayTime_ms = millis() + interval_ms;
-  for (int i = 0; i < COUNT_OF(vReal) / 2; ++i) {
-    Serial.printf("%03d:%f\n", i, vReal[i]);
+  for (int i = 0; i < COUNT_OF(output) / 2; ++i) {
+    Serial.printf("%03d:%f\n", i, output[i]);
   }
 #endif
 }
 
 static void renderFft() {
+  const int startNote = c4Index - 7;
+
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
   // on the outside edge, going up, and the other notes to trickle down from the center.
 
-  // First, restore the copy of the LEDs
-  // I was initially doing this when I wanted to do the bass line at the bottom, but not doing it for now
-  //for (int i = 0; i < STRIP_COUNT; ++i) {
-  //  memcpy(leds[i], ledsBackup[i], sizeof(leds[0]));
-  //}
   // Slide down more than once to make it move faster (just 1 for developing)
   slideDown(SLIDE_COUNT);
 
-  FftType noteValues[NOTE_COUNT];
+  float noteValues[NOTE_COUNT];
   for (int note = 0; note < NOTE_COUNT; ++note) {
-    noteValues[note] = maxVRealForNote(note);
+    noteValues[note] = maxOutputForNote(note);
   }
   if (logDebug) {
+    logOutputNotes();
     logNotes(noteValues);
     logDebug = false;
   }
@@ -113,7 +104,7 @@ static void renderFft() {
       leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
     }
   }
-  for (int note = c4Index - 7; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
+  for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
     float floatValue = noteValues[note];
     uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
     for (int i = 0; i < SLIDE_COUNT; ++i) {
@@ -213,21 +204,21 @@ void displaySpectrumAnalyzer() {
     sampleOffset += COUNT_OF(rawSamples);
   }
 
-  if (sampleOffset + COUNT_OF(vReal) < COUNT_OF(rawSamples)) {
-    for (int i = 0; i < COUNT_OF(vReal); ++i) {
-      vReal[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
+  if (sampleOffset + COUNT_OF(input) < COUNT_OF(rawSamples)) {
+    for (int i = 0; i < COUNT_OF(input); ++i) {
+      input[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
     }
   } else {
     // Let's say length = 10, offset = 13
     // Then I need to copy 7 items (2*length-offset) starting at 13
     const int upper = COUNT_OF(rawSamples) - sampleOffset;
     for (int i = 0; i < upper; ++i) {
-      vReal[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
+      input[i] = FIX_SAMPLE_SIGN(rawSamples[sampleOffset + i]);
     }
     // Then copy the last 3 items
-    const int lower = COUNT_OF(vReal) - upper;
+    const int lower = COUNT_OF(output) - upper;
     for (int i = 0; i < lower; ++i) {
-      vReal[i + upper] = FIX_SAMPLE_SIGN(rawSamples[i]);
+      input[i + upper] = FIX_SAMPLE_SIGN(rawSamples[i]);
     }
   }
 
@@ -239,19 +230,15 @@ void displaySpectrumAnalyzer() {
     }
     Serial.println();
   }
-
-  // Reset vImaginary
-  std::fill(vImaginary, vImaginary + COUNT_OF(vImaginary), 0.0);
   const auto samples_ms = millis() - part_ms;
 
   part_ms = millis();
   computeFft();
   // Bass lines have more energy than higher samples, so reduce them
-  for (int i = 0; i < COUNT_OF(vReal); ++i) {
-    vReal[i] *= weightingConstants[i];
+  for (int i = 0; i < COUNT_OF(output); ++i) {
+    output[i] *= weightingConstants[i];
   }
-  // So let's normalize each color band separately
-  normalizeTo0_1(vReal, SAMPLE_COUNT);
+  normalizeTo0_1(output, SAMPLE_COUNT);
   const auto compute_ms = millis() - part_ms;
 
   part_ms = millis();
@@ -338,6 +325,8 @@ void setupSpectrumAnalyzer() {
 
   ESP_ERROR_CHECK(i2s_channel_enable(rxHandle));
 
+  realFftPlan = fft_init(SAMPLE_COUNT, FFT_REAL, FFT_FORWARD, input, output);
+
   // Bass notes have higher percieved energy, because the human ear is weird. To compensate, we'll
   // do A weighting.
   for (int i = 0; i < SAMPLE_COUNT; ++i) {
@@ -369,47 +358,55 @@ static float aWeightingMultiplier(const float frequency) {
 }
 
 /**
- * Returns the max vReal value in a particular note. For example, if NOTE_TO_VREAL_INDEX[c4Index] =
- * 39 and NOTE_TO_VREAL_INDEX[c4Index] = 43, it will look in vReal[39:43] and return the largest value.
+ * Returns the max output value in a particular note. For example, if NOTE_TO_OUTPUT_INDEX[c4Index] =
+ * 39 and NOTE_TO_OUTPUT_INDEX[c4Index] = 43, it will look in output[39:43] and return the largest value.
  */
-static FftType maxVRealForNote(const int note) {
-  if (note >= COUNT_OF(NOTE_TO_VREAL_INDEX) - 1) {
-    return vReal[COUNT_OF(NOTE_TO_VREAL_INDEX) - 1];
+static float maxOutputForNote(const int note) {
+  if (note >= COUNT_OF(NOTE_TO_OUTPUT_INDEX) - 1) {
+    return output[COUNT_OF(NOTE_TO_OUTPUT_INDEX) - 1];
   }
-  FftType maxVReal = vReal[NOTE_TO_VREAL_INDEX[note]];
-  for (int i = NOTE_TO_VREAL_INDEX[note]; i < NOTE_TO_VREAL_INDEX[note + 1]; ++i) {
-    maxVReal = max(maxVReal, vReal[i]);
+  float maxOutput = output[NOTE_TO_OUTPUT_INDEX[note]];
+  for (int i = NOTE_TO_OUTPUT_INDEX[note]; i < NOTE_TO_OUTPUT_INDEX[note + 1]; ++i) {
+    maxOutput = max(maxOutput, output[i]);
   }
-  return maxVReal;
+  return maxOutput;
 }
 
 
 /**
  * Normalize the samples to [0..1], or lower if all the samples are low
  */
-static void normalizeTo0_1(FftType samples[], const int length) {
-  FftType minSample = samples[0];
+static void normalizeTo0_1(float samples[], const int length) {
+  float minSample = samples[0];
   for (int i = 1; i < length; ++i) {
     minSample = min(minSample, samples[i]);
   }
   for (int i = 0; i < length; ++i) {
     samples[i] -= minSample;
   }
-  FftType maxSample = samples[0];
+  float maxSample = samples[0];
   for (int i = 1; i < length; ++i) {
     maxSample = max(maxSample, samples[i]);
   }
   // Always have some divisor, in case all the values are low
-  const FftType divisor = max(maxSample, minimumDivisor);
+  const float divisor = max(maxSample, minimumDivisor);
 
   // Map them all to 0.0 .. 1.0
-  const FftType multiplier = 1.0 / divisor;
+  const float multiplier = 1.0 / divisor;
   for (int i = 0; i < length; ++i) {
     samples[i] = samples[i] * multiplier;
   }
 }
 
-static void logNotes(const FftType noteValues[NOTE_COUNT]) {
+static void logOutputNotes() {
+  Serial.println("Output at notes:");
+  for (int i = 0; i < 20; ++i) {
+    Serial.printf("%d:%0.2f ", NOTE_TO_OUTPUT_INDEX[i], output[NOTE_TO_OUTPUT_INDEX[i]]);
+  }
+  Serial.println();
+}
+
+static void logNotes(const float noteValues[NOTE_COUNT]) {
   Serial.println("Notes:");
 
   char note = 'C';
