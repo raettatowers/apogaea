@@ -25,9 +25,6 @@ static_assert(NOTE_TO_OUTPUT_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few 
 // Slide down twice to make it move faster (just 1 for developing)
 const int SLIDE_COUNT = 1;
 
-// These values can be changed in RemoteXY
-const float minimumDivisor = 10000;
-
 static float input[SAMPLE_COUNT];
 static float output[SAMPLE_COUNT];
 
@@ -39,6 +36,7 @@ static volatile int rawSamplesOffset = 0;
 fft_config_t* realFftPlan = nullptr;
 
 static float weightingConstants[SAMPLE_COUNT];
+static float windowingConstants[SAMPLE_COUNT];
 
 static i2s_chan_handle_t rxHandle;
 
@@ -53,15 +51,29 @@ static void normalizeTo0_1(float samples[], int length);
 static void logOutputNotes();
 static void logNotes(const float noteValues[NOTE_COUNT]);
 static float aWeightingMultiplier(const float frequency);
+static float windowingMultiplier(const int offset);
+static void powerOfTwo(float* const array, const int length);
+static constexpr float square(const float f);
+
+// Minimum divisor. The output from the FFT is squared, and we could sqrt it, but that's slow and
+// unnecessary, so just square this number.
+const float minimumDivisor = square(10000);
 
 static void computeFft() {
-  // TODO: Hamming windowing
+  // Windowing
+  for (int i = 0; i < COUNT_OF(input); ++i) {
+    input[i] *= windowingConstants[i];
+  }
+
   // Call this directly instead of through fft_execute for dead code elimination
   rfft(input, output, realFftPlan->twiddle_factors, COUNT_OF(input));
 
+  // These entries represent the average power or something? Just clear them
   output[0] = 0.0;
   output[1] = 0.0;
   output[SAMPLE_COUNT - 1] = 0.0;
+
+  powerOfTwo(output, COUNT_OF(output));
 
 #if false
   // Debug logging
@@ -327,9 +339,13 @@ void setupSpectrumAnalyzer() {
 
   realFftPlan = fft_init(SAMPLE_COUNT, FFT_REAL, FFT_FORWARD, input, output);
 
+  for (int i = 0; i < COUNT_OF(windowingConstants); ++i) {
+    windowingConstants[i] = windowingMultiplier(i);
+  }
+
   // Bass notes have higher percieved energy, because the human ear is weird. To compensate, we'll
   // do A weighting.
-  for (int i = 0; i < SAMPLE_COUNT; ++i) {
+  for (int i = 0; i < COUNT_OF(weightingConstants); ++i) {
     const float freq = static_cast<float>(I2S_SAMPLE_RATE_HZ) / SAMPLE_COUNT * (i + 1);
     weightingConstants[i] = aWeightingMultiplier(freq);
   }
@@ -355,6 +371,15 @@ static float aWeightingMultiplier(const float frequency) {
   const float aWeighting_db = 2.0f + 20.0f * logf(ra) / logf(10.0f);
   const float multiplier = powf(10.0f, aWeighting_db / 10.0f);
   return multiplier;
+}
+
+/**
+ * Returns the windowing multiplier, see https://en.wikipedia.org/wiki/Window_function
+ */
+static float windowingMultiplier(const int offset) {
+  // a0 = 0.5 for Hann, a0 = 0.54 for original Hamming, a0 = 0.53836 for new Hamming
+  const float a0 = 0.53836;
+  return a0 - (1.0f - a0) * cosf(TWO_PI * static_cast<float>(offset) / COUNT_OF(input));
 }
 
 /**
@@ -395,6 +420,12 @@ static void normalizeTo0_1(float samples[], const int length) {
   const float multiplier = 1.0 / divisor;
   for (int i = 0; i < length; ++i) {
     samples[i] = samples[i] * multiplier;
+  }
+}
+
+void powerOfTwo(float* const array, const int length) {
+  for (int i = 0; i < length / 2; ++i) {
+    array[i] = array[i * 2] * array[i * 2] + array[i * 2 + 1] * array[i * 2 + 1];
   }
 }
 
