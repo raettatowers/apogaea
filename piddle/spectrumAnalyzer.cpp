@@ -204,7 +204,7 @@ void displaySpectrumAnalyzer() {
   const decltype(millis()) logTime_ms = 10000;
   static int loopCount = 0;
 
-  auto part_ms = millis();
+  auto part_us = micros();
   // First we need to copy the data from the samples circular buffer
   // We can't use memcpy because we're converting uint16_t to float
   // Also, these are supposed to be coming in as int16_t, but looks like they're coming in as unsigned?
@@ -245,34 +245,34 @@ void displaySpectrumAnalyzer() {
     }
     Serial.println();
   }
-  const auto samples_ms = millis() - part_ms;
+  const auto samples_us = micros() - part_us;
 
-  part_ms = millis();
+  part_us = micros();
   computeFft();
   // Bass lines have more energy than higher samples, so reduce them
   for (int i = 0; i < COUNT_OF(output); ++i) {
     output[i] *= weightingConstants[i];
   }
   normalizeTo0_1(output, SAMPLE_COUNT);
-  const auto compute_ms = millis() - part_ms;
+  const auto compute_us = micros() - part_us;
 
-  part_ms = millis();
+  part_us = micros();
   renderFft();
-  const auto render_ms = millis() - part_ms;
+  const auto render_us = micros() - part_us;
 
-  part_ms = millis();
+  part_us = micros();
   FastLED.show();
-  const auto show_ms = millis() - part_ms;
+  const auto show_us = micros() - part_us;
 
   ++loopCount;
   if (start_ms + logTime_ms < millis()) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf(
-      "samples_ms:%lu compute_ms:%lu render_ms:%lu show_ms:%lu\n",
-      samples_ms,
-      compute_ms,
-      render_ms,
-      show_ms
+      "samples_us:%lu compute_us:%lu render_us:%lu show_us:%lu\n",
+      samples_us,
+      compute_us,
+      render_us,
+      show_us
     );
     start_ms = millis();
     loopCount = 0;
