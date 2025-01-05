@@ -92,15 +92,17 @@ void collectSamplesFunction(void*) {
 
 void displayLedsFunction(void*) {
   while (1) {
-    displaySpectrumAnalyzer();
-    if (Serial.available() > 0) {
-      logDebug = true;
-      while (Serial.available() > 0) {
-        Serial.read();
+    for (int i = 0; i < 100; ++i) {
+      displaySpectrumAnalyzer();
+      if (Serial.available() > 0) {
+        logDebug = true;
+        while (Serial.available() > 0) {
+          Serial.read();
+        }
       }
     }
     // Keep the watchdog happy
-    taskYIELD();
+    delay(1);
   }
 }
 
