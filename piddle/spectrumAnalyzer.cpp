@@ -93,8 +93,8 @@ static void computeFft() {
 }
 
 static void renderFft() {
-  static int16_t hue16 = 0;
-  hue16 += 200;
+  static int16_t hue16Start = 0;
+  hue16Start += 200;
 
   const int startNote = c4Index - 4;
 
@@ -121,7 +121,9 @@ static void renderFft() {
       leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
     }
   }
-  const uint16_t hue16Step = 65535 / (COUNT_OF(noteValues) - startNote);
+  const uint16_t hue16Step = 256 * 3;
+  const uint16_t hue16StripStep = (65536 - hue16Step * STRIP_COUNT * 2) / (STRIP_COUNT * 2);
+  uint16_t hue16 = hue16Start;
   for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
     {
       const float floatValue = noteValues[note];
@@ -152,6 +154,7 @@ static void renderFft() {
     ++strip;
     if (strip >= STRIP_COUNT) {
       strip = 0;
+      hue16 += hue16StripStep;
     }
   }
 }
