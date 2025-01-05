@@ -43,6 +43,7 @@ void setup() {
 
   //analogReference(AR_DEFAULT); // Not on ESP32?
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(VOLTAGE_PIN, INPUT);
 
   FastLED.addLeds<WS2812B, LED_PINS[0], GRB>(leds[0], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[1], GRB>(leds[1], LEDS_PER_STRIP);

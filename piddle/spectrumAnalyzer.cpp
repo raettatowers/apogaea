@@ -13,12 +13,15 @@
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
 
-static const int SAMPLE_COUNT = 2048;
 static const int MINIMUM_THRESHOLD = 20;
+
 // Generated from python3 steps.py 2048 44100
+static const int SAMPLE_COUNT = 2048;
 static constexpr uint16_t NOTE_TO_OUTPUT_INDEX[] = {
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 32, 36, 40, 45, 48, 54, 61, 64, 72, 81, 91, 97, 109, 122, 129, 145, 163, 183
 };
+const int c4Index = 11;
+
 static const int NOTE_COUNT = COUNT_OF(NOTE_TO_OUTPUT_INDEX);
 static_assert(NOTE_TO_OUTPUT_INDEX[NOTE_COUNT - 1] < SAMPLE_COUNT / 2, "Too few samples to represent all notes");
 

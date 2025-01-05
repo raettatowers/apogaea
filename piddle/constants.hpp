@@ -8,8 +8,6 @@
 
 const int LEDS_PER_STRIP = 300;
 
-const int c4Index = 11;
-
 const auto SCK_PIN = GPIO_NUM_19;
 const auto WS_PIN = GPIO_NUM_22;
 const auto SD_PIN = GPIO_NUM_21;

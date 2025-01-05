@@ -39,9 +39,13 @@ def main():
 
         lower = upper
     print("Remaining buckets are empty because they're above note range")
-    print(f"{{{', '.join((str(s) for s in skips))}}}")
+    print()
+    print(f"// Generated from python3 steps.py {bucket_count} {frequency}")
+    print(f"static const int SAMPLE_COUNT = {bucket_count};")
+    print("static constexpr uint16_t NOTE_TO_OUTPUT_INDEX[] = {")
+    print(f"  {', '.join((str(s) for s in skips))}")
+    print("};")
     print(f"const int c4Index = {skips.index(c4)};")
-    print(f"Length = {len(skips)}")
 
 # From https://pages.mtu.edu/~suits/notefreqs.html
 notes = (
