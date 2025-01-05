@@ -200,9 +200,10 @@ void collectSamples() {
 }
 
 void displaySpectrumAnalyzer() {
-  static auto start_ms = millis();
-  const decltype(millis()) logTime_ms = 10000;
+  const decltype(millis()) logTime_ms = 5000;
+  static auto next_ms = 1000;
   static int loopCount = 0;
+  static int voltageOnes = 4, voltageTenths = 7, voltageHundredths = 1;
 
   auto part_us = micros();
   // First we need to copy the data from the samples circular buffer
@@ -260,12 +261,37 @@ void displaySpectrumAnalyzer() {
   renderFft();
   const auto render_us = micros() - part_us;
 
+  // Testing, show voltage on the strip
+  int voltageIndex = LEDS_PER_STRIP / 2 - 10;
+  const int voltageBrightness = 16;
+  for (int i = 0; i < voltageOnes; ++i, ++voltageIndex) {
+    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(voltageBrightness, 0, 0);
+  }
+  leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+  ++voltageIndex;
+  for (int i = 0; i < voltageTenths; ++i, ++voltageIndex) {
+    if (i == 5) {
+      leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+      ++voltageIndex;
+    }
+    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, voltageBrightness, 0);
+  }
+  leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+  ++voltageIndex;
+  for (int i = 0; i < voltageHundredths; ++i, ++voltageIndex) {
+    if (i == 5) {
+      leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+      ++voltageIndex;
+    }
+    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, 0, voltageBrightness);
+  }
+
   part_us = micros();
   FastLED.show();
   const auto show_us = micros() - part_us;
 
   ++loopCount;
-  if (start_ms + logTime_ms < millis()) {
+  if (millis() > next_ms) {
     Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
     Serial.printf(
       "samples_us:%lu compute_us:%lu render_us:%lu show_us:%lu\n",
@@ -274,7 +300,26 @@ void displaySpectrumAnalyzer() {
       render_us,
       show_us
     );
-    start_ms = millis();
+
+    const float R1 = 10000.0f;
+    const float R2 = 5100.0f;
+    const float referenceVoltage = 3.3f;
+    const float maxReading = 4095;
+    int adcReading = analogRead(VOLTAGE_PIN);
+    const float adcVoltage = static_cast<float>(adcReading) / maxReading * referenceVoltage;
+    const float voltage = adcVoltage * (R1 + R2) / R2;
+    Serial.printf(
+      "Voltage:%0.2f (adc:%d adcV:%0.2f)\n",
+      voltage,
+      adcReading,
+      adcVoltage);
+    char buffer[6];
+    snprintf(buffer, 6, "%0.2f", voltage);
+    voltageOnes = buffer[0] - '0';
+    voltageTenths = buffer[2] - '0';
+    voltageHundredths = buffer[3] - '0';
+
+    next_ms = millis() + logTime_ms;
     loopCount = 0;
   }
 

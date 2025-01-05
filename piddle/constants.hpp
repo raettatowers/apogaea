@@ -14,6 +14,8 @@ const auto SCK_PIN = GPIO_NUM_19;
 const auto WS_PIN = GPIO_NUM_22;
 const auto SD_PIN = GPIO_NUM_21;
 
+const auto VOLTAGE_PIN = 4;
+
 /*
 Special pins:
 0	Boot strapping pin (must be low during boot). Button.
