@@ -93,6 +93,9 @@ static void computeFft() {
 }
 
 static void renderFft() {
+  static int16_t hue16 = 0;
+  hue16 += 200;
+
   const int startNote = c4Index - 4;
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
@@ -111,7 +114,6 @@ static void renderFft() {
     logDebug = false;
   }
 
-  int channel = 0;
   int strip = 0;
   for (int i = 0; i < STRIP_COUNT; ++i) {
     for (int j = 0; j < SLIDE_COUNT; ++j) {
@@ -119,47 +121,37 @@ static void renderFft() {
       leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
     }
   }
+  const uint16_t hue16Step = 65535 / (COUNT_OF(noteValues) - startNote);
   for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
-    float floatValue = noteValues[note];
-    uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
-    // Fast and fairly accurate gamma correction
-    uint8_t gammaCorrected = intValue * intValue / 255;
-    for (int i = 0; i < SLIDE_COUNT; ++i) {
-      switch (channel) {
-        case 0:
-          leds[strip][i].r = gammaCorrected;
-          break;
-        case 1:
-          leds[strip][i].g = gammaCorrected;
-          break;
-        case 2:
-          leds[strip][i].b = gammaCorrected;
-          break;
+    {
+      const float floatValue = noteValues[note];
+      const uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
+      // Fast and fairly accurate gamma correction
+      const uint8_t gammaCorrected = intValue * intValue / 255;
+      const uint8_t hue = (hue16 >> 8);
+      hue16 += hue16Step;
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[strip][0] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
 
-    floatValue = noteValues[note];
-    intValue = static_cast<uint8_t>(floatValue * 254);
-    gammaCorrected = intValue * intValue / 255;
-    for (int i = 0; i < SLIDE_COUNT; ++i) {
-      switch (channel) {
-        case 0:
-          leds[strip][LEDS_PER_STRIP - 1 - i].r = gammaCorrected;
-          break;
-        case 1:
-          leds[strip][LEDS_PER_STRIP - 1 - i].g = gammaCorrected;
-          break;
-        case 2:
-          leds[strip][LEDS_PER_STRIP - 1 - i].b = gammaCorrected;
-          break;
+    {
+      const float floatValue = noteValues[note];
+      const uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
+      // Fast and fairly accurate gamma correction
+      const uint8_t gammaCorrected = intValue * intValue / 255;
+      const uint8_t hue = (hue16 >> 8);
+      hue16 += hue16Step;
+      for (int i = 0; i < SLIDE_COUNT; ++i) {
+        leds[strip][LEDS_PER_STRIP - 1 - i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
+
     ++strip;
     if (strip >= STRIP_COUNT) {
       strip = 0;
-      ++channel;
     }
   }
 }
