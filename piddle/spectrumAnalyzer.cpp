@@ -93,9 +93,6 @@ static void computeFft() {
 }
 
 static void renderFft() {
-  static int16_t hue16Start = 0;
-  hue16Start += 200;
-
   const int startNote = c4Index - 4;
 
   // Okay. So there are 5 strands that I'm going to loop down and back up. I want the bassline to be
@@ -121,9 +118,13 @@ static void renderFft() {
       leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
     }
   }
-  const uint16_t hue16Step = 256 * 3;
-  const uint16_t hue16StripStep = (65536 - hue16Step * STRIP_COUNT * 2) / (STRIP_COUNT * 2);
-  uint16_t hue16 = hue16Start;
+
+  constexpr uint16_t hue16Step = 256 * 3;
+  // Vary the start hue by a small sine wave
+  const int quadWaveMillisDiv = 64;
+  const int quadWaveDiv = 8;
+  const uint8_t hueStart = quadwave8(millis() / quadWaveMillisDiv) / quadWaveDiv - 20;
+  uint16_t hue16 = hueStart * 256;
   for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
     {
       const float floatValue = noteValues[note];
@@ -154,7 +155,9 @@ static void renderFft() {
     ++strip;
     if (strip >= STRIP_COUNT) {
       strip = 0;
-      hue16 += hue16StripStep;
+      constexpr uint16_t step = 65536 / 3 - hue16Step * STRIP_COUNT * 2;
+      static_assert(step > 0);
+      hue16 += step;
     }
   }
 }
