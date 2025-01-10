@@ -371,10 +371,10 @@ void setupSpectrumAnalyzer() {
     .slot_cfg = slotConfig,
     .gpio_cfg = {
       .mclk = I2S_GPIO_UNUSED,
-      .bclk = GPIO_NUM_19,
-      .ws = GPIO_NUM_22,
+      .bclk = GPIO_NUM_5,
+      .ws = GPIO_NUM_18,
       .dout = I2S_GPIO_UNUSED,
-      .din = GPIO_NUM_21,
+      .din = GPIO_NUM_19,
       .invert_flags = {
         .mclk_inv = false,
         .bclk_inv = false,
