@@ -6,12 +6,13 @@
 
 // 1.2 seems stable when the ESP32 was powered by my computer
 // 1.3 is not stable
-#define FASTLED_LED_OVERCLOCK 1.0
+#define FASTLED_OVERCLOCK 1.0
 
 #include <arduinoFFT.h>
 #include <FastLED.h>
 
-// FastLED 3.9.7 causes flickering on some of my strips, so make sure we're on 3.9.6
+// Some FastLED versions don't work with my ESP32-WROOM32 setup
+// 3.9.6 is good, 3.9.11 I think is bad? One LED is stuck on green
 static_assert(FASTLED_VERSION == 3009006);
 // The parallel FastLED output only works on updated Espressif
 #ifdef ESP_IDF_VERSION
@@ -50,6 +51,11 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PINS[2], GRB>(leds[2], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[3], GRB>(leds[3], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[4], GRB>(leds[4], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[5], GRB>(leds[5], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[6], GRB>(leds[6], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[7], GRB>(leds[7], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[8], GRB>(leds[8], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[9], GRB>(leds[9], LEDS_PER_STRIP);
   FastLED.setBrightness(32);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 5000);
 
@@ -66,6 +72,22 @@ void setup() {
     &collectSamplesTask, // Task handle.
     1); // Core where the task should run
 
+  // Test all the logic level converter LEDs
+  const tempBrightness = FastLED.getBrightness();
+  FastLED.setBrightness(128);
+  for (int i = 0; i < 5; ++i) {
+    for (uint8_t hue = 0; hue < 240; hue += 10) {
+      FastLED.clear();
+      for (int strip = 0; strip < STRIP_COUNT; ++strip) {
+        leds[strip][0] = CHSV(hue + strip * (255 / STRIP_COUNT), 255, 64);
+      }
+      FastLED.show();
+      delay(1);
+    }
+  }
+  FastLED.setBrightness(tempBrightness);
+
+  // We need to do this last because it will preempt the setup thread that's running on core 0
   xTaskCreatePinnedToCore(
     displayLedsFunction,
     "displayLeds",
@@ -74,10 +96,6 @@ void setup() {
     1, // Priority of the task
     &displayLedsTask, // Task handle.
     0); // Core where the task should run
-
-  for (int i = 0; i < 3; ++i) {
-    blink(100);
-  }
 }
 
 void loop() {

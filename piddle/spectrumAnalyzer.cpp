@@ -133,7 +133,8 @@ static void renderFft() {
       const uint8_t gammaCorrected = intValue * intValue / 255;
       const uint8_t hue = (hue16 >> 8);
       hue16 += hue16Step;
-      for (int i = 0; i < SLIDE_COUNT; ++i) {
+      // Do SLIDE_COUNT + 1 because the first LED is the logic level shifter on the PCB
+      for (int i = 0; i < SLIDE_COUNT + 1; ++i) {
         leds[strip][0] += CHSV(hue, 255, gammaCorrected);
       }
     }
@@ -327,7 +328,10 @@ void displaySpectrumAnalyzer() {
 }
 
 static void slideDown(const int count) {
-  const int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
+  int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
+  if (LEDS_PER_STRIP % 2 == 1) {
+    ++byteCount;
+  }
   for (int i = 0; i < STRIP_COUNT; ++i) {
     memmove(
       &leds[i][count],
