@@ -10,6 +10,17 @@
 #include "constants.hpp"
 #include "esp32-fft.hpp"
 
+// Set this to 1 if you want to from both ends of the LED strips. Primarily used for testing and
+// development when I don't want to have 10 strips all hooked up at once.
+#ifndef DOUBLE_ENDED
+#  define DOUBLE_ENDED 1
+#endif
+
+// Set this to 1 if you want to display the voltage on the LED strip, for testing
+#ifndef SHOW_VOLTAGE
+#  define SHOW_VOLTAGE 0
+#endif
+
 static const int I2S_SAMPLE_RATE_HZ = 44100; // Sample rate of the I2S microphone
 static const int MAX_I2S_BUFFER_LENGTH = 512;
 
@@ -115,7 +126,9 @@ static void renderFft() {
   for (int i = 0; i < STRIP_COUNT; ++i) {
     for (int j = 0; j < SLIDE_COUNT; ++j) {
       leds[i][j] = CRGB::Black;
-      leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
+      #if DOUBLE_ENDED
+        leds[i][LEDS_PER_STRIP - j - 1] = CRGB::Black;
+      #endif
     }
   }
 
@@ -140,6 +153,7 @@ static void renderFft() {
     }
     ++note;
 
+    #if DOUBLE_ENDED
     {
       const float floatValue = noteValues[note];
       const uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
@@ -152,6 +166,7 @@ static void renderFft() {
       }
     }
     ++note;
+    #endif
 
     ++strip;
     if (strip >= STRIP_COUNT) {
@@ -205,7 +220,9 @@ void displaySpectrumAnalyzer() {
   const decltype(millis()) logTime_ms = 5000;
   static auto next_ms = 1000;
   static int loopCount = 0;
+  #if SHOW_VOLTAGE
   static int voltageOnes = 4, voltageTenths = 7, voltageHundredths = 1;
+  #endif
 
   auto part_us = micros();
   // First we need to copy the data from the samples circular buffer
@@ -263,30 +280,32 @@ void displaySpectrumAnalyzer() {
   renderFft();
   const auto render_us = micros() - part_us;
 
-  // Testing, show voltage on the strip
-  int voltageIndex = LEDS_PER_STRIP / 2 - 10;
-  const int voltageBrightness = 16;
-  for (int i = 0; i < voltageOnes; ++i, ++voltageIndex) {
-    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(voltageBrightness, 0, 0);
-  }
-  leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
-  ++voltageIndex;
-  for (int i = 0; i < voltageTenths; ++i, ++voltageIndex) {
-    if (i == 5) {
-      leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
-      ++voltageIndex;
+  #if SHOW_VOLTAGE
+    // Testing, show voltage on the strip
+    int voltageIndex = LEDS_PER_STRIP / 2 - 10;
+    const int voltageBrightness = 16;
+    for (int i = 0; i < voltageOnes; ++i, ++voltageIndex) {
+      leds[STRIP_COUNT - 1][voltageIndex] = CRGB(voltageBrightness, 0, 0);
     }
-    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, voltageBrightness, 0);
-  }
-  leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
-  ++voltageIndex;
-  for (int i = 0; i < voltageHundredths; ++i, ++voltageIndex) {
-    if (i == 5) {
-      leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
-      ++voltageIndex;
+    leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+    ++voltageIndex;
+    for (int i = 0; i < voltageTenths; ++i, ++voltageIndex) {
+      if (i == 5) {
+        leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+        ++voltageIndex;
+      }
+      leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, voltageBrightness, 0);
     }
-    leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, 0, voltageBrightness);
-  }
+    leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+    ++voltageIndex;
+    for (int i = 0; i < voltageHundredths; ++i, ++voltageIndex) {
+      if (i == 5) {
+        leds[STRIP_COUNT - 1][voltageIndex] = CRGB::Black;
+        ++voltageIndex;
+      }
+      leds[STRIP_COUNT - 1][voltageIndex] = CRGB(0, 0, voltageBrightness);
+    }
+  #endif
 
   part_us = micros();
   FastLED.show();
@@ -317,9 +336,11 @@ void displaySpectrumAnalyzer() {
       adcVoltage);
     char buffer[6];
     snprintf(buffer, 6, "%0.2f", voltage);
-    voltageOnes = buffer[0] - '0';
-    voltageTenths = buffer[2] - '0';
-    voltageHundredths = buffer[3] - '0';
+    #if SHOW_VOLTAGE
+      voltageOnes = buffer[0] - '0';
+      voltageTenths = buffer[2] - '0';
+      voltageHundredths = buffer[3] - '0';
+    #endif
 
     next_ms = millis() + logTime_ms;
     loopCount = 0;
@@ -328,21 +349,28 @@ void displaySpectrumAnalyzer() {
 }
 
 static void slideDown(const int count) {
-  int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
-  if (LEDS_PER_STRIP % 2 == 1) {
-    ++byteCount;
-  }
+  #if DOUBLE_ENDED
+    int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
+    if (LEDS_PER_STRIP % 2 == 1) {
+      ++byteCount;
+    }
+  #else
+    const int byteCount = (LEDS_PER_STRIP - count) * sizeof(leds[0][0]);
+  #endif
+
   for (int i = 0; i < STRIP_COUNT; ++i) {
     memmove(
       &leds[i][count],
       &leds[i][0],
       byteCount
     );
-    memmove(
-      &leds[i][LEDS_PER_STRIP / 2],
-      &leds[i][LEDS_PER_STRIP / 2 + count],
-      byteCount
-    );
+    #if DOUBLE_ENDED
+      memmove(
+        &leds[i][LEDS_PER_STRIP / 2],
+        &leds[i][LEDS_PER_STRIP / 2 + count],
+        byteCount
+      );
+    #endif
   }
 }
 
