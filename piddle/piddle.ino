@@ -57,7 +57,13 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PINS[8], GRB>(leds[8], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[9], GRB>(leds[9], LEDS_PER_STRIP);
   FastLED.setBrightness(32);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, 5000);
+
+  // That USB cord I soldered has tiny wires, shouldn't put more than 500mA through it
+  if (LEDS_PER_STRIP == 60 || LEDS_PER_STRIP == 61) {
+    FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
+  } else {
+    FastLED.setMaxPowerInVoltsAndMilliamps(5, 5000);
+  }
 
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
@@ -73,7 +79,7 @@ void setup() {
     1); // Core where the task should run
 
   // Test all the logic level converter LEDs
-  const tempBrightness = FastLED.getBrightness();
+  const uint8_t tempBrightness = FastLED.getBrightness();
   FastLED.setBrightness(128);
   for (int i = 0; i < 5; ++i) {
     for (uint8_t hue = 0; hue < 240; hue += 10) {
