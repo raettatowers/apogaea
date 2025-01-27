@@ -14,6 +14,9 @@
 // development when I don't want to have 10 strips all hooked up at once.
 #ifndef DOUBLE_ENDED
 #  define DOUBLE_ENDED 1
+// Something with my double sided algorithm doesn't work if this is odd (specifically, something in
+// slideDown and the memmoves). If needed, you can just set it to +1 more.
+static_assert(LEDS_PER_STRIP % 2 == 0);
 #endif
 
 // Set this to 1 if you want to display the voltage on the LED strip, for testing
@@ -141,6 +144,8 @@ static void renderFft() {
   for (int note = startNote; note < COUNT_OF(noteValues) - 1; /* Increment done in loop */) {
     {
       const float floatValue = noteValues[note];
+      // Multiply by 254 instead of 255 so I don't need to worry about wraparound. Should be 0 <=
+      // floatValue <= 1, but just in case.
       const uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
       // Fast and fairly accurate gamma correction
       const uint8_t gammaCorrected = intValue * intValue / 255;
@@ -156,6 +161,8 @@ static void renderFft() {
     #if DOUBLE_ENDED
     {
       const float floatValue = noteValues[note];
+      // Multiply by 254 instead of 255 so I don't need to worry about wraparound. Should be 0 <=
+      // floatValue <= 1, but just in case.
       const uint8_t intValue = static_cast<uint8_t>(floatValue * 254);
       // Fast and fairly accurate gamma correction
       const uint8_t gammaCorrected = intValue * intValue / 255;
@@ -351,9 +358,6 @@ void displaySpectrumAnalyzer() {
 static void slideDown(const int count) {
   #if DOUBLE_ENDED
     int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
-    if (LEDS_PER_STRIP % 2 == 1) {
-      ++byteCount;
-    }
   #else
     const int byteCount = (LEDS_PER_STRIP - count) * sizeof(leds[0][0]);
   #endif
