@@ -183,6 +183,7 @@ static void renderFft() {
       hue16 += step;
     }
   }
+  delay(25);
 }
 
 void collectSamples() {

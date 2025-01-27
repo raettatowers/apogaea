@@ -51,11 +51,6 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PINS[2], GRB>(leds[2], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[3], GRB>(leds[3], LEDS_PER_STRIP);
   FastLED.addLeds<WS2812B, LED_PINS[4], GRB>(leds[4], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[5], GRB>(leds[5], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[6], GRB>(leds[6], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[7], GRB>(leds[7], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[8], GRB>(leds[8], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[9], GRB>(leds[9], LEDS_PER_STRIP);
   FastLED.setBrightness(32);
 
   // That USB cord I soldered has tiny wires, shouldn't put more than 500mA through it
