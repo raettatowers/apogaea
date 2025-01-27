@@ -14,9 +14,6 @@
 // development when I don't want to have 10 strips all hooked up at once.
 #ifndef DOUBLE_ENDED
 #  define DOUBLE_ENDED 1
-// Something with my double sided algorithm doesn't work if this is odd (specifically, something in
-// slideDown and the memmoves). If needed, you can just set it to +1 more.
-static_assert(LEDS_PER_STRIP % 2 == 0);
 #endif
 
 // Set this to 1 if you want to display the voltage on the LED strip, for testing
@@ -359,6 +356,9 @@ void displaySpectrumAnalyzer() {
 static void slideDown(const int count) {
   #if DOUBLE_ENDED
     int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
+    if (LEDS_PER_STRIP % 2 == 0) {
+      byteCount += sizeof(leds[0][0]);
+    }
   #else
     const int byteCount = (LEDS_PER_STRIP - count) * sizeof(leds[0][0]);
   #endif
