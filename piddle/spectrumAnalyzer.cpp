@@ -233,6 +233,7 @@ void displaySpectrumAnalyzer() {
   // We can't use memcpy because we're converting uint16_t to float
   // Also, these are supposed to be coming in as int16_t, but looks like they're coming in as unsigned?
   // Seeing samples like... 1 2 3 3 2 1 0 32767 32766 32765
+  // TODO: Might be able to fix this with the i2s options, like bit_shift or msb_right. Try those.
   // Screw it, just correct it. I tried to do this in the sample thread, but there's not enough time
   // to do it in between i2s_channel_reads. Maybe if I was calling that async?
   #define FIX_SAMPLE_SIGN(value) ((value) < 0x4000 ? (value) : -(0x8000 - 1 - (value)))
