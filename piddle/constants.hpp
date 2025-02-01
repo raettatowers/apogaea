@@ -50,5 +50,5 @@ Special pins:
 //constexpr int LED_PINS[] = {32, 22, 21, 17, 16};
 // These are the pins I have defined on my PCB
 //constexpr int LED_PINS[] = {32, 33, 25, 26, 27, 4, 16, 17, 21, 22};
-constexpr int LED_PINS[] = {27, 26, 25, 32, 33};
+constexpr int LED_PINS[] = {16, 17, 21, 22, 32};
 const int STRIP_COUNT = COUNT_OF(LED_PINS);
