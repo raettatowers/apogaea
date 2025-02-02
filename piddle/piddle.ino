@@ -6,14 +6,14 @@
 
 // 1.2 seems stable when the ESP32 was powered by my computer
 // 1.3 is not stable
-#define FASTLED_OVERCLOCK 1.0
+//#define FASTLED_OVERCLOCK 1.0
 
 #include <arduinoFFT.h>
 #include <FastLED.h>
 
 // Some FastLED versions don't work with my ESP32-WROOM32 setup
 // 3.9.6 is good, 3.9.11 I think is bad? One LED is stuck on green
-static_assert(FASTLED_VERSION == 3009006);
+//static_assert(FASTLED_VERSION == 3009006);
 // The parallel FastLED output only works on updated Espressif
 #ifdef ESP_IDF_VERSION
 static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
@@ -31,8 +31,16 @@ bool logDebug = false;
 TaskHandle_t collectSamplesTask;
 TaskHandle_t displayLedsTask;
 
-void buttonInterrupt() {
-  // This space intentionally left blank. Kept for further expansion.
+
+void IRAM_ATTR buttonInterrupt() {
+  static uint8_t index = 0;
+  const uint8_t brightnesses[] = {16, 32, 64, 128, 255};
+  const char* const percents[] = {"6", "13", "25", "50", "100"};
+
+  index = (index + 1) % COUNT_OF(brightnesses);
+  const uint8_t brightness = brightnesses[index];
+  Serial.printf("brightness %d (%s %%)\n", brightness, percents[index]);
+  FastLED.setBrightness(brightness);
 }
 
 void setup() {
