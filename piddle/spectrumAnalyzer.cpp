@@ -180,7 +180,6 @@ static void renderFft() {
       hue16 += step;
     }
   }
-  delay(25);
 }
 
 void collectSamples() {
@@ -284,6 +283,7 @@ void displaySpectrumAnalyzer() {
   part_us = micros();
   renderFft();
   const auto render_us = micros() - part_us;
+  delay(25);
 
   #if SHOW_VOLTAGE
     // Testing, show voltage on the strip
