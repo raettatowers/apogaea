@@ -286,6 +286,8 @@ void displaySpectrumAnalyzer() {
   part_us = micros();
   renderFft();
   const auto render_us = micros() - part_us;
+  // The USB strips run so fast that it's hard to see the animation. Do a delay so that we can
+  // actually see the animation before it flies off the strip.
   delay(25);
 
   #if SHOW_VOLTAGE
