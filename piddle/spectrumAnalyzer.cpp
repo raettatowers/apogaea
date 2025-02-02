@@ -119,6 +119,8 @@ static void renderFft() {
   if (logDebug) {
     logOutputNotes();
     logNotes(noteValues);
+    const auto unscaledMw = calculate_unscaled_power_mW(reinterpret_cast<CRGB*>(leds), LEDS_PER_STRIP * STRIP_COUNT);
+    Serial.printf("%ld mW if at max brightness\n", unscaledMw);
     logDebug = false;
   }
 
