@@ -152,7 +152,7 @@ static void renderFft() {
       hue16 += hue16Step;
       // Do SLIDE_COUNT + 1 because the first LED is the logic level shifter on the PCB
       for (int i = 0; i < SLIDE_COUNT + 1; ++i) {
-        leds[strip][0] += CHSV(hue, 255, gammaCorrected);
+        leds[strip][i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
