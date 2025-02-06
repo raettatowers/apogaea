@@ -19,6 +19,8 @@
 static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
 #endif
 
+#define SHOW_VOLTAGE 1
+
 #include "constants.hpp"
 #include "spectrumAnalyzer.hpp"
 
@@ -54,16 +56,16 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(VOLTAGE_PIN, INPUT);
 
-  FastLED.addLeds<WS2812B, LED_PINS[0], GRB>(leds[0], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[1], GRB>(leds[1], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[2], GRB>(leds[2], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[3], GRB>(leds[3], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[4], GRB>(leds[4], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[5], GRB>(leds[5], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[6], GRB>(leds[6], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[7], GRB>(leds[7], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[8], GRB>(leds[8], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[9], GRB>(leds[9], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[0], RGB>(leds[0], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[1], RGB>(leds[1], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[2], RGB>(leds[2], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[3], RGB>(leds[3], LEDS_PER_STRIP);
+  FastLED.addLeds<WS2812B, LED_PINS[4], RGB>(leds[4], LEDS_PER_STRIP);
+  //FastLED.addLeds<WS2812B, LED_PINS[5], RGB>(leds[5], LEDS_PER_STRIP);
+  //FastLED.addLeds<WS2812B, LED_PINS[6], RGB>(leds[6], LEDS_PER_STRIP);
+  //FastLED.addLeds<WS2812B, LED_PINS[7], RGB>(leds[7], LEDS_PER_STRIP);
+  //FastLED.addLeds<WS2812B, LED_PINS[8], RGB>(leds[8], LEDS_PER_STRIP);
+  //FastLED.addLeds<WS2812B, LED_PINS[9], RGB>(leds[9], LEDS_PER_STRIP);
   FastLED.setBrightness(32);
 
   // That USB cord I soldered has tiny wires, shouldn't put more than 500mA through it

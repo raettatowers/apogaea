@@ -227,7 +227,7 @@ void displaySpectrumAnalyzer() {
   static auto next_ms = 1000;
   static int loopCount = 0;
   #if SHOW_VOLTAGE
-  static int voltageOnes = 4, voltageTenths = 7, voltageHundredths = 1;
+    static int voltageOnes = 4, voltageTenths = 7, voltageHundredths = 1;
   #endif
 
   auto part_us = micros();
@@ -318,9 +318,13 @@ void displaySpectrumAnalyzer() {
   FastLED.show();
   const auto show_us = micros() - part_us;
 
+  // The animations are too fast, so add an artificial delay
+  const int delay_ms = 25;
+  delay(delay_ms);
+
   ++loopCount;
   if (millis() > next_ms) {
-    Serial.printf("%f FPS\n", static_cast<double>(loopCount) * 1000 / logTime_ms);
+    Serial.printf("%f FPS with %dus delay\n", static_cast<double>(loopCount) * 1000 / logTime_ms, delay_ms);
     Serial.printf(
       "samples_us:%lu compute_us:%lu render_us:%lu show_us:%lu\n",
       samples_us,
@@ -329,21 +333,21 @@ void displaySpectrumAnalyzer() {
       show_us
     );
 
-    const float R1 = 10000.0f;
-    const float R2 = 5100.0f;
-    const float referenceVoltage = 3.3f;
-    const float maxReading = 4095;
-    int adcReading = analogRead(VOLTAGE_PIN);
-    const float adcVoltage = static_cast<float>(adcReading) / maxReading * referenceVoltage;
-    const float voltage = adcVoltage * (R1 + R2) / R2;
-    Serial.printf(
-      "Voltage:%0.2f (adc:%d adcV:%0.2f)\n",
-      voltage,
-      adcReading,
-      adcVoltage);
-    char buffer[6];
-    snprintf(buffer, 6, "%0.2f", voltage);
     #if SHOW_VOLTAGE
+      const float R1 = 10000.0f;
+      const float R2 = 5100.0f;
+      const float referenceVoltage = 3.3f;
+      const float maxReading = 4095;
+      int adcReading = analogRead(VOLTAGE_PIN);
+      const float adcVoltage = static_cast<float>(adcReading) / maxReading * referenceVoltage;
+      const float voltage = adcVoltage * (R1 + R2) / R2;
+      Serial.printf(
+        "Voltage:%0.2f (adc:%d adcV:%0.2f)\n",
+        voltage,
+        adcReading,
+        adcVoltage);
+      char buffer[6];
+      snprintf(buffer, 6, "%0.2f", voltage);
       voltageOnes = buffer[0] - '0';
       voltageTenths = buffer[2] - '0';
       voltageHundredths = buffer[3] - '0';
