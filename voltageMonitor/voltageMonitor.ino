@@ -1,8 +1,5 @@
 #include <Arduino.h>
-#include <TM1637TinyDisplay.h>
-#include <esp_bt.h>
-#include <esp_bt_main.h>
-#include <esp_wifi.h>
+#include <esp_sleep.h>
 
 #define COUNT_OF(x) (sizeof((x)) / sizeof((0[x])))
 
@@ -10,16 +7,12 @@
   #define LED_BUILTIN 2
 #endif
 
-static const int CLK = 16;
-static const int DIO = 17;
-
 static const int VOLTAGE_PIN = 34;
 static const int GREEN_PIN = 21;
 static const int YELLOW_PIN = 22;
 static const int RED_PIN = 18;
 static const int RELAY_PIN = 32;
 
-static TM1637TinyDisplay display(CLK, DIO);
 static bool show = false;
 
 static float adcSlopeCorrection = 0.0f;
@@ -96,13 +89,9 @@ void setup() {
 
   setCpuFrequencyMhz(80);
 
-  // Shut off peripherals
-#define CHECK(func) if (func != ESP_OK) { Serial.println(#func " failed"); }
-  CHECK(esp_wifi_stop());
-  CHECK(esp_bluedroid_deinit());
-  CHECK(esp_bluedroid_disable());
-  CHECK(esp_bt_controller_disable());
-  CHECK(esp_bt_controller_deinit());
+  // Sleep time needs to be short enough that we don't miss button presses
+  const long sleepTime_us = 5000;
+  esp_sleep_enable_timer_wakeup(sleepTime_us);
 
   Serial.println("setup done");
 }
@@ -213,7 +202,7 @@ void loop() {
           break;
       }
     } else {
-      // it
+      // Blink it
       if ((millis() >> 8) & 1) {
         switch (color) {
           case LedColor::Green:
@@ -228,6 +217,8 @@ void loop() {
         }
       }
     }
+
+    esp_light_sleep_start();
   }
 }
 
