@@ -25,6 +25,9 @@ static bool show = false;
 static float adcSlopeCorrection = 0.0f;
 static float adcInterceptCorrection = 0.0f;
 
+// According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
+// 12.2V is 50% capacity, 12.0V is 25%
+constexpr float warningThreshold_v = 12.2f;
 constexpr float offThreshold_v = 12.0f;
 
 float adcReadingToVoltage(float rawAdc);
@@ -46,11 +49,8 @@ void setup() {
   pinMode(VOLTAGE_PIN, INPUT);
 
   pinMode(GREEN_PIN, OUTPUT);
-  digitalWrite(GREEN_PIN, LOW);
   pinMode(YELLOW_PIN, OUTPUT);
-  digitalWrite(YELLOW_PIN, LOW);
   pinMode(RED_PIN, OUTPUT);
-  digitalWrite(RED_PIN, LOW);
 
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
@@ -88,7 +88,7 @@ void setup() {
   const float battery_v = voltageToUndividedVoltage(adc_v);
   const float correctedBattery_v = correctedVoltage(battery_v);
   if (correctedBattery_v > offThreshold_v) {
-    // Hook the relay up to normally open, so that we need to take action to close it
+    // When wiring, hook the strips to the relay normally open, so that we need to take action to close it
     digitalWrite(RELAY_PIN, HIGH);
   } else {
     digitalWrite(RELAY_PIN, LOW);
@@ -110,17 +110,29 @@ void setup() {
 void loop() {
   const int adcReadingCount = 10;
 
-  // According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
-  // 12.2V is 50% capacity, 12.0V is 25%
-  constexpr float warningThreshold_v = 12.2f;
-  constexpr float offThreshold_v = 12.0f;
   static_assert(warningThreshold_v > offThreshold_v);
 
-  // We don't want to keep switching the relay, so only toggle it if it's been
-  // above or below a threshold for this long
-  const decltype(millis()) relayToggleDelay_ms = 5 * 60 * 1000;
-  bool previouslyAboveThreshold = true;
-  auto thresholdConsistentTime_ms = millis();
+  // We don't want to keep switching the relay, and because there's voltage drop
+  // under load, just shut it off if it drops below offThreshold_v and keep it
+  // off until it goes back above warningThreshold_v
+  const decltype(millis()) relayToggleDelay_ms = 3 * 60 * 1000;
+  auto relayToggleTime_ms = millis();
+
+  bool ledsOn;
+  {
+    const int adcReading = analogRead(VOLTAGE_PIN);
+    const float adc_v = adcReadingToVoltage(adcReading);
+    const float battery_v = voltageToUndividedVoltage(adc_v);
+    const float correctedBattery_v = correctedVoltage(battery_v);
+    ledsOn = (correctedBattery_v > offThreshold_v);
+  }
+
+  enum class LedColor {
+    Green,
+    Yellow,
+    Red,
+  };
+  LedColor color = ledsOn ? LedColor::Green : LedColor::Red;
 
   decltype(millis()) next_ms = 0;
 
@@ -135,37 +147,15 @@ void loop() {
     const float battery_v = voltageToUndividedVoltage(adc_v);
     const float correctedBattery_v = correctedVoltage(battery_v);
 
-    const bool aboveThreshold = correctedBattery_v > offThreshold_v;
-    if (previouslyAboveThreshold != aboveThreshold) {
-      thresholdConsistentTime_ms = millis();
-    } else if (millis() > thresholdConsistentTime_ms + relayToggleDelay_ms) {
-      if (aboveThreshold) {
-        digitalWrite(RELAY_PIN, HIGH);
-      } else {
-        digitalWrite(RELAY_PIN, LOW);
-      }
-    }
-    previouslyAboveThreshold = aboveThreshold;
-
+    // Only update the LEDs occasionally, to avoid flickering
     if (millis() > next_ms || show) {
-      // Only update the LEDs occasionally, to avoid flickering
-      digitalWrite(GREEN_PIN, LOW);
-      digitalWrite(YELLOW_PIN, LOW);
-      digitalWrite(RED_PIN, LOW);
-      if (correctedBattery_v > warningThreshold_v) {
-        digitalWrite(GREEN_PIN, HIGH);
-      } else if (correctedBattery_v > offThreshold_v) {
-        digitalWrite(YELLOW_PIN, HIGH);
-      } else {
-        digitalWrite(RED_PIN, HIGH);
-      }
-
       Serial.printf(
         "Corrected batV:%0.2f (adc:%0.2f adcV:%0.2f, batV:%0.2f)\n",
         correctedBattery_v,
         adcReading,
         adc_v,
         battery_v);
+
       next_ms = millis() + 5000;
     }
 
@@ -184,11 +174,66 @@ void loop() {
 
       show = false;
     }
+
+    if (correctedBattery_v > warningThreshold_v) {
+      if (!ledsOn && millis() > relayToggleTime_ms + relayToggleDelay_ms) {
+        Serial.printf("Turning on strips, V=%0.2f>%0.2f\n", correctedBattery_v, warningThreshold_v);
+        digitalWrite(RELAY_PIN, HIGH);
+        relayToggleTime_ms = millis();
+        ledsOn = true;
+        color = LedColor::Green;
+      }
+    } else if (correctedBattery_v > offThreshold_v) {
+      if (millis() > relayToggleTime_ms + relayToggleDelay_ms) {
+        color = LedColor::Yellow;
+      }
+    } else {
+      if (ledsOn && millis() > relayToggleTime_ms + relayToggleDelay_ms) {
+        Serial.printf("Turning off strips, V=%0.2f<%0.2f\n", correctedBattery_v, offThreshold_v);
+        digitalWrite(RELAY_PIN, LOW);
+        relayToggleTime_ms = millis();
+        ledsOn = false;
+        color = LedColor::Red;
+      }
+    }
+
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(YELLOW_PIN, LOW);
+    digitalWrite(RED_PIN, LOW);
+    if (ledsOn) {
+      switch (color) {
+        case LedColor::Green:
+          digitalWrite(GREEN_PIN, HIGH);
+          break;
+        case LedColor::Yellow:
+          digitalWrite(YELLOW_PIN, HIGH);
+          break;
+        case LedColor::Red:
+          digitalWrite(RED_PIN, HIGH);
+          break;
+      }
+    } else {
+      // it
+      if ((millis() >> 8) & 1) {
+        switch (color) {
+          case LedColor::Green:
+            digitalWrite(GREEN_PIN, HIGH);
+            break;
+          case LedColor::Yellow:
+            digitalWrite(YELLOW_PIN, HIGH);
+            break;
+          case LedColor::Red:
+            digitalWrite(RED_PIN, HIGH);
+            break;
+        }
+      }
+    }
   }
 }
 
 void blinkNumber(const int count) {
   if (count < 0 || count > 9) {
+    Serial.printf("Tried to blink %d\n", count);
     for (int i = 0; i < 10; ++i) {
       digitalWrite(LED_BUILTIN, HIGH);
       delay(50);
