@@ -21,10 +21,15 @@ static const int RELAY_PIN = 32;
 
 static TM1637TinyDisplay display(CLK, DIO);
 static bool show = false;
+
 static float adcSlopeCorrection = 0.0f;
 static float adcInterceptCorrection = 0.0f;
 
-float correctedAdcVoltage(float adcReading_v);
+constexpr float offThreshold_v = 12.0f;
+
+float adcReadingToVoltage(float rawAdc);
+float voltageToUndividedVoltage(float voltage);
+float correctedVoltage(float voltage);
 
 void IRAM_ATTR buttonInterrupt() {
   show = true;
@@ -34,7 +39,6 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
@@ -53,29 +57,41 @@ void setup() {
   attachInterrupt(0, buttonInterrupt, FALLING);
 
   // Calculate a line of best fit from ADC reports and ones from my multimeter
-  constexpr float multimeterReadings_v[] = {11.97, 11.98, 12.43, 12.47, 12.49, 12.67, 12.76, 12.8, 12.88};
-  constexpr float adcReadings_v[] = {11.59, 11.6, 12.12, 12.12, 12.16, 12.35, 12.44, 12.5, 12.6};
+  constexpr float multimeterReadings_v[] = {11.98, 11.97, 12.47, 12.43, 12.80, 12.67, 12.88, 12.76, 12.49};
+  constexpr float adcReadings_v[] =  {11.60, 11.59, 12.16, 12.12, 12.50, 12.35, 12.60, 12.44, 12.12};
+  static_assert(COUNT_OF(multimeterReadings_v) == COUNT_OF(adcReadings_v));
   float sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0;
   const int n = COUNT_OF(multimeterReadings_v);
   for (int i = 0; i < n; i++) {
-    sum_x += multimeterReadings_v[i];
-    sum_y += adcReadings_v[i];
-    sum_xy += multimeterReadings_v[i] * adcReadings_v[i];
-    sum_x2 += multimeterReadings_v[i] * multimeterReadings_v[i];
+    sum_x += adcReadings_v[i];
+    sum_y += multimeterReadings_v[i];
+    sum_xy += adcReadings_v[i] * multimeterReadings_v[i];
+    sum_x2 += adcReadings_v[i] * adcReadings_v[i];
   }
-  static_assert(COUNT_OF(multimeterReadings_v) == COUNT_OF(adcReadings_v));
   adcSlopeCorrection = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
   adcInterceptCorrection = (sum_y - adcSlopeCorrection * sum_x) / n;
   Serial.printf("true V = %f * adc V + %f\n", adcSlopeCorrection, adcInterceptCorrection);
   for (int i = 0; i < COUNT_OF(multimeterReadings_v); ++i) {
-    const float corrected = correctedAdcVoltage(adcReadings_v[i]);
+    const float corrected = correctedVoltage(adcReadings_v[i]);
     Serial.printf(
-      "true V:%f adc V:%f corrected:%f diff:%f\n",
+      "true V:%0.2f adc V:%0.2f corrected:%0.2f diff:%0.4f\n",
       multimeterReadings_v[i],
       adcReadings_v[i],
       corrected,
       multimeterReadings_v[i] - corrected
     );
+  }
+
+  // If the battery is good, then turn on the LEDs immediately
+  const int adcReading = analogRead(VOLTAGE_PIN);
+  const float adc_v = adcReadingToVoltage(adcReading);
+  const float battery_v = voltageToUndividedVoltage(adc_v);
+  const float correctedBattery_v = correctedVoltage(battery_v);
+  if (correctedBattery_v > offThreshold_v) {
+    // Hook the relay up to normally open, so that we need to take action to close it
+    digitalWrite(RELAY_PIN, HIGH);
+  } else {
+    digitalWrite(RELAY_PIN, LOW);
   }
 
   setCpuFrequencyMhz(80);
@@ -92,10 +108,7 @@ void setup() {
 }
 
 void loop() {
-  const float R1 = 20000.0f;
-  const float R2 = 5100.0f;
-  const float referenceVoltage = 3.3f;
-  const float maxReading = 4095;
+  const int adcReadingCount = 10;
 
   // According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
   // 12.2V is 50% capacity, 12.0V is 25%
@@ -104,55 +117,61 @@ void loop() {
   static_assert(warningThreshold_v > offThreshold_v);
 
   // We don't want to keep switching the relay, so only toggle it if it's been
-  // on above or below a threshold for this long
-  const decltype(millis()) relayToggleDelay_ms = 10 * 60 * 1000;
+  // above or below a threshold for this long
+  const decltype(millis()) relayToggleDelay_ms = 5 * 60 * 1000;
   bool previouslyAboveThreshold = true;
   auto thresholdConsistentTime_ms = millis();
 
-  decltype(millis()) next_ms = 5000;
+  decltype(millis()) next_ms = 0;
 
   while (1) {
-    const int adcReading = analogRead(VOLTAGE_PIN);
-    const float rawAdcVoltage = static_cast<float>(adcReading) / maxReading * referenceVoltage;
-    const float adcVoltage = rawAdcVoltage * (R1 + R2) / R2;
-    const float voltage = correctedAdcVoltage(adcVoltage);
+    // Average a few readings
+    float adcReading = 0.0f;
+    for (int i = 0; i < adcReadingCount; ++i) {
+      adcReading += analogRead(VOLTAGE_PIN);
+    }
+    adcReading /= adcReadingCount;
+    const float adc_v = adcReadingToVoltage(adcReading);
+    const float battery_v = voltageToUndividedVoltage(adc_v);
+    const float correctedBattery_v = correctedVoltage(battery_v);
 
-    const bool aboveThreshold = voltage > offThreshold_v;
+    const bool aboveThreshold = correctedBattery_v > offThreshold_v;
     if (previouslyAboveThreshold != aboveThreshold) {
       thresholdConsistentTime_ms = millis();
     } else if (millis() > thresholdConsistentTime_ms + relayToggleDelay_ms) {
       if (aboveThreshold) {
-        digitalWrite(RELAY_PIN, LOW);
-      } else {
         digitalWrite(RELAY_PIN, HIGH);
+      } else {
+        digitalWrite(RELAY_PIN, LOW);
       }
     }
+    previouslyAboveThreshold = aboveThreshold;
 
     if (millis() > next_ms || show) {
       // Only update the LEDs occasionally, to avoid flickering
       digitalWrite(GREEN_PIN, LOW);
       digitalWrite(YELLOW_PIN, LOW);
       digitalWrite(RED_PIN, LOW);
-      if (voltage > warningThreshold_v) {
+      if (correctedBattery_v > warningThreshold_v) {
         digitalWrite(GREEN_PIN, HIGH);
-      } else if (voltage > offThreshold_v) {
+      } else if (correctedBattery_v > offThreshold_v) {
         digitalWrite(YELLOW_PIN, HIGH);
       } else {
         digitalWrite(RED_PIN, HIGH);
       }
 
       Serial.printf(
-        "Voltage:%0.2f (adc:%d rawAdcV:%0.2f, adcV:%0.2f)\n",
-        voltage,
+        "Corrected batV:%0.2f (adc:%0.2f adcV:%0.2f, batV:%0.2f)\n",
+        correctedBattery_v,
         adcReading,
-        rawAdcVoltage,
-        adcVoltage);
+        adc_v,
+        battery_v);
       next_ms = millis() + 5000;
     }
 
     if (show) {
       char buffer[6];
-      snprintf(buffer, 6, "%05.2f", voltage);
+      snprintf(buffer, 6, "%05.2f", correctedBattery_v);
       const int voltageTens = buffer[0] - '0';
       const int voltageOnes = buffer[1] - '0';
       const int voltageTenths = buffer[3] - '0';
@@ -191,6 +210,18 @@ void blinkNumber(const int count) {
   delay(500);
 }
 
-float correctedAdcVoltage(const float adcReading_v) {
-  return adcReading_v * adcSlopeCorrection + adcInterceptCorrection;
+float adcReadingToVoltage(const float adcReading) {
+  const float maxReading = 4095.0f;
+  const float referenceVoltage = 3.3f;
+  return adcReading / maxReading * referenceVoltage;
+}
+
+float voltageToUndividedVoltage(const float voltage) {
+  const float R1 = 20000.0f;
+  const float R2 = 5100.0f;
+  return voltage * (R1 + R2) / R2;
+}
+
+float correctedVoltage(const float voltage) {
+  return voltage * adcSlopeCorrection + adcInterceptCorrection;
 }
