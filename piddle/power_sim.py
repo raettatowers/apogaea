@@ -107,16 +107,10 @@ def run_simulation(options: Options) -> None:
 
         increasing = battery_wh > previous_battery_wh
         if increasing != previous_increasing and not maxed:
-            #print("if increasing != previous_increasing and not maxed:")
-            #print(f"{increasing=}")
-            #print(f"{previous_increasing=}")
-            #print(f"{maxed=}")
             need_print = True
         if on != previous_on:
-            #print("if on != previous_on:")
             need_print = True
         if maxed != previous_maxed:
-            #print("if maxed != previous_maxed:")
             need_print = True
 
         if need_print:
@@ -153,12 +147,14 @@ def make_parser() -> ArgumentParser:
     )
     parser.add_argument(
         "--min-battery",
+        "-m",
         type=float,
         help="How low the battery should go before it shuts off, in percent.",
         default=25,
     )
     parser.add_argument(
         "--resume-battery",
+        "-r",
         type=float,
         help="How high the battery must go before it turns back on, in percent.",
         default=40,
@@ -195,12 +191,15 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit()
     if namespace.project_w and namespace.project_w < IDLE_W:
+        # Not an error, but we should print a warning
         sys.stderr.write(f"Warning: project W {namespace.project_w:0.2f} is unrealistically below idle W {IDLE_W:0.2f}\n")
+    if namespace.project_w is not None and namespace.brightness != 100:
+        sys.stderr.write("Can only specify one of project-w and brightness")
         sys.stderr.flush()
         parser.print_help()
         sys.exit()
-    if namespace.project_w is not None and namespace.brightness != 100:
-        sys.stderr.write("Can only specify one of project-w and brightness")
+    if namespace.min_battery > namespace.resume_battery:
+        sys.stderr.write(f"Resume battery ({namespace.resume_battery}) needs to be less than min battery ({namespace.min_battery})\n")
         sys.stderr.flush()
         parser.print_help()
         sys.exit()
