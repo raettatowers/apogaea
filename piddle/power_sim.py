@@ -1,6 +1,6 @@
 """Testing some parameters to see how much the solar panel and batteries can last"""
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from scipy.stats import norm
+import math
 from dataclasses import dataclass
 import sys
 
@@ -16,8 +16,14 @@ def get_sunlight_percentage(hour: int, minute: int, std_dev: float) -> float:
     mean = 12
     value_at_mean = 1.0
 
-    pdf_at_x = norm.pdf(hour + minute / 60, mean, std_dev)
-    pdf_at_mean = norm.pdf(mean, mean, std_dev)
+    def probability_density_function(value, mean_, std_dev_) -> float:
+        part1 = 1.0 / (std_dev_ * math.sqrt(2.0 * math.pi))
+        part2 = math.pow(math.e, -0.5 * (((value - mean_) / std_dev_) ** 2.0))
+        return part1 * part2
+    pdf = probability_density_function
+
+    pdf_at_x = pdf(hour + minute / 60, mean, std_dev)
+    pdf_at_mean = pdf(mean, mean, std_dev)
 
     scaled_value = (pdf_at_x / pdf_at_mean) * value_at_mean
     # There's a minimum amount before the solar panel starts the photovoltaic process
@@ -57,7 +63,8 @@ def run_simulation(options: Options) -> None:
 
     def format_message():
         message = f"{days[day]} {hour:02d}:{minute:02d}"
-        message += f" {battery_wh:.2f} Wh {battery_wh/options.max_battery_wh*100:.0f}%"
+        truncated_percent = int(battery_wh / options.max_battery_wh * 100)
+        message += f" {battery_wh:>7.2f} Wh {truncated_percent:>3.0f}%"
         if maxed:
             message += ' maxed'
         if off:
@@ -180,7 +187,7 @@ if __name__ == "__main__":
     # Over 100 is okay, because my "max" is based on 1 measurement from
     # responding to a song, and other songs might make more LEDs light up
     if namespace.brightness < 2:  # Check < 2 in case someone enters .5 instead of 50
-        sys.stderr.write(f"Brightness too low: {namespace.brightness}")
+        sys.stderr.write(f"Brightness too low: {namespace.brightness}\n")
         sys.stderr.flush()
         parser.print_help()
         sys.exit()
