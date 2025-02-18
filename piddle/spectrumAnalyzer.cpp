@@ -362,7 +362,7 @@ void displaySpectrumAnalyzer() {
 static void slideDown(const int count) {
   #if DOUBLE_ENDED
     int byteCount = (LEDS_PER_STRIP / 2 - count) * sizeof(leds[0][0]);
-    if (LEDS_PER_STRIP % 2 == 0) {
+    if (LEDS_PER_STRIP % 2 == 1) {
       byteCount += sizeof(leds[0][0]);
     }
   #else
