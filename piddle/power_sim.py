@@ -42,13 +42,16 @@ assert get_sunlight_percentage(11, 0, DEFAULT_STD_DEV) == get_sunlight_percentag
 class Options:
     solar_w: float
     max_battery_wh: float
-    min_battery_wh: float
+    off_battery_wh: float
+    resume_battery_wh: float
     project_w: float
     std_dev: float
 
 
 def run_simulation(options: Options) -> None:
     """Runs a simulation."""
+    # The voltage monitor and Phonic Bloom each use about 0.5 W
+    arduino_w = 1.0
 
     battery_wh = options.max_battery_wh
 
@@ -57,7 +60,7 @@ def run_simulation(options: Options) -> None:
     hour = 12
 
     previous_increasing = False
-    previous_off = True
+    previous_on = False
     previous_maxed = True
     minute = 0
 
@@ -67,11 +70,12 @@ def run_simulation(options: Options) -> None:
         message += f" {battery_wh:>7.2f} Wh {truncated_percent:>3.0f}%"
         if maxed:
             message += ' maxed'
-        if off:
-            message += ' off'
-        if not off:
-            message += (' in' if increasing else ' de') + "creasing"
+        message += (' on' if on else ' off')
+        message += (' in' if increasing else ' de') + "creasing"
         return message
+
+    on = True
+    maxed = False
 
     while day < len(days) - 1 or hour < 18:
         minute += 1
@@ -86,30 +90,40 @@ def run_simulation(options: Options) -> None:
 
         previous_battery_wh = battery_wh
 
-        battery_wh -= options.project_w / 60
+        if on:
+            battery_wh -= options.project_w / 60
+        battery_wh -= arduino_w / 60
         battery_wh += get_sunlight_percentage(hour, minute, options.std_dev) * options.solar_w / 60
-        off = False
+
         maxed = False
-        if battery_wh < options.min_battery_wh:
-            battery_wh = options.min_battery_wh
-            off = True
+        if battery_wh < options.off_battery_wh:
+            on = False
         elif battery_wh > options.max_battery_wh:
             battery_wh = options.max_battery_wh
             maxed = True
 
+        if battery_wh > options.resume_battery_wh:
+            on = True
+
         increasing = battery_wh > previous_battery_wh
-        if increasing != previous_increasing and not off and not maxed:
+        if increasing != previous_increasing and not maxed:
+            #print("if increasing != previous_increasing and not maxed:")
+            #print(f"{increasing=}")
+            #print(f"{previous_increasing=}")
+            #print(f"{maxed=}")
             need_print = True
-        if off != previous_off:
+        if on != previous_on:
+            #print("if on != previous_on:")
             need_print = True
         if maxed != previous_maxed:
+            #print("if maxed != previous_maxed:")
             need_print = True
 
         if need_print:
             print(format_message())
 
         previous_increasing = increasing
-        previous_off = off
+        previous_on = on
         previous_maxed = maxed
         previous_hour = hour
 
@@ -142,6 +156,12 @@ def make_parser() -> ArgumentParser:
         type=float,
         help="How low the battery should go before it shuts off, in percent.",
         default=25,
+    )
+    parser.add_argument(
+        "--resume-battery",
+        type=float,
+        help="How high the battery must go before it turns back on, in percent.",
+        default=40,
     )
     parser.add_argument(
         "--brightness",
@@ -200,7 +220,8 @@ if __name__ == "__main__":
     options = Options(
         solar_w=namespace.solar_w,
         max_battery_wh=namespace.battery_wh,
-        min_battery_wh=namespace.battery_wh * namespace.min_battery / 100,
+        off_battery_wh=namespace.battery_wh * namespace.min_battery / 100,
+        resume_battery_wh=namespace.battery_wh * namespace.resume_battery / 100,
         project_w=project_w,
         std_dev=namespace.std_dev,
     )
