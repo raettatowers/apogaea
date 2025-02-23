@@ -1,5 +1,56 @@
+//////////////////////////////////////////////
+//        RemoteXY include library          //
+//////////////////////////////////////////////
+
+// you can enable debug logging to Serial at 115200
+//#define REMOTEXY__DEBUGLOG
+
+// RemoteXY select connection mode and include library
+#define REMOTEXY_MODE__ESP32CORE_BLE
+
+#include <BLEDevice.h>
+
+// RemoteXY connection settings
+#define REMOTEXY_BLUETOOTH_NAME "voltage"
+
+
+#include <RemoteXY.h>
+
+// RemoteXY GUI configuration
+#pragma pack(push, 1)
+uint8_t RemoteXY_CONF[] =   // 138 bytes
+  { 255,1,0,26,0,131,0,19,0,0,0,118,111,108,116,97,103,101,45,109,
+  111,110,105,116,111,114,0,24,1,106,200,1,1,10,0,67,59,15,40,10,
+  78,2,26,3,129,8,14,43,12,64,17,86,111,108,116,97,103,101,0,129,
+  15,41,29,12,64,17,79,102,102,32,86,0,67,59,41,40,10,78,2,26,
+  3,4,8,74,89,13,128,2,26,67,33,89,40,10,69,2,26,10,129,15,
+  54,30,12,64,17,79,102,102,32,37,0,67,59,54,40,10,78,2,26,1,
+  129,25,27,10,12,64,17,37,0,67,59,28,40,10,78,2,26,1 };
+
+// this structure defines all the variables and events of your control interface
+struct {
+
+    // input variables
+  int8_t offVoltageSlider; // from 0 to 100
+
+    // output variables
+  float voltage;
+  float offVoltage;
+  char status[10]; // string UTF8 end zero
+  float offPercent;
+  float voltagePercent;
+
+    // other variable
+  uint8_t connect_flag;  // =1 if wire connected, else =0
+
+} RemoteXY;
+#pragma pack(pop)
+
+/////////////////////////////////////////////
+//           END RemoteXY include          //
+/////////////////////////////////////////////
+
 #include <Arduino.h>
-#include <esp_sleep.h>
 
 #define COUNT_OF(x) (sizeof((x)) / sizeof((0[x])))
 
@@ -13,19 +64,34 @@ static const int YELLOW_PIN = 22;
 static const int RED_PIN = 18;
 static const int RELAY_PIN = 32;
 
+// According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
+// 12.2V is 50% capacity, 12.0V is 25%, 11.98 is 20%, 11.90 is 0%
+constexpr float warningThreshold_v = 12.2f;
+const float minimumOff_v = 11.98f;
+
+enum class State {
+  Normal,
+  Low,
+  Charging,
+};
+enum class LedColor {
+  Green,
+  Yellow,
+  Red,
+};
+
 static bool show = false;
 
 static float adcSlopeCorrection = 0.0f;
 static float adcInterceptCorrection = 0.0f;
 
-// According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
-// 12.2V is 50% capacity, 12.0V is 25%
-constexpr float warningThreshold_v = 12.2f;
-constexpr float offThreshold_v = 12.0f;
-
 float adcReadingToVoltage(float rawAdc);
 float voltageToUndividedVoltage(float voltage);
 float correctedVoltage(float voltage);
+float voltageToPercent(float voltage);
+float sliderToVoltage(int slider);
+void updateLeds(const State state, const LedColor color);
+void updateRemoteXY(const State state, const float battery_v);
 
 void IRAM_ATTR buttonInterrupt() {
   show = true;
@@ -33,6 +99,10 @@ void IRAM_ATTR buttonInterrupt() {
 
 void setup() {
   Serial.begin(115200);
+
+  RemoteXY.offVoltageSlider = 20;
+  RemoteXY.offVoltage = sliderToVoltage(RemoteXY.offVoltageSlider);
+  RemoteXY.offPercent = voltageToPercent(RemoteXY.offVoltage);
 
   pinMode(RELAY_PIN, OUTPUT);
 
@@ -80,7 +150,7 @@ void setup() {
   const float adc_v = adcReadingToVoltage(adcReading);
   const float battery_v = voltageToUndividedVoltage(adc_v);
   const float correctedBattery_v = correctedVoltage(battery_v);
-  if (correctedBattery_v > offThreshold_v) {
+  if (correctedBattery_v > RemoteXY.offVoltage) {
     // When wiring, hook the strips to the relay normally open, so that we need to take action to close it
     digitalWrite(RELAY_PIN, HIGH);
   } else {
@@ -89,9 +159,7 @@ void setup() {
 
   setCpuFrequencyMhz(80);
 
-  // Sleep time needs to be short enough that we don't miss button presses
-  const long sleepTime_us = 5000;
-  esp_sleep_enable_timer_wakeup(sleepTime_us);
+  RemoteXY_Init();
 
   Serial.println("setup done");
 }
@@ -99,29 +167,23 @@ void setup() {
 void loop() {
   const int adcReadingCount = 10;
 
-  static_assert(warningThreshold_v > offThreshold_v);
-
   // We don't want to keep switching the relay, and because there's voltage drop
   // under load, just shut it off if it drops below offThreshold_v and keep it
   // off until it goes back above warningThreshold_v
   const decltype(millis()) relayToggleDelay_ms = 3 * 60 * 1000;
   auto relayToggleTime_ms = millis();
 
-  bool ledsOn;
+  State state;
+  LedColor color;
+
   {
     const int adcReading = analogRead(VOLTAGE_PIN);
     const float adc_v = adcReadingToVoltage(adcReading);
     const float battery_v = voltageToUndividedVoltage(adc_v);
     const float correctedBattery_v = correctedVoltage(battery_v);
-    ledsOn = (correctedBattery_v > offThreshold_v);
+    state = (correctedBattery_v > RemoteXY.offVoltage) ? State::Normal : State::Low;
+    color = (correctedBattery_v > RemoteXY.offVoltage) ? LedColor::Green : LedColor::Yellow;
   }
-
-  enum class LedColor {
-    Green,
-    Yellow,
-    Red,
-  };
-  LedColor color = ledsOn ? LedColor::Green : LedColor::Red;
 
   decltype(millis()) next_ms = 0;
 
@@ -136,7 +198,6 @@ void loop() {
     const float battery_v = voltageToUndividedVoltage(adc_v);
     const float correctedBattery_v = correctedVoltage(battery_v);
 
-    // Only update the LEDs occasionally, to avoid flickering
     if (millis() > next_ms || show) {
       Serial.printf(
         "Corrected batV:%0.2f (adc:%0.2f adcV:%0.2f, batV:%0.2f)\n",
@@ -145,7 +206,7 @@ void loop() {
         adc_v,
         battery_v);
 
-      next_ms = millis() + 5000;
+      next_ms = millis() + 10000;
     }
 
     if (show) {
@@ -164,32 +225,64 @@ void loop() {
       show = false;
     }
 
-    if (correctedBattery_v > warningThreshold_v) {
-      if (!ledsOn && millis() > relayToggleTime_ms + relayToggleDelay_ms) {
-        Serial.printf("Turning on strips, V=%0.2f>%0.2f\n", correctedBattery_v, warningThreshold_v);
+    // Only update the LEDs occasionally, to avoid flickering
+    if (millis() > relayToggleTime_ms + relayToggleDelay_ms) {
+      relayToggleTime_ms = millis();
+
+      if (correctedBattery_v > warningThreshold_v) {
+        if (state != State::Normal) {
+          Serial.printf("Turning on strips, V=%0.2f>%0.2f\n", correctedBattery_v, warningThreshold_v);
+        }
         digitalWrite(RELAY_PIN, HIGH);
-        relayToggleTime_ms = millis();
-        ledsOn = true;
-        color = LedColor::Green;
-      }
-    } else if (correctedBattery_v > offThreshold_v) {
-      if (millis() > relayToggleTime_ms + relayToggleDelay_ms) {
+        state = State::Normal;
+      } else if (correctedBattery_v > RemoteXY.offVoltage) {
+        if (state == State::Low) {
+          state = State::Charging;
+        }
         color = LedColor::Yellow;
-      }
-    } else {
-      if (ledsOn && millis() > relayToggleTime_ms + relayToggleDelay_ms) {
-        Serial.printf("Turning off strips, V=%0.2f<%0.2f\n", correctedBattery_v, offThreshold_v);
+      } else {
+        if (state != State::Low) {
+          Serial.printf("Turning off strips, V=%0.2f<%0.2f\n", correctedBattery_v, RemoteXY.offVoltage);
+        }
         digitalWrite(RELAY_PIN, LOW);
-        relayToggleTime_ms = millis();
-        ledsOn = false;
+        state = State::Low;
         color = LedColor::Red;
       }
     }
 
-    digitalWrite(GREEN_PIN, LOW);
-    digitalWrite(YELLOW_PIN, LOW);
-    digitalWrite(RED_PIN, LOW);
-    if (ledsOn) {
+    updateLeds(state, color);
+    updateRemoteXY(state, correctedBattery_v);
+
+    // Don't let the app RemoteXY update the state, it should be read-only
+    const State previousState = state;
+    RemoteXY_Handler();
+    state = previousState;
+    if (RemoteXY.offVoltage < minimumOff_v) {
+      RemoteXY.offVoltage = minimumOff_v;
+      RemoteXY.offVoltageSlider = 1;
+    }
+  }
+}
+
+void updateLeds(const State state, const LedColor color) {
+  digitalWrite(GREEN_PIN, LOW);
+  digitalWrite(YELLOW_PIN, LOW);
+  digitalWrite(RED_PIN, LOW);
+  if (state == State::Normal) {
+    switch (color) {
+      case LedColor::Green:
+        digitalWrite(GREEN_PIN, HIGH);
+        break;
+      case LedColor::Yellow:
+        digitalWrite(YELLOW_PIN, HIGH);
+        break;
+      case LedColor::Red:
+        digitalWrite(RED_PIN, HIGH);
+        break;
+    }
+  } else {
+    // Blink it
+    if ((millis() >> 8) & 1) {
       switch (color) {
         case LedColor::Green:
           digitalWrite(GREEN_PIN, HIGH);
@@ -201,25 +294,27 @@ void loop() {
           digitalWrite(RED_PIN, HIGH);
           break;
       }
-    } else {
-      // Blink it
-      if ((millis() >> 8) & 1) {
-        switch (color) {
-          case LedColor::Green:
-            digitalWrite(GREEN_PIN, HIGH);
-            break;
-          case LedColor::Yellow:
-            digitalWrite(YELLOW_PIN, HIGH);
-            break;
-          case LedColor::Red:
-            digitalWrite(RED_PIN, HIGH);
-            break;
-        }
-      }
     }
-
-    esp_light_sleep_start();
   }
+}
+
+void updateRemoteXY(const State state, const float battery_v) {
+  switch (state) {
+    case State::Normal:
+      strcpy(RemoteXY.status, "Normal");
+      break;
+    case State::Low:
+      strcpy(RemoteXY.status, "Low");
+      break;
+    case State::Charging:
+      static_assert(strlen("Charging") < COUNT_OF(RemoteXY.status));
+      strcpy(RemoteXY.status, "Charging");
+      break;
+  }
+  RemoteXY.voltage = battery_v;
+  RemoteXY.voltagePercent = voltageToPercent(battery_v);
+  RemoteXY.offVoltage = sliderToVoltage(RemoteXY.offVoltageSlider);
+  RemoteXY.offPercent = voltageToPercent(RemoteXY.offVoltage);
 }
 
 void blinkNumber(const int count) {
@@ -227,23 +322,23 @@ void blinkNumber(const int count) {
     Serial.printf("Tried to blink %d\n", count);
     for (int i = 0; i < 10; ++i) {
       digitalWrite(LED_BUILTIN, HIGH);
-      delay(50);
+      RemoteXY_delay(50);
       digitalWrite(LED_BUILTIN, LOW);
-      delay(50);
+      RemoteXY_delay(50);
     }
   } else if (count == 0) {
     digitalWrite(LED_BUILTIN, HIGH);
-    delay(500);
+    RemoteXY_delay(500);
     digitalWrite(LED_BUILTIN, LOW);
   } else {
     for (int i = 0; i < count; ++i) {
       digitalWrite(LED_BUILTIN, HIGH);
-      delay(200);
+      RemoteXY_delay(200);
       digitalWrite(LED_BUILTIN, LOW);
-      delay(200);
+      RemoteXY_delay(200);
     }
   }
-  delay(500);
+  RemoteXY_delay(500);
 }
 
 float adcReadingToVoltage(const float adcReading) {
@@ -260,4 +355,23 @@ float voltageToUndividedVoltage(const float voltage) {
 
 float correctedVoltage(const float voltage) {
   return voltage * adcSlopeCorrection + adcInterceptCorrection;
+}
+
+float voltageToPercent(const float voltage) {
+  // https://www.emarineinc.com/Marine-Batteries-Maintenance-101
+  if (voltage >= 12.4f) {
+    return (voltage - 12.4f) / 0.06f * 5.0f + 75.0f;
+  }
+  if (voltage >= 12.0f) {
+    return (voltage - 12.0f) / 0.04f * 5.0f + 25.0f;
+  }
+  if (voltage >= 11.9f) {
+    return (voltage - 11.9f) / 0.02f * 5.0f;
+  }
+  return 0.0f;
+}
+
+float sliderToVoltage(int slider) {
+  // Map to 11.98V-12.2V, or 20%-50%
+  return static_cast<float>(slider) / 100.f * (12.2f - 11.98f) + 11.98f;
 }
