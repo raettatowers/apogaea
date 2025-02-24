@@ -18,20 +18,24 @@
 
 // RemoteXY GUI configuration
 #pragma pack(push, 1)
-uint8_t RemoteXY_CONF[] =   // 138 bytes
-  { 255,1,0,26,0,131,0,19,0,0,0,118,111,108,116,97,103,101,45,109,
-  111,110,105,116,111,114,0,24,1,106,200,1,1,10,0,67,59,15,40,10,
+uint8_t RemoteXY_CONF[] =   // 196 bytes
+  { 255,2,0,34,0,189,0,19,0,0,0,118,111,108,116,97,103,101,45,109,
+  111,110,105,116,111,114,0,24,1,106,200,1,1,15,0,67,59,15,40,10,
   78,2,26,3,129,8,14,43,12,64,17,86,111,108,116,97,103,101,0,129,
   15,41,29,12,64,17,79,102,102,32,86,0,67,59,41,40,10,78,2,26,
-  3,4,8,74,89,13,128,2,26,67,33,89,40,10,69,2,26,10,129,15,
-  54,30,12,64,17,79,102,102,32,37,0,67,59,54,40,10,78,2,26,1,
-  129,25,27,10,12,64,17,37,0,67,59,28,40,10,78,2,26,1 };
+  3,4,9,67,89,13,128,2,26,67,37,144,40,10,69,2,26,10,129,15,
+  55,30,12,64,17,79,102,102,32,37,0,67,59,54,40,10,78,2,26,1,
+  129,25,27,10,12,64,17,37,0,67,59,28,40,10,78,2,26,1,67,61,
+  82,38,10,78,2,26,3,67,61,96,38,10,78,2,26,1,129,3,82,56,
+  12,64,17,82,101,115,117,109,101,32,86,0,129,3,95,58,12,64,17,82,
+  101,115,117,109,101,32,37,0,4,9,108,89,13,128,2,26 };
 
 // this structure defines all the variables and events of your control interface
 struct {
 
     // input variables
   int8_t offVoltageSlider; // from 0 to 100
+  int8_t resumeVoltageSlider; // from 0 to 100
 
     // output variables
   float voltage;
@@ -39,6 +43,8 @@ struct {
   char status[10]; // string UTF8 end zero
   float offPercent;
   float voltagePercent;
+  float resumeVoltage;
+  float resumePercent;
 
     // other variable
   uint8_t connect_flag;  // =1 if wire connected, else =0
@@ -66,13 +72,13 @@ static const int RELAY_PIN = 32;
 
 // According to https://shopsolarkits.com/blogs/learning-center/marine-battery-voltage-chart,
 // 12.2V is 50% capacity, 12.0V is 25%, 11.98 is 20%, 11.90 is 0%
-constexpr float warningThreshold_v = 12.2f;
 const float minimumOff_v = 11.98f;
 
+// Originally I was going to have 3 states: Normal, Off, and Charging, but I
+// think can just do these 2
 enum class State {
-  Normal,
-  Low,
-  Charging,
+  On,
+  Off,
 };
 enum class LedColor {
   Green,
@@ -88,8 +94,8 @@ static float adcInterceptCorrection = 0.0f;
 float adcReadingToVoltage(float rawAdc);
 float voltageToUndividedVoltage(float voltage);
 float correctedVoltage(float voltage);
-float voltageToPercent(float voltage);
-float sliderToVoltage(int slider);
+constexpr float voltageToPercent(float voltage);
+constexpr float sliderToVoltage(int slider);
 void updateLeds(const State state, const LedColor color);
 void updateRemoteXY(const State state, const float battery_v);
 
@@ -97,12 +103,28 @@ void IRAM_ATTR buttonInterrupt() {
   show = true;
 }
 
+constexpr float sliderToVoltage(const int slider) {
+  // Map to 11.98V-12.2V, or 20%-50%
+  return static_cast<float>(slider) / 100.f * (12.2f - 11.98f) + 11.98f;
+}
+
+constexpr float voltageToPercent(const float voltage) {
+  // https://www.emarineinc.com/Marine-Batteries-Maintenance-101
+  if (voltage >= 12.4f) {
+    return (voltage - 12.4f) / 0.06f * 5.0f + 75.0f;
+  }
+  if (voltage >= 12.0f) {
+    return (voltage - 12.0f) / 0.04f * 5.0f + 25.0f;
+  }
+  if (voltage >= 11.9f) {
+    return (voltage - 11.9f) / 0.02f * 5.0f;
+  }
+  return 0.0f;
+}
+
+
 void setup() {
   Serial.begin(115200);
-
-  RemoteXY.offVoltageSlider = 20;
-  RemoteXY.offVoltage = sliderToVoltage(RemoteXY.offVoltageSlider);
-  RemoteXY.offPercent = voltageToPercent(RemoteXY.offVoltage);
 
   pinMode(RELAY_PIN, OUTPUT);
 
@@ -161,6 +183,37 @@ void setup() {
 
   RemoteXY_Init();
 
+  constexpr float defaultOffVoltage = 12.0f;
+  // It's a coincidence that defaultSlider matches the defaultOffVoltage
+  constexpr int defaultOffVoltageSlider = 12;
+  RemoteXY.offVoltageSlider = defaultOffVoltageSlider;
+  constexpr float offVoltage = sliderToVoltage(defaultOffVoltageSlider);
+  RemoteXY.offVoltage = offVoltage;
+  // Slider value should match
+  static_assert(defaultOffVoltage - 0.1f <= offVoltage);
+  static_assert(offVoltage <= defaultOffVoltage + 0.1f);
+  constexpr float offPercent = voltageToPercent(offVoltage);
+  RemoteXY.offPercent = offPercent;
+  // Should be 25%
+  constexpr float expectedCutoffPercent = 25.0f;
+  static_assert(expectedCutoffPercent - 1.0f <= offPercent);
+  static_assert(offPercent <= expectedCutoffPercent + 1.0f);
+
+  constexpr float defaultResumeVoltage = 12.12f;
+  constexpr int defaultResumeVoltageSlider = 65;
+  RemoteXY.resumeVoltageSlider = defaultResumeVoltageSlider;
+  constexpr float resumeVoltage = sliderToVoltage(defaultResumeVoltageSlider);
+  RemoteXY.resumeVoltage = resumeVoltage;
+  // Slider value should match
+  static_assert(defaultResumeVoltage - 0.1f <= resumeVoltage);
+  static_assert(resumeVoltage <= defaultResumeVoltage + 0.1f);
+  constexpr float resumePercent = voltageToPercent(resumeVoltage);
+  RemoteXY.resumePercent = resumePercent;
+  // Should be 40%
+  constexpr float expectedResumePercent = 40.0f;
+  static_assert(expectedResumePercent - 1.0f <= resumePercent);
+  static_assert(resumePercent <= expectedResumePercent + 1.0f);
+
   Serial.println("setup done");
 }
 
@@ -181,7 +234,7 @@ void loop() {
     const float adc_v = adcReadingToVoltage(adcReading);
     const float battery_v = voltageToUndividedVoltage(adc_v);
     const float correctedBattery_v = correctedVoltage(battery_v);
-    state = (correctedBattery_v > RemoteXY.offVoltage) ? State::Normal : State::Low;
+    state = (correctedBattery_v > RemoteXY.offVoltage) ? State::On : State::Off;
     color = (correctedBattery_v > RemoteXY.offVoltage) ? LedColor::Green : LedColor::Yellow;
   }
 
@@ -229,38 +282,33 @@ void loop() {
     if (millis() > relayToggleTime_ms + relayToggleDelay_ms) {
       relayToggleTime_ms = millis();
 
-      if (correctedBattery_v > warningThreshold_v) {
-        if (state != State::Normal) {
-          Serial.printf("Turning on strips, V=%0.2f>%0.2f\n", correctedBattery_v, warningThreshold_v);
-        }
-        digitalWrite(RELAY_PIN, HIGH);
-        state = State::Normal;
-      } else if (correctedBattery_v > RemoteXY.offVoltage) {
-        if (state == State::Low) {
-          state = State::Charging;
-        }
-        color = LedColor::Yellow;
-      } else {
-        if (state != State::Low) {
-          Serial.printf("Turning off strips, V=%0.2f<%0.2f\n", correctedBattery_v, RemoteXY.offVoltage);
-        }
-        digitalWrite(RELAY_PIN, LOW);
-        state = State::Low;
-        color = LedColor::Red;
+      switch (state) {
+        case State::On:
+          if (correctedBattery_v < RemoteXY.offVoltage) {
+            Serial.printf("Turning off strips, V=%0.2f<%0.2f\n", correctedBattery_v, RemoteXY.offVoltage);
+            state = State::Off;
+            digitalWrite(RELAY_PIN, LOW);
+            color = LedColor::Red;
+          } else if (correctedBattery_v < RemoteXY.resumeVoltage) {
+            color = LedColor::Yellow;
+          }
+          break;
+        case State::Off:
+          if (correctedBattery_v > RemoteXY.resumeVoltage) {
+            Serial.printf("Turning on strips, V=%0.2f>%0.2f\n", correctedBattery_v, RemoteXY.resumeVoltage);
+            state = State::On;
+            digitalWrite(RELAY_PIN, HIGH);
+            color = LedColor::Green;
+          } else if (correctedBattery_v > RemoteXY.offVoltage) {
+            color = LedColor::Yellow;
+          }
+          break;
       }
     }
 
     updateLeds(state, color);
-    updateRemoteXY(state, correctedBattery_v);
-
-    // Don't let the app RemoteXY update the state, it should be read-only
-    const State previousState = state;
     RemoteXY_Handler();
-    state = previousState;
-    if (RemoteXY.offVoltage < minimumOff_v) {
-      RemoteXY.offVoltage = minimumOff_v;
-      RemoteXY.offVoltageSlider = 1;
-    }
+    updateRemoteXY(state, correctedBattery_v);
   }
 }
 
@@ -268,7 +316,7 @@ void updateLeds(const State state, const LedColor color) {
   digitalWrite(GREEN_PIN, LOW);
   digitalWrite(YELLOW_PIN, LOW);
   digitalWrite(RED_PIN, LOW);
-  if (state == State::Normal) {
+  if (state == State::On) {
     switch (color) {
       case LedColor::Green:
         digitalWrite(GREEN_PIN, HIGH);
@@ -300,21 +348,33 @@ void updateLeds(const State state, const LedColor color) {
 
 void updateRemoteXY(const State state, const float battery_v) {
   switch (state) {
-    case State::Normal:
-      strcpy(RemoteXY.status, "Normal");
+    case State::On:
+      strcpy(RemoteXY.status, "On");
       break;
-    case State::Low:
-      strcpy(RemoteXY.status, "Low");
-      break;
-    case State::Charging:
-      static_assert(strlen("Charging") < COUNT_OF(RemoteXY.status));
-      strcpy(RemoteXY.status, "Charging");
+    case State::Off:
+      static_assert(strlen("Off") < COUNT_OF(RemoteXY.status));
+      strcpy(RemoteXY.status, "Off");
       break;
   }
   RemoteXY.voltage = battery_v;
   RemoteXY.voltagePercent = voltageToPercent(battery_v);
+
+  // We could only recompute these sliders if they change, but who cares
+  if (RemoteXY.offVoltageSlider == 100) {
+    RemoteXY.offVoltageSlider = 99;
+  }
   RemoteXY.offVoltage = sliderToVoltage(RemoteXY.offVoltageSlider);
   RemoteXY.offPercent = voltageToPercent(RemoteXY.offVoltage);
+  if (RemoteXY.offVoltage < minimumOff_v) {
+    RemoteXY.offVoltage = minimumOff_v;
+    RemoteXY.offVoltageSlider = 12;
+  }
+
+  if (RemoteXY.resumeVoltageSlider <= RemoteXY.offVoltageSlider) {
+    RemoteXY.resumeVoltageSlider = RemoteXY.offVoltageSlider + 1;
+  }
+  RemoteXY.resumeVoltage = sliderToVoltage(RemoteXY.resumeVoltageSlider);
+  RemoteXY.resumePercent = voltageToPercent(RemoteXY.resumeVoltage);
 }
 
 void blinkNumber(const int count) {
@@ -355,23 +415,4 @@ float voltageToUndividedVoltage(const float voltage) {
 
 float correctedVoltage(const float voltage) {
   return voltage * adcSlopeCorrection + adcInterceptCorrection;
-}
-
-float voltageToPercent(const float voltage) {
-  // https://www.emarineinc.com/Marine-Batteries-Maintenance-101
-  if (voltage >= 12.4f) {
-    return (voltage - 12.4f) / 0.06f * 5.0f + 75.0f;
-  }
-  if (voltage >= 12.0f) {
-    return (voltage - 12.0f) / 0.04f * 5.0f + 25.0f;
-  }
-  if (voltage >= 11.9f) {
-    return (voltage - 11.9f) / 0.02f * 5.0f;
-  }
-  return 0.0f;
-}
-
-float sliderToVoltage(int slider) {
-  // Map to 11.98V-12.2V, or 20%-50%
-  return static_cast<float>(slider) / 100.f * (12.2f - 11.98f) + 11.98f;
 }
