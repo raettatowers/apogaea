@@ -141,7 +141,7 @@ def make_parser() -> ArgumentParser:
         "--solar-w",
         "-s",
         type=float,
-        help="The solar power in W. I have 200 W, but because of Colorado's latitude, they'll likely only produce ~90? percent of their rated power.",
+        help="The solar power in W. I have 200 W, but because of Colorado's latitude, they'll likely only produce ~90%% of their rated power.",
         # 90% because we're not at the equator
         default=200 * .9,
     )
@@ -164,7 +164,7 @@ def make_parser() -> ArgumentParser:
         "-p",
         type=float,
         default=100,
-        help="Brightness in percent to run the LEDs at, in percent. Either this or -w may be specified, but not both. You can run more than 100, because my 'max' estimate is based on responding to one song, and other songs may light up more LEDs.",
+        help="Brightness in percent to run the LEDs at. Either this or -w may be specified, but not both. You can run more than 100, because my 'max' estimate is based on responding to one song, and other songs may light up more LEDs.",
     )
     parser.add_argument(
         "--project-w",
@@ -235,7 +235,14 @@ if __name__ == "__main__":
     if sun_hours > max_solar_hours:
         sys.stderr.write("*** Warning! Your std-dev is too high and gives unrealistically high solar hours ***\n")
         sys.stderr.flush()
-    print(f"Running simulation with {options}")
-    brightness_p = (options.project_w - IDLE_W) / (DEFAULT_W - IDLE_W)
-    print(f"Simulated power: {brightness_p * 100:0.0f}%")
+    print("Running simulation with:")
+    print(f"- Battery capacity: {options.max_battery_wh} Wh")
+    percent = options.off_battery_wh / options.max_battery_wh * 100
+    print(f"- Off battery: {percent:0.0f}% / {options.off_battery_wh} Wh")
+    percent = options.resume_battery_wh / options.max_battery_wh * 100
+    print(f"- Resume battery: {percent:0.0f}% / {options.resume_battery_wh} Wh")
+    print(f"- Solar power: {options.solar_w} W")
+    print(f"- Solar power std dev: {options.std_dev:0.2f}")
+    percent = (options.project_w - IDLE_W) / (DEFAULT_W - IDLE_W) * 100
+    print(f"- Project power: {percent:0.0f}% brightness / {options.project_w:0.2f} W")
     run_simulation(options)
