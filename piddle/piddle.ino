@@ -10,6 +10,7 @@
 
 #include <arduinoFFT.h>
 #include <FastLED.h>
+#include <HX1838Decoder.h>
 
 // Some FastLED versions don't work with my ESP32-WROOM32 setup
 // 3.9.6 is good, 3.9.11 I think is bad? One LED is stuck on green
@@ -32,7 +33,7 @@ bool logDebug = false;
 
 TaskHandle_t collectSamplesTask;
 TaskHandle_t displayLedsTask;
-
+IRDecoder irDecoder(INFRARED_PIN);
 
 void IRAM_ATTR buttonInterrupt() {
   static uint8_t index = 0;
@@ -78,6 +79,8 @@ void setup() {
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
+
+  irDecoder.begin();
 
   xTaskCreatePinnedToCore(
     collectSamplesFunction,
@@ -128,10 +131,22 @@ void displayLedsFunction(void*) {
   while (1) {
     for (int i = 0; i < 100; ++i) {
       displaySpectrumAnalyzer();
+
       if (Serial.available() > 0) {
         logDebug = true;
         while (Serial.available() > 0) {
           Serial.read();
+        }
+      }
+
+      if (irDecoder.available()) {
+        Serial.print("Decoded NEC Data: 0x");
+        Serial.print(irDecoder.getDecodedData(), HEX);
+
+        if (irDecoder.isRepeatSignal()) {
+          Serial.println(" (REPEATED)");
+        } else {
+          Serial.println(" (NEW PRESS)");
         }
       }
     }

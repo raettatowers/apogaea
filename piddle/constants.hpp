@@ -8,7 +8,8 @@
 
 const int LEDS_PER_STRIP = 150;
 
-const auto VOLTAGE_PIN = 36;
+const int VOLTAGE_PIN = 36;
+const int INFRARED_PIN = 23;
 
 /*
 Special pins:
