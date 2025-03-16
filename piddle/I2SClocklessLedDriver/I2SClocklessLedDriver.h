@@ -18,7 +18,7 @@
 #include "soc/i2s_struct.h"
 #include "soc/io_mux_reg.h"
 #include "driver/gpio.h"
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "rom/lldesc.h"
 #include <cstring>
 #include "freertos/FreeRTOS.h"
@@ -36,6 +36,8 @@
 #include "math.h"
 
 #include "helper.h"
+
+#include "../constants.hpp"
 
 #ifndef NUMSTRIPS
 #define NUMSTRIPS 16
@@ -124,8 +126,9 @@
 #endif
 
 #ifndef NUM_LEDS_PER_STRIP
-#pragma message "NUM_LEDS_PER_STRIP not defined, using default 151"
-#define NUM_LEDS_PER_STRIP 151
+#pragma message "NUM_LEDS_PER_STRIP not defined, using default 256"
+#error "NUM_LEDS_PER_STRIP not defined, using default 256"
+#define NUM_LEDS_PER_STRIP 256
 #endif
 
 #define __delay (((NUM_LEDS_PER_STRIP * 125 * 8 * _nb_components) /100000) +1 )
@@ -164,17 +167,17 @@ struct OffsetDisplay
     int panel_height;
     int panel_width;
 };
-static const char *TAG = "I2SClocklessLedDriver";
-static void IRAM_ATTR _I2SClocklessLedDriverinterruptHandler(void *arg);
-static void IRAM_ATTR transpose16x1_noinline2(unsigned char *A, uint16_t *B);
+[[maybe_unused]] static const char *TAG = "I2SClocklessLedDriver";
+static void _I2SClocklessLedDriverinterruptHandler(void *arg);
+static void transpose16x1_noinline2(unsigned char *A, uint16_t *B);
 /*
 #ifdef ENABLE_HARDWARE_SCROLL
-static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, int led_per_strip, int num_stripst, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, int nbcomponents, int pg, int pr, int pb);
+static void loadAndTranspose(uint8_t *ledt, int led_per_strip, int num_stripst, OffsetDisplay offdisp, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, int nbcomponents, int pg, int pr, int pb);
 #else
-static void IRAM_ATTR loadAndTranspose(uint8_t *ledt, int *sizes, int num_stripst, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, int nbcomponents, int pg, int pr, int pb);
+static void loadAndTranspose(uint8_t *ledt, int *sizes, int num_stripst, uint16_t *buffer, int ledtodisp, uint8_t *mapg, uint8_t *mapr, uint8_t *mapb, uint8_t *mapw, int nbcomponents, int pg, int pr, int pb);
 #endif
 */
-static void IRAM_ATTR loadAndTranspose(I2SClocklessLedDriver * driver);
+static void loadAndTranspose(I2SClocklessLedDriver * driver);
 
 enum colorarrangment
 {
@@ -418,7 +421,7 @@ public:
         SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
         SET_PERI_REG_BITS(I2S_INT_ENA_REG(I2S_DEVICE), I2S_OUT_TOTAL_EOF_INT_ENA_V, 1, I2S_OUT_TOTAL_EOF_INT_ENA_S);
         */
-        esp_err_t e = esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle);
+        ESP_ERROR_CHECK(esp_intr_alloc(interruptSource, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, &_I2SClocklessLedDriverinterruptHandler, this, &_gI2SClocklessDriver_intr_handle));
 
         // -- Create a semaphore to block execution until all the controllers are done
 
@@ -1488,7 +1491,7 @@ static void IRAM_ATTR loadAndTranspose(I2SClocklessLedDriver *driver)//uint8_t *
     else
      buffer=(uint16_t *)driver->DMABuffersTransposed[driver->dmaBufferActive]->buffer;
 
-    uint16_t led_tmp=driver->ledToDisplay;
+    [[maybe_unused]] uint16_t led_tmp=driver->ledToDisplay;
     #ifdef __HARDWARE_MAP
         //led_tmp=driver->ledToDisplay*driver->num_strips;
     #endif

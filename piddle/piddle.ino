@@ -4,13 +4,9 @@
 // arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:esp32da
 // I don't know how to set frequency and stuff easily, might need to use the Arduino IDE
 
-#include <FastLED.h>
-
 #define SHOW_VOLTAGE 0
 
-// I2sClocklessLedDriver wants these defined
-#define NUM_LEDS_PER_STRIP 151
-#define NUMSTRIPS 10
+#include <FastLED.h>
 
 #include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
 #include "constants.hpp"

@@ -133,7 +133,8 @@ inline Pixel (const Pixel& rhs) __attribute__((always_inline))
         blue = (colorcode >>  0) & 0xFF;
         return *this;
     }
-        
+
+    constexpr Pixel& operator=(const Pixel&) = default;
 
 };
 #endif

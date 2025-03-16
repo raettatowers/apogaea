@@ -1,4 +1,4 @@
-#include <driver/gpio.h>
+#pragma once
 
 #define COUNT_OF(x) (sizeof(x) / sizeof(0[x]))
 
@@ -52,3 +52,7 @@ constexpr int LED_PINS[] = {26, 25, 33, 32, 22};
 // These are the pins I have defined on my PCB
 //constexpr int LED_PINS[] = {27, 26, 25, 33, 32, 22, 21, 17, 16, 4};
 const int STRIP_COUNT = COUNT_OF(LED_PINS);
+
+// I2sClocklessLedDriver wants these defined
+#define NUM_LEDS_PER_STRIP LEDS_PER_STRIP
+#define NUMSTRIPS STRIP_COUNT
