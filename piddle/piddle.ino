@@ -7,6 +7,7 @@
 #define SHOW_VOLTAGE 0
 
 #include <FastLED.h>
+#include <HX1838Decoder.h>
 
 #include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
 #include "constants.hpp"
@@ -19,6 +20,7 @@ bool logDebug = false;
 
 TaskHandle_t collectSamplesTask;
 TaskHandle_t displayLedsTask;
+IRDecoder irDecoder(INFRARED_PIN);
 I2SClocklessLedDriver driver;
 
 void IRAM_ATTR buttonInterrupt() {
@@ -50,6 +52,8 @@ void setup() {
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
 
+  //irDecoder.begin();
+
   xTaskCreatePinnedToCore(
     collectSamplesFunction,
     "collectSamples",
@@ -60,9 +64,9 @@ void setup() {
     1); // Core where the task should run
 
   // Test all the logic level converter LEDs
-  fill_solid(reinterpret_cast<CRGB*>(leds), STRIP_COUNT * LEDS_PER_STRIP, CRGB::Black);
   for (int i = 0; i < 5; ++i) {
     for (uint8_t hue = 0; hue < 240; hue += 10) {
+      fill_solid(reinterpret_cast<CRGB*>(leds), STRIP_COUNT * LEDS_PER_STRIP, CRGB::Black);
       for (int strip = 0; strip < STRIP_COUNT; ++strip) {
         leds[strip][0] = CHSV(hue + strip * (255 / STRIP_COUNT), 255, 64);
       }
@@ -101,6 +105,17 @@ void displayLedsFunction(void*) {
         logDebug = true;
         while (Serial.available() > 0) {
           Serial.read();
+        }
+      }
+
+      if (irDecoder.available()) {
+        Serial.print("Decoded NEC Data: 0x");
+        Serial.print(irDecoder.getDecodedData(), HEX);
+
+        if (irDecoder.isRepeatSignal()) {
+          Serial.println(" (REPEATED)");
+        } else {
+          Serial.println(" (NEW PRESS)");
         }
       }
     }
