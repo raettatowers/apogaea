@@ -4,13 +4,7 @@
 // arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:esp32da
 // I don't know how to set frequency and stuff easily, might need to use the Arduino IDE
 
-// 1.2 seems stable when the ESP32 was powered by my computer
-// 1.3 is not stable
-//#define FASTLED_OVERCLOCK 1.0
-
-#include <arduinoFFT.h>
 #include <FastLED.h>
-#include <HX1838Decoder.h>
 
 // Some FastLED versions don't work with my ESP32-WROOM32 setup
 // 3.9.6 is good, 3.9.11 I think is bad? One LED is stuck on green
@@ -20,12 +14,16 @@
 static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
 #endif
 
-#define SHOW_VOLTAGE 1
+#define SHOW_VOLTAGE 0
 
+// I2sClocklessLedDriver wants these defined
+#define NUM_LEDS_PER_STRIP 150
+#define NUMSTRIPS 10
+
+#include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
 #include "constants.hpp"
 #include "spectrumAnalyzer.hpp"
 
-void testLeds();
 void blink(const int delay_ms = 500);
 
 CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
@@ -33,7 +31,7 @@ bool logDebug = false;
 
 TaskHandle_t collectSamplesTask;
 TaskHandle_t displayLedsTask;
-IRDecoder irDecoder(INFRARED_PIN);
+I2SClocklessLedDriver driver;
 
 void IRAM_ATTR buttonInterrupt() {
   static uint8_t index = 0;
@@ -43,7 +41,7 @@ void IRAM_ATTR buttonInterrupt() {
   index = (index + 1) % COUNT_OF(brightnesses);
   const uint8_t brightness = brightnesses[index];
   Serial.printf("brightness %d (%s %%)\n", brightness, percents[index]);
-  FastLED.setBrightness(brightness);
+  driver.setBrightness(brightness);
 }
 
 void setup() {
@@ -57,30 +55,12 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(VOLTAGE_PIN, INPUT);
 
-  FastLED.addLeds<WS2812B, LED_PINS[0], RGB>(leds[0], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[1], RGB>(leds[1], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[2], RGB>(leds[2], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[3], RGB>(leds[3], LEDS_PER_STRIP);
-  FastLED.addLeds<WS2812B, LED_PINS[4], RGB>(leds[4], LEDS_PER_STRIP);
-  //FastLED.addLeds<WS2812B, LED_PINS[5], RGB>(leds[5], LEDS_PER_STRIP);
-  //FastLED.addLeds<WS2812B, LED_PINS[6], RGB>(leds[6], LEDS_PER_STRIP);
-  //FastLED.addLeds<WS2812B, LED_PINS[7], RGB>(leds[7], LEDS_PER_STRIP);
-  //FastLED.addLeds<WS2812B, LED_PINS[8], RGB>(leds[8], LEDS_PER_STRIP);
-  //FastLED.addLeds<WS2812B, LED_PINS[9], RGB>(leds[9], LEDS_PER_STRIP);
-  FastLED.setBrightness(32);
-
-  // That USB cord I soldered has tiny wires, shouldn't put more than 500mA through it
-  if (LEDS_PER_STRIP == 60 || LEDS_PER_STRIP == 61) {
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
-  } else {
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, 5000);
-  }
+  driver.initled(reinterpret_cast<uint8_t*>(leds), LED_PINS, COUNT_OF(LED_PINS), LEDS_PER_STRIP, ORDER_RGB);
+  driver.setBrightness(128);
 
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
   attachInterrupt(0, buttonInterrupt, FALLING);
-
-  irDecoder.begin();
 
   xTaskCreatePinnedToCore(
     collectSamplesFunction,
@@ -92,19 +72,16 @@ void setup() {
     1); // Core where the task should run
 
   // Test all the logic level converter LEDs
-  const uint8_t tempBrightness = FastLED.getBrightness();
-  FastLED.setBrightness(128);
+  fill_solid(reinterpret_cast<CRGB*>(leds), STRIP_COUNT * LEDS_PER_STRIP, CRGB::Black);
   for (int i = 0; i < 5; ++i) {
     for (uint8_t hue = 0; hue < 240; hue += 10) {
-      FastLED.clear();
       for (int strip = 0; strip < STRIP_COUNT; ++strip) {
         leds[strip][0] = CHSV(hue + strip * (255 / STRIP_COUNT), 255, 64);
       }
-      FastLED.show();
-      delay(1);
+      driver.showPixels();
+      delay(10);
     }
   }
-  FastLED.setBrightness(tempBrightness);
 
   // We need to do this last because it will preempt the setup thread that's running on core 0
   xTaskCreatePinnedToCore(
@@ -138,17 +115,6 @@ void displayLedsFunction(void*) {
           Serial.read();
         }
       }
-
-      if (irDecoder.available()) {
-        Serial.print("Decoded NEC Data: 0x");
-        Serial.print(irDecoder.getDecodedData(), HEX);
-
-        if (irDecoder.isRepeatSignal()) {
-          Serial.println(" (REPEATED)");
-        } else {
-          Serial.println(" (NEW PRESS)");
-        }
-      }
     }
     // Keep the watchdog happy
     delay(1);
@@ -160,17 +126,4 @@ void blink(const int delay_ms) {
   delay(delay_ms);
   digitalWrite(LED_BUILTIN, LOW);
   delay(delay_ms);
-}
-
-void testLeds() {
-  FastLED.clear();
-  for (int i = 0; i < STRIP_COUNT; ++i) {
-    leds[i][5] = CRGB::Red;
-    leds[i][25] = CRGB::Red;
-    leds[i][50] = CRGB::Red;
-    leds[i][LEDS_PER_STRIP - 10] = CRGB::Red;
-  }
-  FastLED.show();
-
-  delay(20);
 }

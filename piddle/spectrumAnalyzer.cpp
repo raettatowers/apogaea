@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 
+#include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
 #include "constants.hpp"
 #include "esp32-fft.hpp"
 
@@ -55,6 +56,7 @@ static float windowingConstants[SAMPLE_COUNT];
 static i2s_chan_handle_t rxHandle;
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
+extern I2SClocklessLedDriver driver;
 extern bool logDebug;
 
 static void computeFft();
@@ -153,6 +155,7 @@ static void renderFft() {
       // Do SLIDE_COUNT + 1 because the first LED is the logic level shifter on the PCB
       for (int i = 0; i < SLIDE_COUNT + 1; ++i) {
         leds[strip][i] += CHSV(hue, 255, gammaCorrected);
+        leds[strip + STRIP_COUNT / 2][i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
@@ -169,13 +172,14 @@ static void renderFft() {
       hue16 += hue16Step;
       for (int i = 0; i < SLIDE_COUNT; ++i) {
         leds[strip][LEDS_PER_STRIP - 1 - i] += CHSV(hue, 255, gammaCorrected);
+        leds[strip + STRIP_COUNT / 2][LEDS_PER_STRIP - 1 - i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
     #endif
 
     ++strip;
-    if (strip >= STRIP_COUNT) {
+    if (strip >= STRIP_COUNT / 2) {
       strip = 0;
       constexpr uint16_t step = 65536 / 3 - hue16Step * STRIP_COUNT * 2;
       static_assert(step > 0);
@@ -315,16 +319,16 @@ void displaySpectrumAnalyzer() {
   #endif
 
   part_us = micros();
-  FastLED.show();
+  driver.showPixels();
   const auto show_us = micros() - part_us;
 
   // The animations are too fast, so add an artificial delay
-  const int delay_ms = 25;
+  const int delay_ms = 15;
   delay(delay_ms);
 
   ++loopCount;
   if (millis() > next_ms) {
-    Serial.printf("%f FPS with %dus delay\n", static_cast<double>(loopCount) * 1000 / logTime_ms, delay_ms);
+    Serial.printf("%f FPS with %dms delay\n", static_cast<double>(loopCount) * 1000 / logTime_ms, delay_ms);
     Serial.printf(
       "samples_us:%lu compute_us:%lu render_us:%lu show_us:%lu\n",
       samples_us,
@@ -386,7 +390,7 @@ static void slideDown(const int count) {
 }
 
 void setupSpectrumAnalyzer() {
-  i2s_chan_config_t channelConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+  i2s_chan_config_t channelConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
   // The above macro sets channelConfig to {
   //  .id = I2S_NUM_AUTO,
   //  .role = I2S_ROLE_MASTER,
