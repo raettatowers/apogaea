@@ -155,7 +155,6 @@ static void renderFft() {
       // Do SLIDE_COUNT + 1 because the first LED is the logic level shifter on the PCB
       for (int i = 0; i < SLIDE_COUNT + 1; ++i) {
         leds[strip][i] += CHSV(hue, 255, gammaCorrected);
-        leds[strip + STRIP_COUNT / 2][i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
@@ -172,14 +171,13 @@ static void renderFft() {
       hue16 += hue16Step;
       for (int i = 0; i < SLIDE_COUNT; ++i) {
         leds[strip][LEDS_PER_STRIP - 1 - i] += CHSV(hue, 255, gammaCorrected);
-        leds[strip + STRIP_COUNT / 2][LEDS_PER_STRIP - 1 - i] += CHSV(hue, 255, gammaCorrected);
       }
     }
     ++note;
     #endif
 
     ++strip;
-    if (strip >= STRIP_COUNT / 2) {
+    if (strip >= STRIP_COUNT) {
       strip = 0;
       constexpr uint16_t step = 65536 / 3 - hue16Step * STRIP_COUNT * 2;
       static_assert(step > 0);
@@ -319,11 +317,11 @@ void displaySpectrumAnalyzer() {
   #endif
 
   part_us = micros();
-  driver.showPixels();
+  driver.showPixels(NO_WAIT);
   const auto show_us = micros() - part_us;
 
   // The animations are too fast, so add an artificial delay
-  const int delay_ms = 15;
+  const int delay_ms = 20;
   delay(delay_ms);
 
   ++loopCount;

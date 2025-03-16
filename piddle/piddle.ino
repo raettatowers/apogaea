@@ -6,18 +6,10 @@
 
 #include <FastLED.h>
 
-// Some FastLED versions don't work with my ESP32-WROOM32 setup
-// 3.9.6 is good, 3.9.11 I think is bad? One LED is stuck on green
-//static_assert(FASTLED_VERSION == 3009006);
-// The parallel FastLED output only works on updated Espressif
-#ifdef ESP_IDF_VERSION
-static_assert(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0));
-#endif
-
 #define SHOW_VOLTAGE 0
 
 // I2sClocklessLedDriver wants these defined
-#define NUM_LEDS_PER_STRIP 150
+#define NUM_LEDS_PER_STRIP 151
 #define NUMSTRIPS 10
 
 #include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
@@ -56,7 +48,7 @@ void setup() {
   pinMode(VOLTAGE_PIN, INPUT);
 
   driver.initled(reinterpret_cast<uint8_t*>(leds), LED_PINS, COUNT_OF(LED_PINS), LEDS_PER_STRIP, ORDER_RGB);
-  driver.setBrightness(128);
+  driver.setBrightness(64);
 
   // The boot button is connected to GPIO0
   pinMode(0, INPUT);
