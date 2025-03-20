@@ -4,6 +4,13 @@ import math
 from dataclasses import dataclass
 import sys
 
+has_matplot = False
+try:
+    import matplotlib.pyplot as plt
+    has_matplot = True
+except:
+    pass
+
 
 def get_sunlight_percentage(hour: int, minute: int, std_dev: float) -> float:
     """Returns the percent of solar energy the solar panels produce at a time of day."""
@@ -57,7 +64,8 @@ def run_simulation(options: Options) -> None:
 
     days = ("Wed", "Thu", "Fri", "Sat", "Sun")
     day = 0
-    hour = 12
+    start_hour = 12
+    hour = start_hour
 
     previous_increasing = False
     previous_on = False
@@ -77,6 +85,10 @@ def run_simulation(options: Options) -> None:
     on = True
     maxed = False
 
+    total_minutes = 0
+    battery_wh_by_minute = []
+    toggle_power_times = [(0, True)]
+
     while day < len(days) - 1 or hour < 18:
         minute += 1
         if minute == 60:
@@ -86,8 +98,11 @@ def run_simulation(options: Options) -> None:
             day += 1
             hour = 0
 
+        total_minutes += 1
+
         need_print = False
 
+        battery_wh_by_minute.append(battery_wh)
         previous_battery_wh = battery_wh
 
         if on:
@@ -110,6 +125,7 @@ def run_simulation(options: Options) -> None:
             need_print = True
         if on != previous_on:
             need_print = True
+            toggle_power_times.append((total_minutes, on))
         if maxed != previous_maxed:
             need_print = True
 
@@ -122,6 +138,19 @@ def run_simulation(options: Options) -> None:
         previous_hour = hour
 
     print(format_message())
+
+    if has_matplot:
+        tick_positions = [m for m in range(total_minutes) if m % (6 * 60) == 0]
+        tick_labels = [f"{days[(m + 60 * start_hour) // (60 * 24)][:2]}\n{((m + 60 * start_hour) // 60) % 24:02d}:00" for m in tick_positions]  # Format as HH:MM
+        plt.figure(figsize=(10, 5))
+        plt.plot(range(total_minutes), battery_wh_by_minute)
+
+        # Set custom ticks
+        plt.xticks(tick_positions, tick_labels, rotation=60)
+        plt.xlabel("Time")
+        plt.ylabel("Wh")
+        plt.title("Estimated battery power")
+        plt.show()
 
 
 DEFAULT_W = 2.478 * 2 * 12
