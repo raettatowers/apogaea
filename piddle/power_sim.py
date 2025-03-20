@@ -88,6 +88,7 @@ def run_simulation(options: Options) -> None:
     total_minutes = 0
     battery_wh_by_minute = []
     toggle_power_times = [(0, True)]
+    annotations = []
 
     while day < len(days) - 1 or hour < 18:
         minute += 1
@@ -126,6 +127,16 @@ def run_simulation(options: Options) -> None:
         if on != previous_on:
             need_print = True
             toggle_power_times.append((total_minutes, on))
+            hours = (total_minutes + 60 * start_hour) // 60
+            hour = hours % 24
+            minutes = (total_minutes + 60 * start_hour - hours * 60)
+            formatted_time = f"{hour:02d}:{minutes:02d}"
+            offset = (10, 0) if on else (-10, -15)
+            annotations.append((
+                formatted_time,
+                (total_minutes, battery_wh),
+                offset,
+            ))
         if maxed != previous_maxed:
             need_print = True
 
@@ -139,17 +150,35 @@ def run_simulation(options: Options) -> None:
 
     print(format_message())
 
+    # Add one more so the zip below plots all the line segments
+    toggle_power_times.append((total_minutes, on))
+
     if has_matplot:
+        plt.figure(figsize=(10, 5), num="Solar power simulation")
         tick_positions = [m for m in range(total_minutes) if m % (6 * 60) == 0]
-        tick_labels = [f"{days[(m + 60 * start_hour) // (60 * 24)][:2]}\n{((m + 60 * start_hour) // 60) % 24:02d}:00" for m in tick_positions]  # Format as HH:MM
-        plt.figure(figsize=(10, 5))
-        plt.plot(range(total_minutes), battery_wh_by_minute)
+        tick_labels = [f"{days[(m + 60 * start_hour) // (60 * 24)][:2]}\n{((m + 60 * start_hour) // 60) % 24:02d}:00" for m in tick_positions]
+
+        for start, end in zip(toggle_power_times[:-1], toggle_power_times[1:]):
+            color = "darkorange" if start[1] else "black"
+            plt.plot(range(start[0], end[0]), battery_wh_by_minute[start[0]:end[0]], color=color)
+
+        for message, position, offset in annotations:
+            plt.annotate(
+                message,
+                position,
+                textcoords="offset pixels",
+                xytext=offset,
+            )
 
         # Set custom ticks
         plt.xticks(tick_positions, tick_labels, rotation=60)
         plt.xlabel("Time")
         plt.ylabel("Wh")
-        plt.title("Estimated battery power")
+        off_p = options.off_battery_wh / options.max_battery_wh * 100
+        on_p = options.resume_battery_wh / options.max_battery_wh * 100
+        project_p = (options.project_w - IDLE_W) / (DEFAULT_W - IDLE_W) * 100
+        title = f"batt:{options.max_battery_wh:0.0f}Wh off:{off_p:0.0f}% on:{on_p:0.0f}% solar:{options.solar_w:0.0f}W power:{project_p:0.0f}%"
+        plt.title(title)
         plt.show()
 
 
