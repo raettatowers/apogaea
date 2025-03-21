@@ -68,7 +68,7 @@ def run_simulation(options: Options) -> None:
     hour = start_hour
 
     previous_increasing = False
-    previous_on = False
+    previous_on = True
     previous_maxed = True
     minute = 0
 
@@ -89,6 +89,17 @@ def run_simulation(options: Options) -> None:
     battery_wh_by_minute = []
     toggle_power_times = [(0, True)]
     annotations = []
+
+    def add_annotation(minutes, battery_wh, offset):
+        hours = (total_minutes + 60 * start_hour) // 60
+        hour = hours % 24
+        minutes = (total_minutes + 60 * start_hour - hours * 60)
+        formatted_time = f"{hour:02d}:{minutes:02d}"
+        annotations.append((
+            formatted_time,
+            (total_minutes, battery_wh),
+            offset,
+        ))
 
     while day < len(days) - 1 or hour < 18:
         minute += 1
@@ -127,18 +138,12 @@ def run_simulation(options: Options) -> None:
         if on != previous_on:
             need_print = True
             toggle_power_times.append((total_minutes, on))
-            hours = (total_minutes + 60 * start_hour) // 60
-            hour = hours % 24
-            minutes = (total_minutes + 60 * start_hour - hours * 60)
-            formatted_time = f"{hour:02d}:{minutes:02d}"
-            offset = (10, 0) if on else (-10, -15)
-            annotations.append((
-                formatted_time,
-                (total_minutes, battery_wh),
-                offset,
-            ))
+            offset = (10, 0) if on else (-50, 0)
+            add_annotation(total_minutes, battery_wh, offset)
         if maxed != previous_maxed:
             need_print = True
+            offset = (-50, 0) if maxed else (10, 0)
+            add_annotation(total_minutes, battery_wh, offset)
 
         if need_print:
             print(format_message())
@@ -179,6 +184,8 @@ def run_simulation(options: Options) -> None:
         project_p = (options.project_w - IDLE_W) / (DEFAULT_W - IDLE_W) * 100
         title = f"batt:{options.max_battery_wh:0.0f}Wh off:{off_p:0.0f}% on:{on_p:0.0f}% solar:{options.solar_w:0.0f}W power:{project_p:0.0f}%"
         plt.title(title)
+        mng = plt.get_current_fig_manager()
+        mng.resize(*mng.window.maxsize())
         plt.show()
 
 
