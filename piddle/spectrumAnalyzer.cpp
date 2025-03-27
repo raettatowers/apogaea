@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 
+#include "I2SClocklessLedDriver/I2SClocklessLedDriver.h"
 #include "constants.hpp"
 #include "esp32-fft.hpp"
 
@@ -55,6 +56,7 @@ static float windowingConstants[SAMPLE_COUNT];
 static i2s_chan_handle_t rxHandle;
 
 extern CRGB leds[STRIP_COUNT][LEDS_PER_STRIP];
+extern I2SClocklessLedDriver driver;
 extern bool logDebug;
 
 static void computeFft();
@@ -315,16 +317,16 @@ void displaySpectrumAnalyzer() {
   #endif
 
   part_us = micros();
-  FastLED.show();
+  driver.showPixels(NO_WAIT);
   const auto show_us = micros() - part_us;
 
   // The animations are too fast, so add an artificial delay
-  const int delay_ms = 25;
+  const int delay_ms = 20;
   delay(delay_ms);
 
   ++loopCount;
   if (millis() > next_ms) {
-    Serial.printf("%f FPS with %dus delay\n", static_cast<double>(loopCount) * 1000 / logTime_ms, delay_ms);
+    Serial.printf("%f FPS with %dms delay\n", static_cast<double>(loopCount) * 1000 / logTime_ms, delay_ms);
     Serial.printf(
       "samples_us:%lu compute_us:%lu render_us:%lu show_us:%lu\n",
       samples_us,
@@ -386,7 +388,7 @@ static void slideDown(const int count) {
 }
 
 void setupSpectrumAnalyzer() {
-  i2s_chan_config_t channelConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+  i2s_chan_config_t channelConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
   // The above macro sets channelConfig to {
   //  .id = I2S_NUM_AUTO,
   //  .role = I2S_ROLE_MASTER,
